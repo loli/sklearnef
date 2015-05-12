@@ -19,7 +19,7 @@ from sklearn.tree._tree cimport Criterion
 # Criterion
 # =============================================================================
 
-cdef class UnsupervisedClassificationCriterion(Criterion):
+cdef class UnSupervisedClassificationCriterion(Criterion):
     # Internal structures
     cdef DTYPE_t* X             # pointer to the training data; will become obsolute, when I've implemented sort(S) without re-copying the memory
     cdef SIZE_t X_stride        # the X_stride; is this the same as n_features... might just be, then I can remove the second and use this in __reduce__

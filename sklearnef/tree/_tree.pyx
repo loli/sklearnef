@@ -54,7 +54,7 @@ cdef enum:
 # Criterion
 # =============================================================================
 
-cdef class UnsupervisedClassificationCriterion(Criterion):
+cdef class UnSupervisedClassificationCriterion(Criterion):
     """Criterion for un-supervised classification using differential entropy."""
     
     # note: sample weights can not be incorporated, assuming equal weight!
@@ -98,7 +98,7 @@ cdef class UnsupervisedClassificationCriterion(Criterion):
         free(self.S)
         
     def __reduce__(self): # arguemnts to __cinit__
-        return (UnsupervisedClassificationCriterion,
+        return (UnSupervisedClassificationCriterion,
                 (self.n_samples,
                  self.n_features),
                  self.__getstate__())
@@ -459,9 +459,9 @@ cdef class LabeledOnlyEntropy(Entropy):
  
 cdef class UnSupervisedBestSplitter(BestSplitter):
     """Splitter for finding the best split on un-labelled data."""
-    cdef UnsupervisedClassificationCriterion criterion_real
+    cdef UnSupervisedClassificationCriterion criterion_real
      
-    def __cinit__(self, UnsupervisedClassificationCriterion criterion, SIZE_t max_features,
+    def __cinit__(self, UnSupervisedClassificationCriterion criterion, SIZE_t max_features,
                   SIZE_t min_samples_leaf, double min_weight_leaf,
                   object random_state):
         self.criterion_real = criterion
