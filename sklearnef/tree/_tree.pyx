@@ -15,6 +15,7 @@ cimport numpy as np
 np.import_array()
 
 from sklearn.tree._tree cimport Criterion, Splitter, SplitRecord
+#from sklearn_tree cimport Criterion, Splitter, SplitRecord
 
 cdef extern class sklearn.tree._tree.ClassificationCriterion(Criterion):
     cdef SIZE_t* n_classes

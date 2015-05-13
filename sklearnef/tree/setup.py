@@ -4,6 +4,8 @@ import numpy
 import sklearn
 from numpy.distutils.misc_util import Configuration
 
+#cython _tree.pyx -o headers/0.16.1/_tree.c -I headers/
+
 def configuration(parent_package="", top_path=None):
     config = Configuration("tree", parent_package, top_path)
     libraries = []
@@ -17,8 +19,8 @@ def configuration(parent_package="", top_path=None):
 """sklearnef holds no pre-compiled _tree.c for your current scikit-learn version ({version}).
 Please download the corresponding header file from \
 https://raw.githubusercontent.com/scikit-learn/scikit-learn/{version}/sklearn/tree/_tree.pxd,
-place it in sklearnef/tree/headers/{version}/_tree.pxd and compile _tree.pyx with cython using \
-'cython _tree.pyx -o headers/{version}/_tree.c -I headers/{version}/_tree.pxd'. Then re-run \
+place it in sklearnef/tree/headers/sklearn/tree/ and compile _tree.pyx with cython using \
+'cython _tree.pyx -o headers/{version}/_tree.c -I headers/'. Then re-run \
 the installation of sklearnef.""".format(version=sklearn.__version__))
 
     config.add_extension("_tree",

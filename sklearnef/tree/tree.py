@@ -14,10 +14,13 @@ import numbers
 import numpy as np
 from scipy.sparse import issparse
 
+from sklearn.externals import six
+
 from sklearn.utils import check_array, check_random_state, compute_sample_weight
 from sklearn.utils.validation import NotFittedError, check_is_fitted
 
 from sklearn.tree import DecisionTreeClassifier
+from sklearn.tree.tree import DENSE_SPLITTERS
 from sklearn.tree._tree import Criterion
 from sklearn.tree._tree import Splitter
 from sklearn.tree._tree import DepthFirstTreeBuilder, BestFirstTreeBuilder
@@ -32,7 +35,6 @@ from scipy.stats._multivariate import multivariate_normal
 __all__ = ["SemiSupervisedDecisionTreeClassifier",
            "UnSupervisedDecisionTreeClassifier"]
 
-
 # =============================================================================
 # Types and constants
 # =============================================================================
@@ -41,14 +43,7 @@ DTYPE = _tree.DTYPE
 DOUBLE = _tree.DOUBLE
 
 CRITERIA_CLF = {"gini": _tree.Gini, "entropy": _tree.Entropy, "semisupervised": _treeef.LabeledOnlyEntropy}
-
-DENSE_SPLITTERS = {"best": _tree.BestSplitter,
-                   "presort-best": _tree.PresortBestSplitter,
-                   "random": _tree.RandomSplitter,
-                   "unsupervised": _treeef.UnSupervisedBestSplitter}
-
-SPARSE_SPLITTERS = {"best": _tree.BestSparseSplitter,
-                    "random": _tree.RandomSparseSplitter}
+DENSE_SPLITTERS['unsupervised'] = _treeef.UnSupervisedBestSplitter
 
 # =============================================================================
 # Base decision tree
@@ -79,30 +74,15 @@ class UnSupervisedDecisionTreeClassifier(DecisionTreeClassifier):
             random_state=random_state)
     
     def fit(self, X, y=None, sample_weight=None, check_input=True):
-        random_state = check_random_state(self.random_state)
         if check_input:
             X = check_array(X, dtype=DTYPE)
-            
-        # Set min_weight_leaf from min_weight_fraction_leaf
-        if self.min_weight_fraction_leaf != 0. and sample_weight is not None:
-            min_weight_leaf = (self.min_weight_fraction_leaf *
-                               np.sum(sample_weight))
-        else:
-            min_weight_leaf = 0.            
-            
+ 
         # !TODO: replace this crude method to get the tree to provide sufficient memory for storing the leaf values
         # remove passed y (which we do not need and only keep for interface conformity reasons)
         y = np.zeros((X.shape[0], X.shape[1]**2 + X.shape[1] + 1))
         # initialise criterion here, since it requires another syntax than the default ones
         if 'unsupervised' == self.criterion:
             self.criterion =  _treeef.UnSupervisedClassificationCriterion(X.shape[0], X.shape[1])
-        # initialize splitter here
-        if 'unsupervised' == self.splitter:
-            self.splitter = _treeef.UnSupervisedBestSplitter(self.criterion,
-                                                             self.max_features_,
-                                                             self.min_samples_leaf,
-                                                             min_weight_leaf,
-                                                             random_state)
         DecisionTreeClassifier.fit(self, X, y, sample_weight, check_input)
         return self
 
@@ -267,14 +247,13 @@ class UnSupervisedDecisionTreeClassifier(DecisionTreeClassifier):
         else:
             nval = tree.value[pos]
             frac = nval[0]
-            cov = np.squeeze(nval[1:5]).reshape((2,2))
-            mu = np.squeeze(nval[5:7])
+            cov = np.squeeze(nval[1:tree.n_features * tree.n_features + 1]).reshape((tree.n_features,tree.n_features))
+            mu = np.squeeze(nval[tree.n_features * tree.n_features + 1:tree.n_features * tree.n_features + tree.n_features + 1])
             
             return [{'frac': frac,
                      'cov': cov,
                      'mu': mu,
                      'range': rang}]
-
         
     def predict_log_proba(self, X):
         """Predict density distribution membership log-probabilities of the input samples X.
