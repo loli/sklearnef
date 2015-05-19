@@ -32,21 +32,12 @@ cdef extern class sklearn.tree._tree.BaseDenseSplitter(Splitter):
 cdef extern class sklearn.tree._tree.BestSplitter(BaseDenseSplitter):
     pass
 
-#cdef extern void introsort(DTYPE_t* Xf, SIZE_t *samples, SIZE_t n, int maxd) nogil:
-#    cdef DTYPE_t pivot
-#    cdef SIZE_t i, l, r
-
 # =============================================================================
 # Types and constants
 # =============================================================================
 
-#from sklearn.tree._tree cimport import INFINITY
-#cdef extern sklearn.tree._tree.INFINITY
-#cimport sklearn.tree._tree
-#cdef DTYPE_t MIN_IMPURITY_SPLIT = sklearn.tree._tree.MIN_IMPURITY_SPLIT
-#cdef extern DTYPE_t MIN_IMPURITY_SPLIT
-
 cdef double INFINITY = np.inf
+#cdef DTYPE_t MIN_IMPURITY_SPLIT = 1e-7
 cdef DTYPE_t MIN_IMPURITY_SPLIT = 1e-7
 # Mitigate precision differences between 32 bit and 64 bit
 cdef DTYPE_t FEATURE_THRESHOLD = 1e-7
@@ -90,7 +81,12 @@ cdef class UnSupervisedClassificationCriterion(Criterion):
         self.n_node_samples = 0 # size of S
         self.weighted_n_node_samples = 0.0 # total weight of all node samples (all in S)
         self.weighted_n_left = 0.0 # weight of all samples in S_left
-        self.weighted_n_right = 0.0 # weight of all samples in S_right       
+        self.weighted_n_right = 0.0 # weight of all samples in S_right
+        
+        # The number of 'effective' prior observations (default = 0).
+        #self.effprior = 3.
+        # The variance of the effective observations (default = 900).
+        #self.effpriorvar = 900.
         
         # Allocate memory
         self.S = <DTYPE_t*> calloc(n_samples * n_features, sizeof(DTYPE_t)) # same size as X
@@ -196,7 +192,8 @@ cdef class UnSupervisedClassificationCriterion(Criterion):
 
     cdef void update(self, SIZE_t new_pos) nogil:
         """Update the collected statistics by moving samples[pos:new_pos] from
-            the right child to the left child.""" 
+            the right child to the left child."""
+        
         cdef DOUBLE_t* sample_weight = self.sample_weight
         cdef SIZE_t* samples = self.samples
         cdef SIZE_t pos = self.pos
@@ -271,7 +268,6 @@ cdef class UnSupervisedClassificationCriterion(Criterion):
         cdef SIZE_t start = self.start
         cdef DTYPE_t* S = self.S
         cdef SIZE_t n_node_samples = self.n_node_samples
-        cdef DTYPE_t [:,::1] arr_view
         
         cdef double [:, ::1] mcov
         cdef double [::1] mmu
@@ -304,6 +300,11 @@ cdef class UnSupervisedClassificationCriterion(Criterion):
             #print arr
 
             cov = np.cov(arr, rowvar=0, ddof=1)
+            
+            #alpha = self.n_node_samples/(self.n_node_samples + self.effprior)
+            #cov *= alpha
+            #cov[np.diag_indices_from(cov)] += (1 - alpha) * self.effpriorvar;
+        
             mu = np.mean(arr, axis=0)
             frac = self.weighted_n_node_samples / self.weighted_n_samples
             
@@ -345,6 +346,11 @@ cdef class UnSupervisedClassificationCriterion(Criterion):
         #!TODO: Place here my dynstatcov and make function nogil
         # compute the differential entropy using numpy
         cov = np.cov(arr, rowvar=0, ddof=1)
+        
+        #alpha = self.n_node_samples/(self.n_node_samples + self.effprior)
+        #cov *= alpha
+        #cov[np.diag_indices_from(cov)] += (1 - alpha) * self.effpriorvar;
+        
         det = np.linalg.det(cov)
         if det < 0: det *= -1
         if det < MIN_IMPURITY_SPLIT: det = MIN_IMPURITY_SPLIT

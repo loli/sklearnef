@@ -28,6 +28,10 @@ cdef class UnSupervisedClassificationCriterion(Criterion):
     cdef SIZE_t n_samples       # might not be required, as only used in __cinit__ and __reduce__
     cdef SIZE_t n_features      # might not be required, as only used in __cinit__ and __reduce__
     # !TODO: Above, some of the member vars could be removed in the future.
+    # The number of 'effective' prior observations (default = 0).
+    #cdef DTYPE_t effprior
+    # The variance of the effective observations (default = 900).
+    #cdef DTYPE_t effpriorvar  
      
     # Methods
     cdef void init2(self, DTYPE_t* X, SIZE_t X_stride,
