@@ -84,6 +84,7 @@ class UnSupervisedDecisionTreeClassifier(DecisionTreeClassifier):
         if 'unsupervised' == self.criterion:
             self.criterion =  _treeef.UnSupervisedClassificationCriterion(X.shape[0], X.shape[1])
         DecisionTreeClassifier.fit(self, X, y, sample_weight, check_input)
+        #!TODO: Here I could call compute_partition_function once
         return self
 
     def predict_proba(self, X):
@@ -132,7 +133,8 @@ class UnSupervisedDecisionTreeClassifier(DecisionTreeClassifier):
         # values
         out = np.zeros(n_samples, np.float)
         for lidx in np.unique(leaf_indices):
-            mnd = multivariate_normal(info[lidx]['mu'], info[lidx]['cov'])
+            print info[lidx]['mu'], info[lidx]['cov']
+            mnd = multivariate_normal(info[lidx]['mu'], info[lidx]['cov']) # !TODO: Why would I need an allow_singular=True here? 
             mask = lidx == leaf_indices
             out[mask] = info[lidx]['frac'] / pfi * mnd.pdf(X[mask])
         

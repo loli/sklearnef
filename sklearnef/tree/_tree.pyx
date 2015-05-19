@@ -15,7 +15,6 @@ cimport numpy as np
 np.import_array()
 
 from sklearn.tree._tree cimport Criterion, Splitter, SplitRecord
-#from sklearn_tree cimport Criterion, Splitter, SplitRecord
 
 cdef extern class sklearn.tree._tree.ClassificationCriterion(Criterion):
     cdef SIZE_t* n_classes
@@ -40,6 +39,12 @@ cdef extern void introsort(DTYPE_t* Xf, SIZE_t *samples, SIZE_t n, int maxd) nog
 # =============================================================================
 # Types and constants
 # =============================================================================
+
+#from sklearn.tree._tree cimport import INFINITY
+#cdef extern sklearn.tree._tree.INFINITY
+#cimport sklearn.tree._tree
+#cdef DTYPE_t MIN_IMPURITY_SPLIT = sklearn.tree._tree.MIN_IMPURITY_SPLIT
+#cdef extern DTYPE_t MIN_IMPURITY_SPLIT
 
 cdef double INFINITY = np.inf
 cdef DTYPE_t MIN_IMPURITY_SPLIT = 1e-7
@@ -123,8 +128,6 @@ cdef class UnSupervisedClassificationCriterion(Criterion):
         cdef SIZE_t i = 0
         
         #!TODO: make this a sort, not a re-copy
-        #!TODO: Possible bug: I think, that samples[i] should actually be samples[start + i], as that part of samples is currently in use
-        #       To check this, I must output the results S_left and S_right sets at deeper levels (e.g 2)
         for i in range(n_node_samples):
             memcpy(S + (start + i) * X_stride,
                    X + samples[i + start] * X_stride,
@@ -163,6 +166,7 @@ cdef class UnSupervisedClassificationCriterion(Criterion):
         #!TODO: What is with zero-weight samples? Are they already removed from "samples"
         #       or would I have to take care of this here? After all, they should not figure
         #       in the entropy computation.
+        #       Note: Splitter.init() removes zero-weighted samples from the "samples" list, i.e. they do not appear hear at all.
         #       This is anyway a problem, as the weight figure in the information gain, but not
         #       directly in the entropy computation -> could this be a problem?
         
@@ -176,7 +180,7 @@ cdef class UnSupervisedClassificationCriterion(Criterion):
         self.weighted_n_node_samples = weighted_n_node_samples
 
         # sort samples set S
-        self.sortS()
+        #self.sortS()
 
         # Reset to pos=start
         self.reset()
@@ -187,6 +191,8 @@ cdef class UnSupervisedClassificationCriterion(Criterion):
         
         self.weighted_n_left = 0.0
         self.weighted_n_right = self.weighted_n_node_samples
+        
+        self.sortS()
 
     cdef void update(self, SIZE_t new_pos) nogil:
         """Update the collected statistics by moving samples[pos:new_pos] from
@@ -311,7 +317,6 @@ cdef class UnSupervisedClassificationCriterion(Criterion):
             #print 'mu:'
             #print mu
         
-        #!TODO: Does not work, see [...].tree_.value
         memcpy(dest, &frac, sizeof(double))
         dest += 1
         memcpy(dest, &mcov[0,0], self.n_features * self.n_features * sizeof(double))
@@ -490,7 +495,8 @@ cdef class UnSupervisedBestSplitter(BestSplitter):
  
         weighted_n_node_samples[0] = self.criterion_real.weighted_n_node_samples
          
-         
+        
+    # !TODO: This function does not differ from the parent version. Why do I get error, when I remove it?
     cdef void node_split(self, double impurity, SplitRecord* split,
                          SIZE_t* n_constant_features) nogil:
         """Find the best split on node samples[start:end]."""
@@ -585,7 +591,7 @@ cdef class UnSupervisedBestSplitter(BestSplitter):
                               X_fx_stride * current.feature]
  
                 sort(Xf + start, samples + start, end - start)
-                self.criterion_real.sortS()        
+                #self.criterion_real.sortS()        
  
                 if Xf[end - 1] <= Xf[start] + FEATURE_THRESHOLD:
                     features[f_j] = features[n_total_constants]
@@ -708,3 +714,19 @@ cdef inline void sort(DTYPE_t* Xf, SIZE_t* samples, SIZE_t n) nogil:
 
 cdef inline double log(double x) nogil:
     return ln(x) / ln(2.0)
+
+cdef test():
+    cdef DTYPE_t X[3]
+    X[0] = 2.0
+    X[1] = 1.0
+    X[2] = 0.0
+    cdef SIZE_t s[3]
+    s[0] = 3
+    s[1] = 2
+    s[2] = 1
+    cdef SIZE_t n = 3
+    cdef int m = 5
+    introsort(X, s, n, m)
+    
+test()
+print X, s
