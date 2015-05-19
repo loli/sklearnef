@@ -11,8 +11,8 @@ sigma = 0.4
 resolution = .5
 n_samples = 1000
 n_features = 2
-n_clusters = 2
-np.random.seed(0)
+n_clusters = 4
+np.random.seed(1)
 
 # ----- Clusters -----
 means = [[i * distance] * n_features for i in range(n_clusters)]
@@ -21,13 +21,16 @@ for i in range(n_clusters):
     means.append([])
     for j in range(n_features):
         means[i].append(np.random.randint(0, distance))
-cov = np.diag([np.random.random() * sigma for _ in range(n_features)])
-n_tri_elements = (n_features * (n_features - 1)) / 2
-cov[np.triu_indices(n_features, 1)] = [np.random.random() * sigma/2 for _ in range(n_tri_elements)]
-cov[np.tril_indices(n_features, -1)] = [np.random.random() * sigma/2 for _ in range(n_tri_elements)]
+covs = []
+for i in range(n_clusters):
+    cov = np.diag([np.random.random() * sigma for _ in range(n_features)])
+    n_tri_elements = (n_features * (n_features - 1)) / 2
+    cov[np.triu_indices(n_features, 1)] = [np.random.random() * sigma/2 for _ in range(n_tri_elements)]
+    cov[np.tril_indices(n_features, -1)] = [np.random.random() * sigma/2 for _ in range(n_tri_elements)]
+    covs.append(cov)
 
 # ----- Sample train set -----
-X_train = np.concatenate([scipy.stats.multivariate_normal.rvs(mean, cov, n_samples) for mean in means])
+X_train = np.concatenate([scipy.stats.multivariate_normal.rvs(mean, cov, n_samples) for mean, cov in zip(means, covs)])
 
 # ----- Grid -----
 x_lower = X_train[:,0].min() - 2 * sigma
@@ -47,7 +50,7 @@ prob_predict = clf.predict_proba(X_test_pred)
 
 # ----- Ground truth -----
 X_test_gt = np.rollaxis(grid, 0, 3)
-prob_gt = np.sum([scipy.stats.multivariate_normal.pdf(X_test_gt, mean, cov) for mean in means], 0)
+prob_gt = np.sum([scipy.stats.multivariate_normal.pdf(X_test_gt, mean, cov) for mean, cov in zip(means, covs)], 0)
 
 # ----- Plotting -----
 x, y = grid
@@ -73,8 +76,6 @@ plt.colorbar()
 plt.xlim(min(x),max(x))
 plt.ylim(min(y),max(y))
 plt.title('Prediction')
-
-print plt
 
 plt.show()
 
