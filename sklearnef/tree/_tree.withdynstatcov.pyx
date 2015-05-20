@@ -76,6 +76,9 @@ cdef class UnSupervisedClassificationCriterion(Criterion):
         self.X_stride = 0 # stride (i.e. feature length * feature_dtype_length)
         self.S = NULL # current node's set of samples, ordered to contain S_left and S_right between start, pos and end
         self.sample_weight = NULL # sample weight in 1-D double array
+        
+        self.covl = NULL
+        self.covr = NULL
 
         self.samples = NULL # sample ids, ordered by splitter between start and end
         self.start = 0
@@ -127,6 +130,7 @@ cdef class UnSupervisedClassificationCriterion(Criterion):
         cdef SIZE_t start = self.start
         cdef SIZE_t end = self.end
         cdef SIZE_t n_node_samples = self.n_node_samples
+        cdef SIZE_t n_features = self.n_features
         
         cdef SIZE_t i = 0
         
@@ -188,6 +192,66 @@ cdef class UnSupervisedClassificationCriterion(Criterion):
 
         # Reset to pos=start
         self.reset()
+        
+    cdef void resetCovr(self) nogil:
+        """Reset the right co-variance matrix."""
+        cdef Dynstatcov covr = self.covr
+        cdef DTYPE_t* X = self.X
+        cdef SIZE_t* samples = self.samples
+        cdef SIZE_t X_stride = self.X_stride
+        cdef SIZE_t start = self.start
+        cdef SIZE_t end = self.end
+        cdef SIZE_t n_node_samples = self.n_node_samples
+        cdef SIZE_t n_features = self.n_features
+        
+        cdef DTYPE_t* Xc = NULL
+        cdef SIZE_t i = 0
+        
+        # allocate memory
+        Xc = <DTYPE_t*> calloc(n_node_samples * n_features, sizeof(DTYPE_t)) 
+        
+        # fill with samples of current node
+        for i in range(n_node_samples):
+            memcpy(Xc + i * X_stride,
+                   X + samples[i + start] * X_stride,
+                   X_stride * sizeof(DTYPE_t))
+            
+        # compute initial cov
+        cdef DTYPE_t [:,::1] Xc_view = <DTYPE_t[:n_node_samples,:n_features]> Xc
+        covr = Dynstatcov(Xc_view)
+        
+        # free memory
+        free(Xc)    
+        
+    cdef void initCovl(self) nogil:
+        """Init the left co-variance matrix at the first position not start."""
+        cdef Dynstatcov covl = self.covl
+        cdef DTYPE_t* X = self.X
+        cdef SIZE_t* samples = self.samples
+        cdef SIZE_t X_stride = self.X_stride
+        cdef SIZE_t start = self.start
+        cdef SIZE_t pos = self.pos
+        cdef SIZE_t n_samples_left = pos - start
+        cdef SIZE_t n_features = self.n_features
+        
+        cdef DTYPE_t* Xc = NULL
+        cdef SIZE_t i = 0
+        
+        # allocate memory
+        Xc = <DTYPE_t*> calloc(n_samples_left * n_features, sizeof(DTYPE_t)) 
+        
+        # fill with samples of current node
+        for i in range(n_samples_left):
+            memcpy(Xc + i * X_stride,
+                   X + samples[i + start] * X_stride,
+                   X_stride * sizeof(DTYPE_t))
+            
+        # compute initial cov
+        cdef DTYPE_t [:,::1] Xc_view = <DTYPE_t[:n_samples_left,:n_features]> Xc
+        covl = Dynstatcov(Xc_view)
+        
+        # free memory
+        free(Xc)   
 
     cdef void reset(self) nogil:
         """Reset the criterion at pos=start."""
@@ -196,7 +260,8 @@ cdef class UnSupervisedClassificationCriterion(Criterion):
         self.weighted_n_left = 0.0
         self.weighted_n_right = self.weighted_n_node_samples
         
-        self.sortS()
+        self.resetCovr()
+        #self.sortS()
 
     cdef void update(self, SIZE_t new_pos) nogil:
         """Update the collected statistics by moving samples[pos:new_pos] from
@@ -219,7 +284,24 @@ cdef class UnSupervisedClassificationCriterion(Criterion):
         self.weighted_n_left += diff_w
         self.weighted_n_right -= diff_w
         
-        self.pos = new_pos
+        cdef SIZE_t start = self.start
+        cdef DTYPE_t* X = self.X
+        cdef Dynstatcov cov = self.cov
+        cdef SIZE_t X_stride = self.X_stride
+        
+        if new_pos == start:
+            for p in range(pos, new_pos):
+                i = samples[p]
+                covr.__update_sub(X[i * X_stride])
+            self.pos = new_pos
+            slef.initCovl()
+        else:
+            for p in range(pos, new_pos):
+                i = samples[p]
+                covl.__update_add(X[i * X_stride])
+                covr.__update_sub(X[i * X_stride])
+            
+            self.pos = new_pos
 
     cdef double node_impurity(self) nogil:
         """Compute the impurity of the current node."""
@@ -494,3 +576,7 @@ cdef class UnSupervisedBestSplitter(BestSplitter):
  
         weighted_n_node_samples[0] = self.criterion_real.weighted_n_node_samples
 
+# =============================================================================
+# DynStatCov
+# =============================================================================
+include "dynstatcov.pxi"
