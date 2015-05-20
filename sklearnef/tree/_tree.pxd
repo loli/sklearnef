@@ -27,8 +27,8 @@ cdef class UnSupervisedClassificationCriterion(Criterion):
     cdef DTYPE_t* S             # copy of the training data for fitting multi-variate Gaussians
     cdef SIZE_t n_samples       # might not be required, as only used in __cinit__ and __reduce__
     cdef SIZE_t n_features      # might not be required, as only used in __cinit__ and __reduce__
-    cdef Dynstatcov covr        # dynamically updateable covariance matrix (right)
-    cdef Dynstatcov covl        # dynamically updateable covariance matrix (left)
+    #cdef Dynstatcov covr        # dynamically updateable covariance matrix (right)
+    #cdef Dynstatcov covl        # dynamically updateable covariance matrix (left)
     # !TODO: Above, some of the member vars could be removed in the future.
     # The number of 'effective' prior observations (default = 0).
     #cdef DTYPE_t effprior
@@ -41,5 +41,5 @@ cdef class UnSupervisedClassificationCriterion(Criterion):
                     SIZE_t* samples, SIZE_t start, SIZE_t end) nogil
     cdef void sortS(self) nogil
     cdef double differential_entropy(self, DTYPE_t* src, SIZE_t size)
-    cdef void resetCovr(self) nogil
-    cdef void initCovl(self) nogil
+    #cdef void resetCovr(self) nogil
+    #cdef void initCovl(self) nogil
