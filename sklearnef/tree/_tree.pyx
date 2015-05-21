@@ -223,6 +223,9 @@ cdef class UnSupervisedClassificationCriterion(Criterion):
 
     cdef double node_impurity(self) nogil:
         """Compute the impurity of the current node."""
+        # NOTE: The builders call this function only once for the first node.
+        #       Therefore it is possible to compute a dedicated cov her for
+        #       single use.
         cdef SIZE_t start = self.start
         cdef SIZE_t X_stride = self.X_stride
         cdef SIZE_t n_node_samples = self.n_node_samples
@@ -234,6 +237,8 @@ cdef class UnSupervisedClassificationCriterion(Criterion):
             entropy = self.differential_entropy(S + start * X_stride, n_node_samples) # src, n_samples
         
         return entropy
+    
+        # init cov (using X and samples and n_node_samples and start)
 
     cdef void children_impurity(self, double* impurity_left,
                                 double* impurity_right) nogil:
