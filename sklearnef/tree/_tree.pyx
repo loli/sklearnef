@@ -179,6 +179,10 @@ cdef class UnSupervisedClassificationCriterion(Criterion):
 
     cdef double node_impurity(self) nogil:
         """Compute the impurity of the current node."""
+        # NOTE: The builders call this function only once for the first node.
+        #       Therefore it is possible to compute a dedicated cov here for
+        #       single use.
+
         cdef double entropy = 0.0
         
         self.covr.compute_covariance_matrix()
