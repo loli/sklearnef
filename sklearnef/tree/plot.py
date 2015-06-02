@@ -41,7 +41,7 @@ grid = np.mgrid[x_lower:x_upper:resolution,y_lower:y_upper:resolution]
 
 
 # ----- Training -----
-clf = UnSupervisedDecisionTreeClassifier(random_state=0)
+clf = UnSupervisedDecisionTreeClassifier(random_state=0, min_samples_leaf=n_features)
 clf.fit(X_train)
 
 # ----- Prediction -----
@@ -76,6 +76,29 @@ plt.colorbar()
 plt.xlim(min(x),max(x))
 plt.ylim(min(y),max(y))
 plt.title('Prediction')
+
+# add split-lines
+info = clf.parse_tree_leaves()
+xmin, xmax = min(x), max(x)
+ymin, ymax = min(y), max(y)
+hlines = ([], [], [])
+vlines = ([], [], [])
+for node in info:
+    if node is not None: # leave node
+        for pos in node['range'][0]: # xrange
+            if not np.isinf(pos):
+                xliml, xlimr = node['range'][1]
+                vlines[0].append(pos)
+                vlines[1].append(ymin if np.isinf(xliml) else xliml)
+                vlines[2].append(ymax if np.isinf(xlimr) else xlimr)
+        for pos in node['range'][1]: # xrange
+            if not np.isinf(pos):
+                yliml, ylimr = node['range'][0]
+                hlines[0].append(pos)
+                hlines[1].append(xmin if np.isinf(yliml) else yliml)
+                hlines[2].append(xmax if np.isinf(ylimr) else ylimr)
+plt.hlines(hlines[0], hlines[1], hlines[2], colors='blue', linestyles='dotted')
+plt.vlines(vlines[0], vlines[1], vlines[2], colors='blue', linestyles='dotted')
 
 plt.show()
 

@@ -13,8 +13,8 @@ def configuration(parent_package="", top_path=None):
         libraries.append('m')
         
     # check for pre-compiled versions for the encountered sklearn version
-    if not os.path.isdir("headers/{}".format(sklearn.__version__)) or \
-       not os.path.isfile("headers/{}/_tree.c".format(sklearn.__version__)):
+    if not os.path.isdir("{}/headers/{}".format(os.path.dirname(os.path.realpath(__file__)), sklearn.__version__)) or \
+       not os.path.isfile("{}/headers/{}/_tree.c".format(os.path.dirname(os.path.realpath(__file__)), sklearn.__version__)):
         raise Exception(\
 """sklearnef holds no pre-compiled _tree.c for your current scikit-learn version ({version}).
 Please download the corresponding header file from \
@@ -22,6 +22,12 @@ https://raw.githubusercontent.com/scikit-learn/scikit-learn/{version}/sklearn/tr
 place it in sklearnef/tree/headers/sklearn/tree/ and compile _tree.pyx with cython using \
 'cython _tree.pyx -o headers/{version}/_tree.c -I headers/'. Then re-run \
 the installation of sklearnef.""".format(version=sklearn.__version__))
+
+    config.add_extension("_diffentropy",
+                         sources=["headers/_diffentropy.c"],
+                         include_dirs=[numpy.get_include()],
+                         libraries=libraries + ['lapack', 'blas'],
+                         extra_compile_args=["-O3"])
 
     config.add_extension("_tree",
                          sources=["headers/{version}/_tree.c".format(version=sklearn.__version__)],

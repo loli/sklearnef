@@ -25,7 +25,6 @@ cdef class UnSupervisedClassificationCriterion(Criterion):
     # Internal structures
     cdef DTYPE_t* X             # pointer to the training data; will become obsolute, when I've implemented sort(S) without re-copying the memory
     cdef SIZE_t X_stride        # the X_stride; is this the same as n_features... might just be, then I can remove the second and use this in __reduce__
-    cdef DTYPE_t* S             # copy of the training data for fitting multi-variate Gaussians
     cdef SIZE_t n_samples       # might not be required, as only used in __cinit__ and __reduce__
     cdef SIZE_t n_features      # might not be required, as only used in __cinit__ and __reduce__
     cdef Diffentropy covr       # dynamically updateable covariance matrix (right)
@@ -40,7 +39,3 @@ cdef class UnSupervisedClassificationCriterion(Criterion):
     cdef void init2(self, DTYPE_t* X, SIZE_t X_stride,
                     DOUBLE_t* sample_weight, double weighted_n_samples,
                     SIZE_t* samples, SIZE_t start, SIZE_t end) nogil
-    cdef void sortS(self) nogil
-    cdef double differential_entropy(self, DTYPE_t* src, SIZE_t size)
-    #cdef void resetCovr(self) nogil
-    #cdef void initCovl(self) nogil

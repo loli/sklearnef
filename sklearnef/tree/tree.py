@@ -134,7 +134,7 @@ class UnSupervisedDecisionTreeClassifier(DecisionTreeClassifier):
         out = np.zeros(n_samples, np.float)
         for lidx in np.unique(leaf_indices):
             print info[lidx]['mu'], info[lidx]['cov']
-            mnd = multivariate_normal(info[lidx]['mu'], info[lidx]['cov']) # !TODO: Why would I need an allow_singular=True here? 
+            mnd = multivariate_normal(info[lidx]['mu'], info[lidx]['cov'] + 1e-6) # !TODO: Why would I need an allow_singular=True here? 
             mask = lidx == leaf_indices
             out[mask] = info[lidx]['frac'] / pfi * mnd.pdf(X[mask])
         

@@ -7,11 +7,8 @@
 #
 # Licence: BSD 3 clause !TODO: Change!
 
-from libc.stdlib cimport calloc, free, realloc
 from libc.string cimport memcpy, memset
-from libc.math cimport log as ln
 
-import numpy as np
 cimport numpy as np
 np.import_array()
 
@@ -34,26 +31,9 @@ cdef extern class sklearn.tree._tree.BaseDenseSplitter(Splitter):
 cdef extern class sklearn.tree._tree.BestSplitter(BaseDenseSplitter):
     pass
 
-import time
-import datetime
-cdef DTYPE_t time_sorts = 0.
-cdef DTYPE_t time_entropy = 0.
-cdef DTYPE_t time_node_value = 0.
-
 # =============================================================================
 # Types and constants
 # =============================================================================
-
-cdef double INFINITY = np.inf
-#cdef DTYPE_t MIN_IMPURITY_SPLIT = 1e-7
-cdef DTYPE_t MIN_IMPURITY_SPLIT = 1e-6
-# Mitigate precision differences between 32 bit and 64 bit
-cdef DTYPE_t FEATURE_THRESHOLD = 1e-7
-cdef enum:
-    # Max value for our rand_r replacement (near the bottom).
-    # We don't use RAND_MAX because it's different across platforms and
-    # particularly tiny on Windows/MSVC.
-    RAND_R_MAX = 0x7FFFFFFF
 
 # =============================================================================
 # Criterion
@@ -63,19 +43,11 @@ cdef class UnSupervisedClassificationCriterion(Criterion):
     """Criterion for un-supervised classification using differential entropy."""
     # note: sample weights can not be incorporated, assuming equal weight!
     # but: it could be introduced using weighted sample sums in the impurity_improvement method
-    
-    # create a copy X' of X
-    # always work on memory of X' defined by start - end
-    # upon init, place observatins/samples from X into X' according to sample-indices in `samples`, they will be ordered
-    # for a split, simply define X_left as the X' from start to pos and X_right as the X' from pos to end
-    # for the impurity calculation, compute log(det(\Sigma))...etc on X_left and X_right
-    # advanced: try update log(det(\Sigma)) dynamically by moving samples from X_right to X_left
 
     def __cinit__(self, SIZE_t n_samples, SIZE_t n_features):
         # Default values
         self.X = NULL # all training samples
         self.X_stride = 0 # stride (i.e. feature length * feature_dtype_length)
-        self.S = NULL # current node's set of samples, ordered to contain S_left and S_right between start, pos and end
         self.sample_weight = NULL # sample weight in 1-D double array
 
         self.samples = NULL # sample ids, ordered by splitter between start and end
@@ -85,10 +57,10 @@ cdef class UnSupervisedClassificationCriterion(Criterion):
 
         self.n_samples = n_samples # X.shape[0]
         self.n_features = n_features # X.shape[1]
-        self.n_node_samples = 0 # size of S
-        self.weighted_n_node_samples = 0.0 # total weight of all node samples (all in S)
-        self.weighted_n_left = 0.0 # weight of all samples in S_left
-        self.weighted_n_right = 0.0 # weight of all samples in S_right
+        self.n_node_samples = 0 # samples in split to consider
+        self.weighted_n_node_samples = 0.0 # total weight of all node samples
+        self.weighted_n_left = 0.0 # weight of all samples in left child node
+        self.weighted_n_right = 0.0 # weight of all samples in right child node
         
         self.covl = Diffentropy(n_features) # left updateable cov for diffentropy calculation
         self.covr = Diffentropy(n_features) # right updateable cov for diffentropy calculation
@@ -97,17 +69,10 @@ cdef class UnSupervisedClassificationCriterion(Criterion):
         #self.effprior = 3.
         # The variance of the effective observations (default = 900).
         #self.effpriorvar = 900.
-        
-        # Allocate memory
-        self.S = <DTYPE_t*> calloc(n_samples * n_features, sizeof(DTYPE_t)) # same size as X
-
-        # Check for allocation errors
-        if self.S == NULL:
-            raise MemoryError()
-
+    
     def __dealloc__(self):
         """Destructor."""
-        free(self.S)
+        pass
         
     def __reduce__(self): # arguemnts to __cinit__
         return (UnSupervisedClassificationCriterion,
@@ -119,38 +84,14 @@ cdef class UnSupervisedClassificationCriterion(Criterion):
         return {}
 
     def __setstate__(self, d):
-        pass
-
-    cdef void sortS(self) nogil:
-        """Re-sort the sample set S according to sample-id set samples."""
-        with gil: _start = time.time()
-        cdef DTYPE_t* X = self.X
-        cdef DTYPE_t* S = self.S
-        cdef SIZE_t* samples = self.samples
-        cdef SIZE_t X_stride = self.X_stride
-        cdef SIZE_t start = self.start
-        cdef SIZE_t end = self.end
-        cdef SIZE_t n_node_samples = self.n_node_samples
-        
-        cdef SIZE_t i = 0
-        
-        #!TODO: make this a sort, not a re-copy
-        for i in range(n_node_samples):
-            memcpy(S + (start + i) * X_stride,
-                   X + samples[i + start] * X_stride,
-                   X_stride * sizeof(DTYPE_t))
-            
-        with gil:
-            global time_sorts
-            time_sorts += time.time() - _start
-        
+        pass    
 
     cdef void init2(self, DTYPE_t* X, SIZE_t X_stride,
                     DOUBLE_t* sample_weight, double weighted_n_samples,
                     SIZE_t* samples, SIZE_t start, SIZE_t end) nogil:
         """Initialize the criterion at node samples[start:end] and
            children samples[start:start] and samples[start:end].
-           Also sorts S accordingly.
+           
            Note that the signature of this init2() does not
            correspond to the parent classes (Criterion) init()
            signature and therefore can only be used by a dedicated
@@ -187,34 +128,27 @@ cdef class UnSupervisedClassificationCriterion(Criterion):
 
         self.weighted_n_node_samples = weighted_n_node_samples
 
-        # sort samples set S
-        #self.sortS()
-
         # Reset to pos=start
         self.reset()
 
     cdef void reset(self) nogil:
         """Reset the criterion at pos=start."""
-        self.pos = self.start
-        
-        self.weighted_n_left = 0.0
-        self.weighted_n_right = self.weighted_n_node_samples
-        
-        self.sortS()
-        
-        # +NEW
-        cdef DTYPE_t* X = self.X
         cdef SIZE_t* samples = self.samples
         cdef SIZE_t X_stride = self.X_stride
         cdef SIZE_t start = self.start
         cdef SIZE_t end = self.end
+        cdef DTYPE_t* X = self.X
+        
+        self.pos = self.start
+        
+        self.weighted_n_left = 0.0
+        self.weighted_n_right = self.weighted_n_node_samples
         
         self.covl.reset()
         self.covr.reset()
         
         for i in range(start, end):
             self.covr.update_add(X + samples[i] * X_stride)
-        # -NEW
 
     cdef void update(self, SIZE_t new_pos) nogil:
         """Update the collected statistics by moving samples[pos:new_pos] from
@@ -229,66 +163,35 @@ cdef class UnSupervisedClassificationCriterion(Criterion):
         cdef SIZE_t p
         cdef DOUBLE_t diff_w = 0.0        
         
-        if sample_weight == NULL:
-            diff_w = 1.0 * (new_pos - pos)
-        else:
-            for p in range(pos, new_pos):
-                i = samples[p]
+        for p in range(pos, new_pos):
+            i = samples[p]
+            self.covl.update_add(X + i * X_stride)
+            self.covr.update_sub(X + i * X_stride)
+            if sample_weight == NULL:
+                diff_w = 1.0 * (new_pos - pos)
+            else:
                 diff_w += sample_weight[i]
-            
+                
         self.weighted_n_left += diff_w
         self.weighted_n_right -= diff_w
-        
-        # +NEW
-        for p in range(pos, new_pos):
-            self.covl.update_add(X + samples[p] * X_stride)
-            self.covr.update_sub(X + samples[p] * X_stride)
-        # -NEW
         
         self.pos = new_pos
 
     cdef double node_impurity(self) nogil:
         """Compute the impurity of the current node."""
-        cdef SIZE_t start = self.start
-        cdef SIZE_t X_stride = self.X_stride
-        cdef SIZE_t n_node_samples = self.n_node_samples
         cdef double entropy = 0.0
-        cdef DTYPE_t* S = self.S
         
-        # +OLD
-        #with gil:
-        #    entropy = self.differential_entropy(S + start * X_stride, n_node_samples) # src, n_samples
-        # -OLD
-        
-        # +NEW
         self.covr.compute_covariance_matrix()
         entropy = self.covr.logdet()
-        # -NEW 
         
         return entropy
 
     cdef void children_impurity(self, double* impurity_left,
                                 double* impurity_right) nogil:
-        cdef SIZE_t start = self.start
-        cdef SIZE_t pos = self.pos
-        cdef SIZE_t end = self.end
-        cdef SIZE_t X_stride = self.X_stride
-        cdef DTYPE_t* S = self.S
-        
-        # +OLD
-        #with gil:
-        #    impurity_left[0] = self.differential_entropy(S + start * X_stride, pos - start)
-        #    impurity_right[0] = self.differential_entropy(S + pos * X_stride, end - pos)
-        # -OLD
-        
-        # +NEW
         self.covl.compute_covariance_matrix()
         impurity_left[0] = self.covl.logdet()
-    
         self.covr.compute_covariance_matrix()
         impurity_right[0] = self.covr.logdet()
-        # -NEW 
-        
 
     cdef void node_value(self, double* dest) nogil:
         """Compute the node value of samples[start:end] into dest."""
@@ -313,86 +216,53 @@ cdef class UnSupervisedClassificationCriterion(Criterion):
         # !TODO: replace with nogil version
         # !TODO: Very crude version!
         # convert memory block to numpy array
-        with gil: _start = time.time()
-        cdef SIZE_t X_stride = self.X_stride
-        cdef SIZE_t start = self.start
-        cdef DTYPE_t* S = self.S
-        cdef SIZE_t n_node_samples = self.n_node_samples
         
-        cdef double [:, ::1] mcov
-        cdef double [::1] mmu
+        cdef:
+            SIZE_t n_features = self.n_features
+            DOUBLE_t weighted_n_node_samples = self.weighted_n_node_samples
+            DOUBLE_t weighted_n_samples = self.weighted_n_samples
+            DOUBLE_t frac = 0.
+            DOUBLE_t* cov = NULL
+            DOUBLE_t* mu = NULL
         
-        cdef SIZE_t i = 0
-        cdef SIZE_t p = self.n_samples
-              
-        with gil:
-            arr_view = <DTYPE_t[:n_node_samples,:X_stride]> &S[start * X_stride]
-            arr = np.asarray(arr_view).copy().astype(np.float64)
-
-            cov = np.cov(arr, rowvar=0, ddof=1)
-            
-            #alpha = self.n_node_samples/(self.n_node_samples + self.effprior)
-            #cov *= alpha
-            #cov[np.diag_indices_from(cov)] += (1 - alpha) * self.effpriorvar;
-        
-            mu = np.mean(arr, axis=0)
-            frac = self.weighted_n_node_samples / self.weighted_n_samples
-            
-            mcov = cov
-            mmu = mu
-        
-        memcpy(dest, &frac, sizeof(double))
+        # reset, such that all samples in right sided cov containes
+        self.reset()
+         
+        # trigger cov computation
+        self.covr.compute_covariance_matrix()
+         
+        # fetch cov, mean and fraction of samples in node
+        cov = self.covr.cov
+        mu = self.covr.__mean
+        frac = weighted_n_node_samples / weighted_n_samples
+         
+        # copy data to target memory
+        memcpy(dest, &frac, sizeof(DOUBLE_t))
         dest += 1
-        memcpy(dest, &mcov[0,0], self.n_features * self.n_features * sizeof(double))
-        dest += self.n_features * self.n_features
-        memcpy(dest, &mmu[0], self.n_features * sizeof(double))
-        with gil:
-            global time_node_value
-            global time_sorts
-            global time_entropy
-            time_node_value += time.time() - _start
-            print '-- times --'
-            print 'sortS:', time_sorts
-            print 'entropy:', time_entropy
-            print 'node_value:', time_node_value
+        upper_to_matrix(dest, cov, n_features) #!TODO: this can actually be stored in upper triangular format
+        dest += n_features * n_features
+        memcpy(dest, mu, n_features * sizeof(DOUBLE_t))
+        
 
-    cdef double differential_entropy(self, DTYPE_t* src, SIZE_t size):
-        """Compute the differential entropy (also called continuous- or unsupervised-),
-        which is defined as log(det(cov(S))) of a set S of observations identified
-        through src and size."""
-        _start = time.time()
-        cdef SIZE_t X_stride = self.X_stride
-        
-        #!TODO: employing np.log(MIN_IMPURITY_SPLIT) as a minimal value
-        # is insecure, if <10 samples are in the parent node. Min_samples_leaf
-        # should be used or the depth restricted or such.
-        # The same solution is used below when det < MIN_IMPURITY_SPLIT,
-        # which is equally questionable
-        
-        # skip if set size <= 1
-        if size <= 1: return np.log(MIN_IMPURITY_SPLIT)
+cdef inline void upper_to_matrix(DOUBLE_t* X, DOUBLE_t* Y, SIZE_t length) nogil:
+    "Convert the upper triangular matrix Y to full matrix X assuming symmetry."
+    cdef SIZE_t p1 = 0
+    cdef SIZE_t p2 = 0
+    
+    # first copy existing elements to upper
+    for p1 in range(length):
+        for p2 in range(p1, length):
+            X[p2 + p1 * length] = Y[0]
+            Y += 1
+    
+    # copy triangular symmetric elements from upper to lower (excluding diagonal)
+    for p1 in range(1, length):
+        for p2 in range(0, p1):
+            X[p2 + p1 * length] = X[p1 + p2 * length]
 
-        # convert memory block to numpy array
-        cdef DTYPE_t [:,::1] arr_view = <DTYPE_t[:size,:X_stride]> src
-        cdef np.ndarray arr = np.asarray(arr_view).copy()
-        
-        #!TODO: Place here my dynstatcov and make function nogil
-        # compute the differential entropy using numpy
-        cov = np.cov(arr, rowvar=0, ddof=1)
-        
-        cdef SIZE_t n_features = self.n_features
-        #print 'ncov:', cov[np.triu_indices(n_features)]
-        
-        #alpha = self.n_node_samples/(self.n_node_samples + self.effprior)
-        #cov *= alpha
-        #cov[np.diag_indices_from(cov)] += (1 - alpha) * self.effpriorvar;
-        
-        det = np.linalg.det(cov)
-        if det < 0: det *= -1
-        if det < MIN_IMPURITY_SPLIT: det = MIN_IMPURITY_SPLIT
-        global time_entropy
-        time_entropy += time.time() - _start
-        return np.log(det)
+# cdef inline SIZE_t upper_n_elements(SIZE_t n) nogil:
+#     "The number of (diagonal including) elements of an upper triangular nxn matrix."
+#     return (n * n + n) / 2
  
 cdef class LabeledOnlyEntropy(Entropy):
     """Cross Entropy impurity criteria applied to labeled samples only."""
