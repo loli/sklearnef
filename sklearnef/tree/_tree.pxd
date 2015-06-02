@@ -15,6 +15,7 @@ ctypedef np.npy_int32 INT32_t            # Signed 32 bit integer
 ctypedef np.npy_uint32 UINT32_t          # Unsigned 32 bit integer
 
 from sklearn.tree._tree cimport Criterion
+from sklearnef.tree._diffentropy cimport Diffentropy
 
 # =============================================================================
 # Criterion
@@ -27,8 +28,8 @@ cdef class UnSupervisedClassificationCriterion(Criterion):
     cdef DTYPE_t* S             # copy of the training data for fitting multi-variate Gaussians
     cdef SIZE_t n_samples       # might not be required, as only used in __cinit__ and __reduce__
     cdef SIZE_t n_features      # might not be required, as only used in __cinit__ and __reduce__
-    #cdef Dynstatcov covr        # dynamically updateable covariance matrix (right)
-    #cdef Dynstatcov covl        # dynamically updateable covariance matrix (left)
+    cdef Diffentropy covr       # dynamically updateable covariance matrix (right)
+    cdef Diffentropy covl       # dynamically updateable covariance matrix (left)
     # !TODO: Above, some of the member vars could be removed in the future.
     # The number of 'effective' prior observations (default = 0).
     #cdef DTYPE_t effprior

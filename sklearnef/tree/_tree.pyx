@@ -1,3 +1,4 @@
+# cython: profile=False
 # cython: cdivision=True
 # cython: boundscheck=False
 # cython: wraparound=False
@@ -15,6 +16,7 @@ cimport numpy as np
 np.import_array()
 
 from sklearn.tree._tree cimport Criterion, Splitter, SplitRecord
+from sklearnef.tree._diffentropy cimport Diffentropy
 
 cdef extern class sklearn.tree._tree.ClassificationCriterion(Criterion):
     cdef SIZE_t* n_classes
@@ -44,7 +46,7 @@ cdef DTYPE_t time_node_value = 0.
 
 cdef double INFINITY = np.inf
 #cdef DTYPE_t MIN_IMPURITY_SPLIT = 1e-7
-cdef DTYPE_t MIN_IMPURITY_SPLIT = 1e-7
+cdef DTYPE_t MIN_IMPURITY_SPLIT = 1e-6
 # Mitigate precision differences between 32 bit and 64 bit
 cdef DTYPE_t FEATURE_THRESHOLD = 1e-7
 cdef enum:
@@ -59,7 +61,6 @@ cdef enum:
 
 cdef class UnSupervisedClassificationCriterion(Criterion):
     """Criterion for un-supervised classification using differential entropy."""
-    
     # note: sample weights can not be incorporated, assuming equal weight!
     # but: it could be introduced using weighted sample sums in the impurity_improvement method
     
@@ -88,6 +89,9 @@ cdef class UnSupervisedClassificationCriterion(Criterion):
         self.weighted_n_node_samples = 0.0 # total weight of all node samples (all in S)
         self.weighted_n_left = 0.0 # weight of all samples in S_left
         self.weighted_n_right = 0.0 # weight of all samples in S_right
+        
+        self.covl = Diffentropy(n_features) # left updateable cov for diffentropy calculation
+        self.covr = Diffentropy(n_features) # right updateable cov for diffentropy calculation
         
         # The number of 'effective' prior observations (default = 0).
         #self.effprior = 3.
@@ -197,10 +201,26 @@ cdef class UnSupervisedClassificationCriterion(Criterion):
         self.weighted_n_right = self.weighted_n_node_samples
         
         self.sortS()
+        
+        # +NEW
+        cdef DTYPE_t* X = self.X
+        cdef SIZE_t* samples = self.samples
+        cdef SIZE_t X_stride = self.X_stride
+        cdef SIZE_t start = self.start
+        cdef SIZE_t end = self.end
+        
+        self.covl.reset()
+        self.covr.reset()
+        
+        for i in range(start, end):
+            self.covr.update_add(X + samples[i] * X_stride)
+        # -NEW
 
     cdef void update(self, SIZE_t new_pos) nogil:
         """Update the collected statistics by moving samples[pos:new_pos] from
             the right child to the left child."""
+        cdef DTYPE_t* X = self.X
+        cdef SIZE_t X_stride = self.X_stride
         cdef DOUBLE_t* sample_weight = self.sample_weight
         cdef SIZE_t* samples = self.samples
         cdef SIZE_t pos = self.pos
@@ -219,6 +239,12 @@ cdef class UnSupervisedClassificationCriterion(Criterion):
         self.weighted_n_left += diff_w
         self.weighted_n_right -= diff_w
         
+        # +NEW
+        for p in range(pos, new_pos):
+            self.covl.update_add(X + samples[p] * X_stride)
+            self.covr.update_sub(X + samples[p] * X_stride)
+        # -NEW
+        
         self.pos = new_pos
 
     cdef double node_impurity(self) nogil:
@@ -229,9 +255,15 @@ cdef class UnSupervisedClassificationCriterion(Criterion):
         cdef double entropy = 0.0
         cdef DTYPE_t* S = self.S
         
-        #!TODO: Remove the "with gil:" here, when differential_entropy finally nogil function
-        with gil:
-            entropy = self.differential_entropy(S + start * X_stride, n_node_samples) # src, n_samples
+        # +OLD
+        #with gil:
+        #    entropy = self.differential_entropy(S + start * X_stride, n_node_samples) # src, n_samples
+        # -OLD
+        
+        # +NEW
+        self.covr.compute_covariance_matrix()
+        entropy = self.covr.logdet()
+        # -NEW 
         
         return entropy
 
@@ -243,10 +275,20 @@ cdef class UnSupervisedClassificationCriterion(Criterion):
         cdef SIZE_t X_stride = self.X_stride
         cdef DTYPE_t* S = self.S
         
-        #!TODO: Remove the "with gil:" here, when differential_entropy finally nogil function
-        with gil:
-            impurity_left[0] = self.differential_entropy(S + start * X_stride, pos - start)
-            impurity_right[0] = self.differential_entropy(S + pos * X_stride, end - pos)
+        # +OLD
+        #with gil:
+        #    impurity_left[0] = self.differential_entropy(S + start * X_stride, pos - start)
+        #    impurity_right[0] = self.differential_entropy(S + pos * X_stride, end - pos)
+        # -OLD
+        
+        # +NEW
+        self.covl.compute_covariance_matrix()
+        impurity_left[0] = self.covl.logdet()
+    
+        self.covr.compute_covariance_matrix()
+        impurity_right[0] = self.covr.logdet()
+        # -NEW 
+        
 
     cdef void node_value(self, double* dest) nogil:
         """Compute the node value of samples[start:end] into dest."""
@@ -337,6 +379,9 @@ cdef class UnSupervisedClassificationCriterion(Criterion):
         #!TODO: Place here my dynstatcov and make function nogil
         # compute the differential entropy using numpy
         cov = np.cov(arr, rowvar=0, ddof=1)
+        
+        cdef SIZE_t n_features = self.n_features
+        #print 'ncov:', cov[np.triu_indices(n_features)]
         
         #alpha = self.n_node_samples/(self.n_node_samples + self.effprior)
         #cov *= alpha
