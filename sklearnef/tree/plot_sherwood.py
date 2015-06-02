@@ -20,7 +20,7 @@ __version__ = "r0.1.0, 2015-05-18"
 __email__ = "oskar.maier@googlemail.com"
 __status__ = "Release"
 __description__ = """
-Plot an example of Microsoft sherwood library.
+Plot an example of Microsofts sherwood library.
 """
 
 # code
@@ -33,7 +33,7 @@ def main():
         raise Exception("Can only plot 2D datasets.")
     
     # train forest
-    clf = UnSupervisedDecisionTreeClassifier(random_state=0)
+    clf = UnSupervisedDecisionTreeClassifier(random_state=0, min_samples_leaf=20)
     clf.fit(data)
     
     # generate plot grid
@@ -58,11 +58,34 @@ def main():
     CS = plt.contourf(x,y,z.T,100,cmap=plt.cm.PiYG)
     plt.colorbar()
     
-    plt.scatter(data[:,0], data[:,1])
+    plt.scatter(data[:,0], data[:,1], alpha=0.2)
     
     plt.xlim(min(x), max(x))
     plt.ylim(min(y), max(y))
     plt.title('Learned density distribution of: {}'.format(args.dataset))
+    
+    # plot split-lines
+    info = clf.parse_tree_leaves()
+    xmin, xmax = min(x), max(x)
+    ymin, ymax = min(y), max(y)
+    hlines = ([], [], [])
+    vlines = ([], [], [])
+    for node in info:
+        if node is not None: # leave node
+            for pos in node['range'][0]: # xrange
+                if not numpy.isinf(pos):
+                    xliml, xlimr = node['range'][1]
+                    vlines[0].append(pos)
+                    vlines[1].append(ymin if numpy.isinf(xliml) else xliml)
+                    vlines[2].append(ymax if numpy.isinf(xlimr) else xlimr)
+            for pos in node['range'][1]: # xrange
+                if not numpy.isinf(pos):
+                    yliml, ylimr = node['range'][0]
+                    hlines[0].append(pos)
+                    hlines[1].append(xmin if numpy.isinf(yliml) else yliml)
+                    hlines[2].append(xmax if numpy.isinf(ylimr) else ylimr)
+    plt.hlines(hlines[0], hlines[1], hlines[2], colors='blue', linestyles='dotted')
+    plt.vlines(vlines[0], vlines[1], vlines[2], colors='blue', linestyles='dotted')
     
     plt.show()
 

@@ -1103,7 +1103,7 @@ struct __pyx_obj_9sklearnef_4tree_5_tree_BestSplitter {
 };
 
 
-/* "sklearnef/tree/_tree.pyx":267
+/* "sklearnef/tree/_tree.pyx":271
  * #     return (n * n + n) / 2
  * 
  * cdef class LabeledOnlyEntropy(Entropy):             # <<<<<<<<<<<<<<
@@ -1115,7 +1115,7 @@ struct __pyx_obj_9sklearnef_4tree_5_tree_LabeledOnlyEntropy {
 };
 
 
-/* "sklearnef/tree/_tree.pyx":380
+/* "sklearnef/tree/_tree.pyx":384
  * # =============================================================================
  * 
  * cdef class UnSupervisedBestSplitter(BestSplitter):             # <<<<<<<<<<<<<<
@@ -1294,7 +1294,7 @@ struct __pyx_vtabstruct_9sklearnef_4tree_5_tree_BestSplitter {
 static struct __pyx_vtabstruct_9sklearnef_4tree_5_tree_BestSplitter *__pyx_vtabptr_9sklearnef_4tree_5_tree_BestSplitter;
 
 
-/* "sklearnef/tree/_tree.pyx":267
+/* "sklearnef/tree/_tree.pyx":271
  * #     return (n * n + n) / 2
  * 
  * cdef class LabeledOnlyEntropy(Entropy):             # <<<<<<<<<<<<<<
@@ -1308,7 +1308,7 @@ struct __pyx_vtabstruct_9sklearnef_4tree_5_tree_LabeledOnlyEntropy {
 static struct __pyx_vtabstruct_9sklearnef_4tree_5_tree_LabeledOnlyEntropy *__pyx_vtabptr_9sklearnef_4tree_5_tree_LabeledOnlyEntropy;
 
 
-/* "sklearnef/tree/_tree.pyx":380
+/* "sklearnef/tree/_tree.pyx":384
  * # =============================================================================
  * 
  * cdef class UnSupervisedBestSplitter(BestSplitter):             # <<<<<<<<<<<<<<
@@ -2857,23 +2857,23 @@ static void __pyx_f_9sklearnef_4tree_5_tree_35UnSupervisedClassificationCriterio
  * 
  *     cdef double node_impurity(self) nogil:             # <<<<<<<<<<<<<<
  *         """Compute the impurity of the current node."""
- *         cdef double entropy = 0.0
+ *         # NOTE: The builders call this function only once for the first node.
  */
 
 static double __pyx_f_9sklearnef_4tree_5_tree_35UnSupervisedClassificationCriterion_node_impurity(struct __pyx_obj_9sklearnef_4tree_5_tree_UnSupervisedClassificationCriterion *__pyx_v_self) {
   double __pyx_v_entropy;
   double __pyx_r;
 
-  /* "sklearnef/tree/_tree.pyx":182
- *     cdef double node_impurity(self) nogil:
- *         """Compute the impurity of the current node."""
+  /* "sklearnef/tree/_tree.pyx":186
+ *         #       single use.
+ * 
  *         cdef double entropy = 0.0             # <<<<<<<<<<<<<<
  * 
  *         self.covr.compute_covariance_matrix()
  */
   __pyx_v_entropy = 0.0;
 
-  /* "sklearnef/tree/_tree.pyx":184
+  /* "sklearnef/tree/_tree.pyx":188
  *         cdef double entropy = 0.0
  * 
  *         self.covr.compute_covariance_matrix()             # <<<<<<<<<<<<<<
@@ -2882,7 +2882,7 @@ static double __pyx_f_9sklearnef_4tree_5_tree_35UnSupervisedClassificationCriter
  */
   ((struct __pyx_vtabstruct_9sklearnef_4tree_12_diffentropy_Diffentropy *)__pyx_v_self->covr->__pyx_vtab)->compute_covariance_matrix(__pyx_v_self->covr);
 
-  /* "sklearnef/tree/_tree.pyx":185
+  /* "sklearnef/tree/_tree.pyx":189
  * 
  *         self.covr.compute_covariance_matrix()
  *         entropy = self.covr.logdet()             # <<<<<<<<<<<<<<
@@ -2891,7 +2891,7 @@ static double __pyx_f_9sklearnef_4tree_5_tree_35UnSupervisedClassificationCriter
  */
   __pyx_v_entropy = ((struct __pyx_vtabstruct_9sklearnef_4tree_12_diffentropy_Diffentropy *)__pyx_v_self->covr->__pyx_vtab)->logdet(__pyx_v_self->covr);
 
-  /* "sklearnef/tree/_tree.pyx":187
+  /* "sklearnef/tree/_tree.pyx":191
  *         entropy = self.covr.logdet()
  * 
  *         return entropy             # <<<<<<<<<<<<<<
@@ -2906,7 +2906,7 @@ static double __pyx_f_9sklearnef_4tree_5_tree_35UnSupervisedClassificationCriter
  * 
  *     cdef double node_impurity(self) nogil:             # <<<<<<<<<<<<<<
  *         """Compute the impurity of the current node."""
- *         cdef double entropy = 0.0
+ *         # NOTE: The builders call this function only once for the first node.
  */
 
   /* function exit code */
@@ -2914,7 +2914,7 @@ static double __pyx_f_9sklearnef_4tree_5_tree_35UnSupervisedClassificationCriter
   return __pyx_r;
 }
 
-/* "sklearnef/tree/_tree.pyx":189
+/* "sklearnef/tree/_tree.pyx":193
  *         return entropy
  * 
  *     cdef void children_impurity(self, double* impurity_left,             # <<<<<<<<<<<<<<
@@ -2924,7 +2924,7 @@ static double __pyx_f_9sklearnef_4tree_5_tree_35UnSupervisedClassificationCriter
 
 static void __pyx_f_9sklearnef_4tree_5_tree_35UnSupervisedClassificationCriterion_children_impurity(struct __pyx_obj_9sklearnef_4tree_5_tree_UnSupervisedClassificationCriterion *__pyx_v_self, double *__pyx_v_impurity_left, double *__pyx_v_impurity_right) {
 
-  /* "sklearnef/tree/_tree.pyx":191
+  /* "sklearnef/tree/_tree.pyx":195
  *     cdef void children_impurity(self, double* impurity_left,
  *                                 double* impurity_right) nogil:
  *         self.covl.compute_covariance_matrix()             # <<<<<<<<<<<<<<
@@ -2933,7 +2933,7 @@ static void __pyx_f_9sklearnef_4tree_5_tree_35UnSupervisedClassificationCriterio
  */
   ((struct __pyx_vtabstruct_9sklearnef_4tree_12_diffentropy_Diffentropy *)__pyx_v_self->covl->__pyx_vtab)->compute_covariance_matrix(__pyx_v_self->covl);
 
-  /* "sklearnef/tree/_tree.pyx":192
+  /* "sklearnef/tree/_tree.pyx":196
  *                                 double* impurity_right) nogil:
  *         self.covl.compute_covariance_matrix()
  *         impurity_left[0] = self.covl.logdet()             # <<<<<<<<<<<<<<
@@ -2942,7 +2942,7 @@ static void __pyx_f_9sklearnef_4tree_5_tree_35UnSupervisedClassificationCriterio
  */
   (__pyx_v_impurity_left[0]) = ((struct __pyx_vtabstruct_9sklearnef_4tree_12_diffentropy_Diffentropy *)__pyx_v_self->covl->__pyx_vtab)->logdet(__pyx_v_self->covl);
 
-  /* "sklearnef/tree/_tree.pyx":193
+  /* "sklearnef/tree/_tree.pyx":197
  *         self.covl.compute_covariance_matrix()
  *         impurity_left[0] = self.covl.logdet()
  *         self.covr.compute_covariance_matrix()             # <<<<<<<<<<<<<<
@@ -2951,7 +2951,7 @@ static void __pyx_f_9sklearnef_4tree_5_tree_35UnSupervisedClassificationCriterio
  */
   ((struct __pyx_vtabstruct_9sklearnef_4tree_12_diffentropy_Diffentropy *)__pyx_v_self->covr->__pyx_vtab)->compute_covariance_matrix(__pyx_v_self->covr);
 
-  /* "sklearnef/tree/_tree.pyx":194
+  /* "sklearnef/tree/_tree.pyx":198
  *         impurity_left[0] = self.covl.logdet()
  *         self.covr.compute_covariance_matrix()
  *         impurity_right[0] = self.covr.logdet()             # <<<<<<<<<<<<<<
@@ -2960,7 +2960,7 @@ static void __pyx_f_9sklearnef_4tree_5_tree_35UnSupervisedClassificationCriterio
  */
   (__pyx_v_impurity_right[0]) = ((struct __pyx_vtabstruct_9sklearnef_4tree_12_diffentropy_Diffentropy *)__pyx_v_self->covr->__pyx_vtab)->logdet(__pyx_v_self->covr);
 
-  /* "sklearnef/tree/_tree.pyx":189
+  /* "sklearnef/tree/_tree.pyx":193
  *         return entropy
  * 
  *     cdef void children_impurity(self, double* impurity_left,             # <<<<<<<<<<<<<<
@@ -2971,7 +2971,7 @@ static void __pyx_f_9sklearnef_4tree_5_tree_35UnSupervisedClassificationCriterio
   /* function exit code */
 }
 
-/* "sklearnef/tree/_tree.pyx":196
+/* "sklearnef/tree/_tree.pyx":200
  *         impurity_right[0] = self.covr.logdet()
  * 
  *     cdef void node_value(self, double* dest) nogil:             # <<<<<<<<<<<<<<
@@ -2990,7 +2990,7 @@ static void __pyx_f_9sklearnef_4tree_5_tree_35UnSupervisedClassificationCriterio
   double __pyx_t_2;
   __pyx_t_9sklearnef_4tree_12_diffentropy_DTYPE_t *__pyx_t_3;
 
-  /* "sklearnef/tree/_tree.pyx":221
+  /* "sklearnef/tree/_tree.pyx":225
  * 
  *         cdef:
  *             SIZE_t n_features = self.n_features             # <<<<<<<<<<<<<<
@@ -3000,7 +3000,7 @@ static void __pyx_f_9sklearnef_4tree_5_tree_35UnSupervisedClassificationCriterio
   __pyx_t_1 = __pyx_v_self->n_features;
   __pyx_v_n_features = __pyx_t_1;
 
-  /* "sklearnef/tree/_tree.pyx":222
+  /* "sklearnef/tree/_tree.pyx":226
  *         cdef:
  *             SIZE_t n_features = self.n_features
  *             DOUBLE_t weighted_n_node_samples = self.weighted_n_node_samples             # <<<<<<<<<<<<<<
@@ -3010,7 +3010,7 @@ static void __pyx_f_9sklearnef_4tree_5_tree_35UnSupervisedClassificationCriterio
   __pyx_t_2 = __pyx_v_self->__pyx_base.weighted_n_node_samples;
   __pyx_v_weighted_n_node_samples = __pyx_t_2;
 
-  /* "sklearnef/tree/_tree.pyx":223
+  /* "sklearnef/tree/_tree.pyx":227
  *             SIZE_t n_features = self.n_features
  *             DOUBLE_t weighted_n_node_samples = self.weighted_n_node_samples
  *             DOUBLE_t weighted_n_samples = self.weighted_n_samples             # <<<<<<<<<<<<<<
@@ -3020,7 +3020,7 @@ static void __pyx_f_9sklearnef_4tree_5_tree_35UnSupervisedClassificationCriterio
   __pyx_t_2 = __pyx_v_self->__pyx_base.weighted_n_samples;
   __pyx_v_weighted_n_samples = __pyx_t_2;
 
-  /* "sklearnef/tree/_tree.pyx":224
+  /* "sklearnef/tree/_tree.pyx":228
  *             DOUBLE_t weighted_n_node_samples = self.weighted_n_node_samples
  *             DOUBLE_t weighted_n_samples = self.weighted_n_samples
  *             DOUBLE_t frac = 0.             # <<<<<<<<<<<<<<
@@ -3029,7 +3029,7 @@ static void __pyx_f_9sklearnef_4tree_5_tree_35UnSupervisedClassificationCriterio
  */
   __pyx_v_frac = 0.;
 
-  /* "sklearnef/tree/_tree.pyx":225
+  /* "sklearnef/tree/_tree.pyx":229
  *             DOUBLE_t weighted_n_samples = self.weighted_n_samples
  *             DOUBLE_t frac = 0.
  *             DOUBLE_t* cov = NULL             # <<<<<<<<<<<<<<
@@ -3038,7 +3038,7 @@ static void __pyx_f_9sklearnef_4tree_5_tree_35UnSupervisedClassificationCriterio
  */
   __pyx_v_cov = NULL;
 
-  /* "sklearnef/tree/_tree.pyx":226
+  /* "sklearnef/tree/_tree.pyx":230
  *             DOUBLE_t frac = 0.
  *             DOUBLE_t* cov = NULL
  *             DOUBLE_t* mu = NULL             # <<<<<<<<<<<<<<
@@ -3047,7 +3047,7 @@ static void __pyx_f_9sklearnef_4tree_5_tree_35UnSupervisedClassificationCriterio
  */
   __pyx_v_mu = NULL;
 
-  /* "sklearnef/tree/_tree.pyx":229
+  /* "sklearnef/tree/_tree.pyx":233
  * 
  *         # reset, such that all samples in right sided cov containes
  *         self.reset()             # <<<<<<<<<<<<<<
@@ -3056,7 +3056,7 @@ static void __pyx_f_9sklearnef_4tree_5_tree_35UnSupervisedClassificationCriterio
  */
   ((struct __pyx_vtabstruct_9sklearnef_4tree_5_tree_UnSupervisedClassificationCriterion *)__pyx_v_self->__pyx_base.__pyx_vtab)->__pyx_base.reset(((struct __pyx_obj_7sklearn_4tree_5_tree_Criterion *)__pyx_v_self));
 
-  /* "sklearnef/tree/_tree.pyx":232
+  /* "sklearnef/tree/_tree.pyx":236
  * 
  *         # trigger cov computation
  *         self.covr.compute_covariance_matrix()             # <<<<<<<<<<<<<<
@@ -3065,7 +3065,7 @@ static void __pyx_f_9sklearnef_4tree_5_tree_35UnSupervisedClassificationCriterio
  */
   ((struct __pyx_vtabstruct_9sklearnef_4tree_12_diffentropy_Diffentropy *)__pyx_v_self->covr->__pyx_vtab)->compute_covariance_matrix(__pyx_v_self->covr);
 
-  /* "sklearnef/tree/_tree.pyx":235
+  /* "sklearnef/tree/_tree.pyx":239
  * 
  *         # fetch cov, mean and fraction of samples in node
  *         cov = self.covr.cov             # <<<<<<<<<<<<<<
@@ -3075,7 +3075,7 @@ static void __pyx_f_9sklearnef_4tree_5_tree_35UnSupervisedClassificationCriterio
   __pyx_t_3 = __pyx_v_self->covr->cov;
   __pyx_v_cov = __pyx_t_3;
 
-  /* "sklearnef/tree/_tree.pyx":236
+  /* "sklearnef/tree/_tree.pyx":240
  *         # fetch cov, mean and fraction of samples in node
  *         cov = self.covr.cov
  *         mu = self.covr.__mean             # <<<<<<<<<<<<<<
@@ -3085,7 +3085,7 @@ static void __pyx_f_9sklearnef_4tree_5_tree_35UnSupervisedClassificationCriterio
   __pyx_t_3 = __pyx_v_self->covr->__pyx___mean;
   __pyx_v_mu = __pyx_t_3;
 
-  /* "sklearnef/tree/_tree.pyx":237
+  /* "sklearnef/tree/_tree.pyx":241
  *         cov = self.covr.cov
  *         mu = self.covr.__mean
  *         frac = weighted_n_node_samples / weighted_n_samples             # <<<<<<<<<<<<<<
@@ -3094,7 +3094,7 @@ static void __pyx_f_9sklearnef_4tree_5_tree_35UnSupervisedClassificationCriterio
  */
   __pyx_v_frac = (__pyx_v_weighted_n_node_samples / __pyx_v_weighted_n_samples);
 
-  /* "sklearnef/tree/_tree.pyx":240
+  /* "sklearnef/tree/_tree.pyx":244
  * 
  *         # copy data to target memory
  *         memcpy(dest, &frac, sizeof(DOUBLE_t))             # <<<<<<<<<<<<<<
@@ -3103,7 +3103,7 @@ static void __pyx_f_9sklearnef_4tree_5_tree_35UnSupervisedClassificationCriterio
  */
   memcpy(__pyx_v_dest, (&__pyx_v_frac), (sizeof(__pyx_t_9sklearnef_4tree_5_tree_DOUBLE_t)));
 
-  /* "sklearnef/tree/_tree.pyx":241
+  /* "sklearnef/tree/_tree.pyx":245
  *         # copy data to target memory
  *         memcpy(dest, &frac, sizeof(DOUBLE_t))
  *         dest += 1             # <<<<<<<<<<<<<<
@@ -3112,7 +3112,7 @@ static void __pyx_f_9sklearnef_4tree_5_tree_35UnSupervisedClassificationCriterio
  */
   __pyx_v_dest = (__pyx_v_dest + 1);
 
-  /* "sklearnef/tree/_tree.pyx":242
+  /* "sklearnef/tree/_tree.pyx":246
  *         memcpy(dest, &frac, sizeof(DOUBLE_t))
  *         dest += 1
  *         upper_to_matrix(dest, cov, n_features) #!TODO: this can actually be stored in upper triangular format             # <<<<<<<<<<<<<<
@@ -3121,7 +3121,7 @@ static void __pyx_f_9sklearnef_4tree_5_tree_35UnSupervisedClassificationCriterio
  */
   __pyx_f_9sklearnef_4tree_5_tree_upper_to_matrix(__pyx_v_dest, __pyx_v_cov, __pyx_v_n_features);
 
-  /* "sklearnef/tree/_tree.pyx":243
+  /* "sklearnef/tree/_tree.pyx":247
  *         dest += 1
  *         upper_to_matrix(dest, cov, n_features) #!TODO: this can actually be stored in upper triangular format
  *         dest += n_features * n_features             # <<<<<<<<<<<<<<
@@ -3130,7 +3130,7 @@ static void __pyx_f_9sklearnef_4tree_5_tree_35UnSupervisedClassificationCriterio
  */
   __pyx_v_dest = (__pyx_v_dest + (__pyx_v_n_features * __pyx_v_n_features));
 
-  /* "sklearnef/tree/_tree.pyx":244
+  /* "sklearnef/tree/_tree.pyx":248
  *         upper_to_matrix(dest, cov, n_features) #!TODO: this can actually be stored in upper triangular format
  *         dest += n_features * n_features
  *         memcpy(dest, mu, n_features * sizeof(DOUBLE_t))             # <<<<<<<<<<<<<<
@@ -3139,7 +3139,7 @@ static void __pyx_f_9sklearnef_4tree_5_tree_35UnSupervisedClassificationCriterio
  */
   memcpy(__pyx_v_dest, __pyx_v_mu, (__pyx_v_n_features * (sizeof(__pyx_t_9sklearnef_4tree_5_tree_DOUBLE_t))));
 
-  /* "sklearnef/tree/_tree.pyx":196
+  /* "sklearnef/tree/_tree.pyx":200
  *         impurity_right[0] = self.covr.logdet()
  * 
  *     cdef void node_value(self, double* dest) nogil:             # <<<<<<<<<<<<<<
@@ -3150,7 +3150,7 @@ static void __pyx_f_9sklearnef_4tree_5_tree_35UnSupervisedClassificationCriterio
   /* function exit code */
 }
 
-/* "sklearnef/tree/_tree.pyx":247
+/* "sklearnef/tree/_tree.pyx":251
  * 
  * 
  * cdef inline void upper_to_matrix(DOUBLE_t* X, DOUBLE_t* Y, SIZE_t length) nogil:             # <<<<<<<<<<<<<<
@@ -3166,7 +3166,7 @@ static CYTHON_INLINE void __pyx_f_9sklearnef_4tree_5_tree_upper_to_matrix(__pyx_
   __pyx_t_9sklearnef_4tree_5_tree_SIZE_t __pyx_t_3;
   __pyx_t_9sklearnef_4tree_5_tree_SIZE_t __pyx_t_4;
 
-  /* "sklearnef/tree/_tree.pyx":249
+  /* "sklearnef/tree/_tree.pyx":253
  * cdef inline void upper_to_matrix(DOUBLE_t* X, DOUBLE_t* Y, SIZE_t length) nogil:
  *     "Convert the upper triangular matrix Y to full matrix X assuming symmetry."
  *     cdef SIZE_t p1 = 0             # <<<<<<<<<<<<<<
@@ -3175,7 +3175,7 @@ static CYTHON_INLINE void __pyx_f_9sklearnef_4tree_5_tree_upper_to_matrix(__pyx_
  */
   __pyx_v_p1 = 0;
 
-  /* "sklearnef/tree/_tree.pyx":250
+  /* "sklearnef/tree/_tree.pyx":254
  *     "Convert the upper triangular matrix Y to full matrix X assuming symmetry."
  *     cdef SIZE_t p1 = 0
  *     cdef SIZE_t p2 = 0             # <<<<<<<<<<<<<<
@@ -3184,7 +3184,7 @@ static CYTHON_INLINE void __pyx_f_9sklearnef_4tree_5_tree_upper_to_matrix(__pyx_
  */
   __pyx_v_p2 = 0;
 
-  /* "sklearnef/tree/_tree.pyx":253
+  /* "sklearnef/tree/_tree.pyx":257
  * 
  *     # first copy existing elements to upper
  *     for p1 in range(length):             # <<<<<<<<<<<<<<
@@ -3195,7 +3195,7 @@ static CYTHON_INLINE void __pyx_f_9sklearnef_4tree_5_tree_upper_to_matrix(__pyx_
   for (__pyx_t_2 = 0; __pyx_t_2 < __pyx_t_1; __pyx_t_2+=1) {
     __pyx_v_p1 = __pyx_t_2;
 
-    /* "sklearnef/tree/_tree.pyx":254
+    /* "sklearnef/tree/_tree.pyx":258
  *     # first copy existing elements to upper
  *     for p1 in range(length):
  *         for p2 in range(p1, length):             # <<<<<<<<<<<<<<
@@ -3206,7 +3206,7 @@ static CYTHON_INLINE void __pyx_f_9sklearnef_4tree_5_tree_upper_to_matrix(__pyx_
     for (__pyx_t_4 = __pyx_v_p1; __pyx_t_4 < __pyx_t_3; __pyx_t_4+=1) {
       __pyx_v_p2 = __pyx_t_4;
 
-      /* "sklearnef/tree/_tree.pyx":255
+      /* "sklearnef/tree/_tree.pyx":259
  *     for p1 in range(length):
  *         for p2 in range(p1, length):
  *             X[p2 + p1 * length] = Y[0]             # <<<<<<<<<<<<<<
@@ -3215,7 +3215,7 @@ static CYTHON_INLINE void __pyx_f_9sklearnef_4tree_5_tree_upper_to_matrix(__pyx_
  */
       (__pyx_v_X[(__pyx_v_p2 + (__pyx_v_p1 * __pyx_v_length))]) = (__pyx_v_Y[0]);
 
-      /* "sklearnef/tree/_tree.pyx":256
+      /* "sklearnef/tree/_tree.pyx":260
  *         for p2 in range(p1, length):
  *             X[p2 + p1 * length] = Y[0]
  *             Y += 1             # <<<<<<<<<<<<<<
@@ -3226,7 +3226,7 @@ static CYTHON_INLINE void __pyx_f_9sklearnef_4tree_5_tree_upper_to_matrix(__pyx_
     }
   }
 
-  /* "sklearnef/tree/_tree.pyx":259
+  /* "sklearnef/tree/_tree.pyx":263
  * 
  *     # copy triangular symmetric elements from upper to lower (excluding diagonal)
  *     for p1 in range(1, length):             # <<<<<<<<<<<<<<
@@ -3237,7 +3237,7 @@ static CYTHON_INLINE void __pyx_f_9sklearnef_4tree_5_tree_upper_to_matrix(__pyx_
   for (__pyx_t_2 = 1; __pyx_t_2 < __pyx_t_1; __pyx_t_2+=1) {
     __pyx_v_p1 = __pyx_t_2;
 
-    /* "sklearnef/tree/_tree.pyx":260
+    /* "sklearnef/tree/_tree.pyx":264
  *     # copy triangular symmetric elements from upper to lower (excluding diagonal)
  *     for p1 in range(1, length):
  *         for p2 in range(0, p1):             # <<<<<<<<<<<<<<
@@ -3248,7 +3248,7 @@ static CYTHON_INLINE void __pyx_f_9sklearnef_4tree_5_tree_upper_to_matrix(__pyx_
     for (__pyx_t_4 = 0; __pyx_t_4 < __pyx_t_3; __pyx_t_4+=1) {
       __pyx_v_p2 = __pyx_t_4;
 
-      /* "sklearnef/tree/_tree.pyx":261
+      /* "sklearnef/tree/_tree.pyx":265
  *     for p1 in range(1, length):
  *         for p2 in range(0, p1):
  *             X[p2 + p1 * length] = X[p1 + p2 * length]             # <<<<<<<<<<<<<<
@@ -3259,7 +3259,7 @@ static CYTHON_INLINE void __pyx_f_9sklearnef_4tree_5_tree_upper_to_matrix(__pyx_
     }
   }
 
-  /* "sklearnef/tree/_tree.pyx":247
+  /* "sklearnef/tree/_tree.pyx":251
  * 
  * 
  * cdef inline void upper_to_matrix(DOUBLE_t* X, DOUBLE_t* Y, SIZE_t length) nogil:             # <<<<<<<<<<<<<<
@@ -3270,7 +3270,7 @@ static CYTHON_INLINE void __pyx_f_9sklearnef_4tree_5_tree_upper_to_matrix(__pyx_
   /* function exit code */
 }
 
-/* "sklearnef/tree/_tree.pyx":270
+/* "sklearnef/tree/_tree.pyx":274
  *     """Cross Entropy impurity criteria applied to labeled samples only."""
  * 
  *     cdef void init(self, DOUBLE_t* y, SIZE_t y_stride,             # <<<<<<<<<<<<<<
@@ -3300,7 +3300,7 @@ static void __pyx_f_9sklearnef_4tree_5_tree_18LabeledOnlyEntropy_init(struct __p
   __pyx_t_9sklearnef_4tree_5_tree_SIZE_t __pyx_t_8;
   __pyx_t_9sklearnef_4tree_5_tree_SIZE_t __pyx_t_9;
 
-  /* "sklearnef/tree/_tree.pyx":276
+  /* "sklearnef/tree/_tree.pyx":280
  *            children samples[start:start] and samples[start:end]."""
  *         # Initialize fields
  *         self.y = y             # <<<<<<<<<<<<<<
@@ -3309,7 +3309,7 @@ static void __pyx_f_9sklearnef_4tree_5_tree_18LabeledOnlyEntropy_init(struct __p
  */
   __pyx_v_self->__pyx_base.__pyx_base.__pyx_base.y = __pyx_v_y;
 
-  /* "sklearnef/tree/_tree.pyx":277
+  /* "sklearnef/tree/_tree.pyx":281
  *         # Initialize fields
  *         self.y = y
  *         self.y_stride = y_stride             # <<<<<<<<<<<<<<
@@ -3318,7 +3318,7 @@ static void __pyx_f_9sklearnef_4tree_5_tree_18LabeledOnlyEntropy_init(struct __p
  */
   __pyx_v_self->__pyx_base.__pyx_base.__pyx_base.y_stride = __pyx_v_y_stride;
 
-  /* "sklearnef/tree/_tree.pyx":278
+  /* "sklearnef/tree/_tree.pyx":282
  *         self.y = y
  *         self.y_stride = y_stride
  *         self.sample_weight = sample_weight             # <<<<<<<<<<<<<<
@@ -3327,7 +3327,7 @@ static void __pyx_f_9sklearnef_4tree_5_tree_18LabeledOnlyEntropy_init(struct __p
  */
   __pyx_v_self->__pyx_base.__pyx_base.__pyx_base.sample_weight = __pyx_v_sample_weight;
 
-  /* "sklearnef/tree/_tree.pyx":279
+  /* "sklearnef/tree/_tree.pyx":283
  *         self.y_stride = y_stride
  *         self.sample_weight = sample_weight
  *         self.samples = samples             # <<<<<<<<<<<<<<
@@ -3336,7 +3336,7 @@ static void __pyx_f_9sklearnef_4tree_5_tree_18LabeledOnlyEntropy_init(struct __p
  */
   __pyx_v_self->__pyx_base.__pyx_base.__pyx_base.samples = __pyx_v_samples;
 
-  /* "sklearnef/tree/_tree.pyx":280
+  /* "sklearnef/tree/_tree.pyx":284
  *         self.sample_weight = sample_weight
  *         self.samples = samples
  *         self.start = start             # <<<<<<<<<<<<<<
@@ -3345,7 +3345,7 @@ static void __pyx_f_9sklearnef_4tree_5_tree_18LabeledOnlyEntropy_init(struct __p
  */
   __pyx_v_self->__pyx_base.__pyx_base.__pyx_base.start = __pyx_v_start;
 
-  /* "sklearnef/tree/_tree.pyx":281
+  /* "sklearnef/tree/_tree.pyx":285
  *         self.samples = samples
  *         self.start = start
  *         self.end = end             # <<<<<<<<<<<<<<
@@ -3354,7 +3354,7 @@ static void __pyx_f_9sklearnef_4tree_5_tree_18LabeledOnlyEntropy_init(struct __p
  */
   __pyx_v_self->__pyx_base.__pyx_base.__pyx_base.end = __pyx_v_end;
 
-  /* "sklearnef/tree/_tree.pyx":282
+  /* "sklearnef/tree/_tree.pyx":286
  *         self.start = start
  *         self.end = end
  *         self.n_node_samples = end - start             # <<<<<<<<<<<<<<
@@ -3363,7 +3363,7 @@ static void __pyx_f_9sklearnef_4tree_5_tree_18LabeledOnlyEntropy_init(struct __p
  */
   __pyx_v_self->__pyx_base.__pyx_base.__pyx_base.n_node_samples = (__pyx_v_end - __pyx_v_start);
 
-  /* "sklearnef/tree/_tree.pyx":283
+  /* "sklearnef/tree/_tree.pyx":287
  *         self.end = end
  *         self.n_node_samples = end - start
  *         self.weighted_n_samples = weighted_n_samples             # <<<<<<<<<<<<<<
@@ -3372,7 +3372,7 @@ static void __pyx_f_9sklearnef_4tree_5_tree_18LabeledOnlyEntropy_init(struct __p
  */
   __pyx_v_self->__pyx_base.__pyx_base.__pyx_base.weighted_n_samples = __pyx_v_weighted_n_samples;
 
-  /* "sklearnef/tree/_tree.pyx":284
+  /* "sklearnef/tree/_tree.pyx":288
  *         self.n_node_samples = end - start
  *         self.weighted_n_samples = weighted_n_samples
  *         cdef double weighted_n_node_samples = 0.0             # <<<<<<<<<<<<<<
@@ -3381,7 +3381,7 @@ static void __pyx_f_9sklearnef_4tree_5_tree_18LabeledOnlyEntropy_init(struct __p
  */
   __pyx_v_weighted_n_node_samples = 0.0;
 
-  /* "sklearnef/tree/_tree.pyx":287
+  /* "sklearnef/tree/_tree.pyx":291
  * 
  *         # Initialize label_count_total and weighted_n_node_samples
  *         cdef SIZE_t n_outputs = self.n_outputs             # <<<<<<<<<<<<<<
@@ -3391,7 +3391,7 @@ static void __pyx_f_9sklearnef_4tree_5_tree_18LabeledOnlyEntropy_init(struct __p
   __pyx_t_1 = __pyx_v_self->__pyx_base.__pyx_base.__pyx_base.n_outputs;
   __pyx_v_n_outputs = __pyx_t_1;
 
-  /* "sklearnef/tree/_tree.pyx":288
+  /* "sklearnef/tree/_tree.pyx":292
  *         # Initialize label_count_total and weighted_n_node_samples
  *         cdef SIZE_t n_outputs = self.n_outputs
  *         cdef SIZE_t* n_classes = self.n_classes             # <<<<<<<<<<<<<<
@@ -3401,7 +3401,7 @@ static void __pyx_f_9sklearnef_4tree_5_tree_18LabeledOnlyEntropy_init(struct __p
   __pyx_t_2 = __pyx_v_self->__pyx_base.__pyx_base.n_classes;
   __pyx_v_n_classes = __pyx_t_2;
 
-  /* "sklearnef/tree/_tree.pyx":289
+  /* "sklearnef/tree/_tree.pyx":293
  *         cdef SIZE_t n_outputs = self.n_outputs
  *         cdef SIZE_t* n_classes = self.n_classes
  *         cdef SIZE_t label_count_stride = self.label_count_stride             # <<<<<<<<<<<<<<
@@ -3411,7 +3411,7 @@ static void __pyx_f_9sklearnef_4tree_5_tree_18LabeledOnlyEntropy_init(struct __p
   __pyx_t_3 = __pyx_v_self->__pyx_base.__pyx_base.label_count_stride;
   __pyx_v_label_count_stride = __pyx_t_3;
 
-  /* "sklearnef/tree/_tree.pyx":290
+  /* "sklearnef/tree/_tree.pyx":294
  *         cdef SIZE_t* n_classes = self.n_classes
  *         cdef SIZE_t label_count_stride = self.label_count_stride
  *         cdef double* label_count_total = self.label_count_total             # <<<<<<<<<<<<<<
@@ -3421,7 +3421,7 @@ static void __pyx_f_9sklearnef_4tree_5_tree_18LabeledOnlyEntropy_init(struct __p
   __pyx_t_4 = __pyx_v_self->__pyx_base.__pyx_base.label_count_total;
   __pyx_v_label_count_total = __pyx_t_4;
 
-  /* "sklearnef/tree/_tree.pyx":292
+  /* "sklearnef/tree/_tree.pyx":296
  *         cdef double* label_count_total = self.label_count_total
  * 
  *         cdef SIZE_t i = 0             # <<<<<<<<<<<<<<
@@ -3430,7 +3430,7 @@ static void __pyx_f_9sklearnef_4tree_5_tree_18LabeledOnlyEntropy_init(struct __p
  */
   __pyx_v_i = 0;
 
-  /* "sklearnef/tree/_tree.pyx":293
+  /* "sklearnef/tree/_tree.pyx":297
  * 
  *         cdef SIZE_t i = 0
  *         cdef SIZE_t p = 0             # <<<<<<<<<<<<<<
@@ -3439,7 +3439,7 @@ static void __pyx_f_9sklearnef_4tree_5_tree_18LabeledOnlyEntropy_init(struct __p
  */
   __pyx_v_p = 0;
 
-  /* "sklearnef/tree/_tree.pyx":294
+  /* "sklearnef/tree/_tree.pyx":298
  *         cdef SIZE_t i = 0
  *         cdef SIZE_t p = 0
  *         cdef SIZE_t k = 0             # <<<<<<<<<<<<<<
@@ -3448,7 +3448,7 @@ static void __pyx_f_9sklearnef_4tree_5_tree_18LabeledOnlyEntropy_init(struct __p
  */
   __pyx_v_k = 0;
 
-  /* "sklearnef/tree/_tree.pyx":295
+  /* "sklearnef/tree/_tree.pyx":299
  *         cdef SIZE_t p = 0
  *         cdef SIZE_t k = 0
  *         cdef SIZE_t c = 0             # <<<<<<<<<<<<<<
@@ -3457,7 +3457,7 @@ static void __pyx_f_9sklearnef_4tree_5_tree_18LabeledOnlyEntropy_init(struct __p
  */
   __pyx_v_c = 0;
 
-  /* "sklearnef/tree/_tree.pyx":296
+  /* "sklearnef/tree/_tree.pyx":300
  *         cdef SIZE_t k = 0
  *         cdef SIZE_t c = 0
  *         cdef DOUBLE_t w = 1.0             # <<<<<<<<<<<<<<
@@ -3466,7 +3466,7 @@ static void __pyx_f_9sklearnef_4tree_5_tree_18LabeledOnlyEntropy_init(struct __p
  */
   __pyx_v_w = 1.0;
 
-  /* "sklearnef/tree/_tree.pyx":297
+  /* "sklearnef/tree/_tree.pyx":301
  *         cdef SIZE_t c = 0
  *         cdef DOUBLE_t w = 1.0
  *         cdef SIZE_t offset = 0             # <<<<<<<<<<<<<<
@@ -3475,7 +3475,7 @@ static void __pyx_f_9sklearnef_4tree_5_tree_18LabeledOnlyEntropy_init(struct __p
  */
   __pyx_v_offset = 0;
 
-  /* "sklearnef/tree/_tree.pyx":299
+  /* "sklearnef/tree/_tree.pyx":303
  *         cdef SIZE_t offset = 0
  * 
  *         for k in range(n_outputs):             # <<<<<<<<<<<<<<
@@ -3486,7 +3486,7 @@ static void __pyx_f_9sklearnef_4tree_5_tree_18LabeledOnlyEntropy_init(struct __p
   for (__pyx_t_5 = 0; __pyx_t_5 < __pyx_t_3; __pyx_t_5+=1) {
     __pyx_v_k = __pyx_t_5;
 
-    /* "sklearnef/tree/_tree.pyx":300
+    /* "sklearnef/tree/_tree.pyx":304
  * 
  *         for k in range(n_outputs):
  *             memset(label_count_total + offset, 0,             # <<<<<<<<<<<<<<
@@ -3495,7 +3495,7 @@ static void __pyx_f_9sklearnef_4tree_5_tree_18LabeledOnlyEntropy_init(struct __p
  */
     memset((__pyx_v_label_count_total + __pyx_v_offset), 0, ((__pyx_v_n_classes[__pyx_v_k]) * (sizeof(double))));
 
-    /* "sklearnef/tree/_tree.pyx":302
+    /* "sklearnef/tree/_tree.pyx":306
  *             memset(label_count_total + offset, 0,
  *                    n_classes[k] * sizeof(double))
  *             offset += label_count_stride             # <<<<<<<<<<<<<<
@@ -3505,7 +3505,7 @@ static void __pyx_f_9sklearnef_4tree_5_tree_18LabeledOnlyEntropy_init(struct __p
     __pyx_v_offset = (__pyx_v_offset + __pyx_v_label_count_stride);
   }
 
-  /* "sklearnef/tree/_tree.pyx":304
+  /* "sklearnef/tree/_tree.pyx":308
  *             offset += label_count_stride
  * 
  *         for p in range(start, end):             # <<<<<<<<<<<<<<
@@ -3516,7 +3516,7 @@ static void __pyx_f_9sklearnef_4tree_5_tree_18LabeledOnlyEntropy_init(struct __p
   for (__pyx_t_5 = __pyx_v_start; __pyx_t_5 < __pyx_t_3; __pyx_t_5+=1) {
     __pyx_v_p = __pyx_t_5;
 
-    /* "sklearnef/tree/_tree.pyx":305
+    /* "sklearnef/tree/_tree.pyx":309
  * 
  *         for p in range(start, end):
  *             i = samples[p]             # <<<<<<<<<<<<<<
@@ -3525,7 +3525,7 @@ static void __pyx_f_9sklearnef_4tree_5_tree_18LabeledOnlyEntropy_init(struct __p
  */
     __pyx_v_i = (__pyx_v_samples[__pyx_v_p]);
 
-    /* "sklearnef/tree/_tree.pyx":307
+    /* "sklearnef/tree/_tree.pyx":311
  *             i = samples[p]
  * 
  *             if sample_weight != NULL:             # <<<<<<<<<<<<<<
@@ -3535,7 +3535,7 @@ static void __pyx_f_9sklearnef_4tree_5_tree_18LabeledOnlyEntropy_init(struct __p
     __pyx_t_6 = ((__pyx_v_sample_weight != NULL) != 0);
     if (__pyx_t_6) {
 
-      /* "sklearnef/tree/_tree.pyx":308
+      /* "sklearnef/tree/_tree.pyx":312
  * 
  *             if sample_weight != NULL:
  *                 w = sample_weight[i]             # <<<<<<<<<<<<<<
@@ -3547,7 +3547,7 @@ static void __pyx_f_9sklearnef_4tree_5_tree_18LabeledOnlyEntropy_init(struct __p
     }
     __pyx_L7:;
 
-    /* "sklearnef/tree/_tree.pyx":310
+    /* "sklearnef/tree/_tree.pyx":314
  *                 w = sample_weight[i]
  * 
  *             c = <SIZE_t> y[i * y_stride]             # <<<<<<<<<<<<<<
@@ -3556,7 +3556,7 @@ static void __pyx_f_9sklearnef_4tree_5_tree_18LabeledOnlyEntropy_init(struct __p
  */
     __pyx_v_c = ((__pyx_t_9sklearnef_4tree_5_tree_SIZE_t)(__pyx_v_y[(__pyx_v_i * __pyx_v_y_stride)]));
 
-    /* "sklearnef/tree/_tree.pyx":311
+    /* "sklearnef/tree/_tree.pyx":315
  * 
  *             c = <SIZE_t> y[i * y_stride]
  *             if c > 0: # don't consider unlabeled samples; assuming that sample is either for all outputs unlabeled or for all labeled             # <<<<<<<<<<<<<<
@@ -3566,7 +3566,7 @@ static void __pyx_f_9sklearnef_4tree_5_tree_18LabeledOnlyEntropy_init(struct __p
     __pyx_t_6 = ((__pyx_v_c > 0) != 0);
     if (__pyx_t_6) {
 
-      /* "sklearnef/tree/_tree.pyx":312
+      /* "sklearnef/tree/_tree.pyx":316
  *             c = <SIZE_t> y[i * y_stride]
  *             if c > 0: # don't consider unlabeled samples; assuming that sample is either for all outputs unlabeled or for all labeled
  *                 label_count_total[k * label_count_stride + c - 1] += w             # <<<<<<<<<<<<<<
@@ -3576,7 +3576,7 @@ static void __pyx_f_9sklearnef_4tree_5_tree_18LabeledOnlyEntropy_init(struct __p
       __pyx_t_7 = (((__pyx_v_k * __pyx_v_label_count_stride) + __pyx_v_c) - 1);
       (__pyx_v_label_count_total[__pyx_t_7]) = ((__pyx_v_label_count_total[__pyx_t_7]) + __pyx_v_w);
 
-      /* "sklearnef/tree/_tree.pyx":314
+      /* "sklearnef/tree/_tree.pyx":318
  *                 label_count_total[k * label_count_stride + c - 1] += w
  * 
  *                 for k in range(1, n_outputs):             # <<<<<<<<<<<<<<
@@ -3587,7 +3587,7 @@ static void __pyx_f_9sklearnef_4tree_5_tree_18LabeledOnlyEntropy_init(struct __p
       for (__pyx_t_9 = 1; __pyx_t_9 < __pyx_t_8; __pyx_t_9+=1) {
         __pyx_v_k = __pyx_t_9;
 
-        /* "sklearnef/tree/_tree.pyx":315
+        /* "sklearnef/tree/_tree.pyx":319
  * 
  *                 for k in range(1, n_outputs):
  *                     c = <SIZE_t> y[i * y_stride + k]             # <<<<<<<<<<<<<<
@@ -3596,7 +3596,7 @@ static void __pyx_f_9sklearnef_4tree_5_tree_18LabeledOnlyEntropy_init(struct __p
  */
         __pyx_v_c = ((__pyx_t_9sklearnef_4tree_5_tree_SIZE_t)(__pyx_v_y[((__pyx_v_i * __pyx_v_y_stride) + __pyx_v_k)]));
 
-        /* "sklearnef/tree/_tree.pyx":316
+        /* "sklearnef/tree/_tree.pyx":320
  *                 for k in range(1, n_outputs):
  *                     c = <SIZE_t> y[i * y_stride + k]
  *                     label_count_total[k * label_count_stride + c - 1] += w             # <<<<<<<<<<<<<<
@@ -3607,7 +3607,7 @@ static void __pyx_f_9sklearnef_4tree_5_tree_18LabeledOnlyEntropy_init(struct __p
         (__pyx_v_label_count_total[__pyx_t_7]) = ((__pyx_v_label_count_total[__pyx_t_7]) + __pyx_v_w);
       }
 
-      /* "sklearnef/tree/_tree.pyx":318
+      /* "sklearnef/tree/_tree.pyx":322
  *                     label_count_total[k * label_count_stride + c - 1] += w
  * 
  *                 weighted_n_node_samples += w             # <<<<<<<<<<<<<<
@@ -3620,7 +3620,7 @@ static void __pyx_f_9sklearnef_4tree_5_tree_18LabeledOnlyEntropy_init(struct __p
     __pyx_L8:;
   }
 
-  /* "sklearnef/tree/_tree.pyx":319
+  /* "sklearnef/tree/_tree.pyx":323
  * 
  *                 weighted_n_node_samples += w
  *         self.weighted_n_node_samples = weighted_n_node_samples             # <<<<<<<<<<<<<<
@@ -3629,7 +3629,7 @@ static void __pyx_f_9sklearnef_4tree_5_tree_18LabeledOnlyEntropy_init(struct __p
  */
   __pyx_v_self->__pyx_base.__pyx_base.__pyx_base.weighted_n_node_samples = __pyx_v_weighted_n_node_samples;
 
-  /* "sklearnef/tree/_tree.pyx":322
+  /* "sklearnef/tree/_tree.pyx":326
  * 
  *         # Reset to pos=start
  *         self.reset()             # <<<<<<<<<<<<<<
@@ -3638,7 +3638,7 @@ static void __pyx_f_9sklearnef_4tree_5_tree_18LabeledOnlyEntropy_init(struct __p
  */
   ((struct __pyx_vtabstruct_9sklearnef_4tree_5_tree_LabeledOnlyEntropy *)__pyx_v_self->__pyx_base.__pyx_base.__pyx_base.__pyx_vtab)->__pyx_base.__pyx_base.__pyx_base.reset(((struct __pyx_obj_7sklearn_4tree_5_tree_Criterion *)__pyx_v_self));
 
-  /* "sklearnef/tree/_tree.pyx":270
+  /* "sklearnef/tree/_tree.pyx":274
  *     """Cross Entropy impurity criteria applied to labeled samples only."""
  * 
  *     cdef void init(self, DOUBLE_t* y, SIZE_t y_stride,             # <<<<<<<<<<<<<<
@@ -3649,7 +3649,7 @@ static void __pyx_f_9sklearnef_4tree_5_tree_18LabeledOnlyEntropy_init(struct __p
   /* function exit code */
 }
 
-/* "sklearnef/tree/_tree.pyx":324
+/* "sklearnef/tree/_tree.pyx":328
  *         self.reset()
  * 
  *     cdef void update(self, SIZE_t new_pos) nogil:             # <<<<<<<<<<<<<<
@@ -3688,7 +3688,7 @@ static void __pyx_f_9sklearnef_4tree_5_tree_18LabeledOnlyEntropy_update(struct _
   __pyx_t_9sklearnef_4tree_5_tree_SIZE_t __pyx_t_10;
   __pyx_t_9sklearnef_4tree_5_tree_SIZE_t __pyx_t_11;
 
-  /* "sklearnef/tree/_tree.pyx":327
+  /* "sklearnef/tree/_tree.pyx":331
  *         """Update the collected statistics by moving samples[pos:new_pos] from
  *             the right child to the left child."""
  *         cdef DOUBLE_t* y = self.y             # <<<<<<<<<<<<<<
@@ -3698,7 +3698,7 @@ static void __pyx_f_9sklearnef_4tree_5_tree_18LabeledOnlyEntropy_update(struct _
   __pyx_t_1 = __pyx_v_self->__pyx_base.__pyx_base.__pyx_base.y;
   __pyx_v_y = __pyx_t_1;
 
-  /* "sklearnef/tree/_tree.pyx":328
+  /* "sklearnef/tree/_tree.pyx":332
  *             the right child to the left child."""
  *         cdef DOUBLE_t* y = self.y
  *         cdef SIZE_t y_stride = self.y_stride             # <<<<<<<<<<<<<<
@@ -3708,7 +3708,7 @@ static void __pyx_f_9sklearnef_4tree_5_tree_18LabeledOnlyEntropy_update(struct _
   __pyx_t_2 = __pyx_v_self->__pyx_base.__pyx_base.__pyx_base.y_stride;
   __pyx_v_y_stride = __pyx_t_2;
 
-  /* "sklearnef/tree/_tree.pyx":329
+  /* "sklearnef/tree/_tree.pyx":333
  *         cdef DOUBLE_t* y = self.y
  *         cdef SIZE_t y_stride = self.y_stride
  *         cdef DOUBLE_t* sample_weight = self.sample_weight             # <<<<<<<<<<<<<<
@@ -3718,7 +3718,7 @@ static void __pyx_f_9sklearnef_4tree_5_tree_18LabeledOnlyEntropy_update(struct _
   __pyx_t_1 = __pyx_v_self->__pyx_base.__pyx_base.__pyx_base.sample_weight;
   __pyx_v_sample_weight = __pyx_t_1;
 
-  /* "sklearnef/tree/_tree.pyx":331
+  /* "sklearnef/tree/_tree.pyx":335
  *         cdef DOUBLE_t* sample_weight = self.sample_weight
  * 
  *         cdef SIZE_t* samples = self.samples             # <<<<<<<<<<<<<<
@@ -3728,7 +3728,7 @@ static void __pyx_f_9sklearnef_4tree_5_tree_18LabeledOnlyEntropy_update(struct _
   __pyx_t_3 = __pyx_v_self->__pyx_base.__pyx_base.__pyx_base.samples;
   __pyx_v_samples = __pyx_t_3;
 
-  /* "sklearnef/tree/_tree.pyx":332
+  /* "sklearnef/tree/_tree.pyx":336
  * 
  *         cdef SIZE_t* samples = self.samples
  *         cdef SIZE_t pos = self.pos             # <<<<<<<<<<<<<<
@@ -3738,7 +3738,7 @@ static void __pyx_f_9sklearnef_4tree_5_tree_18LabeledOnlyEntropy_update(struct _
   __pyx_t_2 = __pyx_v_self->__pyx_base.__pyx_base.__pyx_base.pos;
   __pyx_v_pos = __pyx_t_2;
 
-  /* "sklearnef/tree/_tree.pyx":334
+  /* "sklearnef/tree/_tree.pyx":338
  *         cdef SIZE_t pos = self.pos
  * 
  *         cdef SIZE_t n_outputs = self.n_outputs             # <<<<<<<<<<<<<<
@@ -3748,7 +3748,7 @@ static void __pyx_f_9sklearnef_4tree_5_tree_18LabeledOnlyEntropy_update(struct _
   __pyx_t_2 = __pyx_v_self->__pyx_base.__pyx_base.__pyx_base.n_outputs;
   __pyx_v_n_outputs = __pyx_t_2;
 
-  /* "sklearnef/tree/_tree.pyx":335
+  /* "sklearnef/tree/_tree.pyx":339
  * 
  *         cdef SIZE_t n_outputs = self.n_outputs
  *         cdef SIZE_t* n_classes = self.n_classes             # <<<<<<<<<<<<<<
@@ -3758,7 +3758,7 @@ static void __pyx_f_9sklearnef_4tree_5_tree_18LabeledOnlyEntropy_update(struct _
   __pyx_t_4 = __pyx_v_self->__pyx_base.__pyx_base.n_classes;
   __pyx_v_n_classes = __pyx_t_4;
 
-  /* "sklearnef/tree/_tree.pyx":336
+  /* "sklearnef/tree/_tree.pyx":340
  *         cdef SIZE_t n_outputs = self.n_outputs
  *         cdef SIZE_t* n_classes = self.n_classes
  *         cdef SIZE_t label_count_stride = self.label_count_stride             # <<<<<<<<<<<<<<
@@ -3768,7 +3768,7 @@ static void __pyx_f_9sklearnef_4tree_5_tree_18LabeledOnlyEntropy_update(struct _
   __pyx_t_5 = __pyx_v_self->__pyx_base.__pyx_base.label_count_stride;
   __pyx_v_label_count_stride = __pyx_t_5;
 
-  /* "sklearnef/tree/_tree.pyx":337
+  /* "sklearnef/tree/_tree.pyx":341
  *         cdef SIZE_t* n_classes = self.n_classes
  *         cdef SIZE_t label_count_stride = self.label_count_stride
  *         cdef double* label_count_total = self.label_count_total             # <<<<<<<<<<<<<<
@@ -3778,7 +3778,7 @@ static void __pyx_f_9sklearnef_4tree_5_tree_18LabeledOnlyEntropy_update(struct _
   __pyx_t_6 = __pyx_v_self->__pyx_base.__pyx_base.label_count_total;
   __pyx_v_label_count_total = __pyx_t_6;
 
-  /* "sklearnef/tree/_tree.pyx":338
+  /* "sklearnef/tree/_tree.pyx":342
  *         cdef SIZE_t label_count_stride = self.label_count_stride
  *         cdef double* label_count_total = self.label_count_total
  *         cdef double* label_count_left = self.label_count_left             # <<<<<<<<<<<<<<
@@ -3788,7 +3788,7 @@ static void __pyx_f_9sklearnef_4tree_5_tree_18LabeledOnlyEntropy_update(struct _
   __pyx_t_6 = __pyx_v_self->__pyx_base.__pyx_base.label_count_left;
   __pyx_v_label_count_left = __pyx_t_6;
 
-  /* "sklearnef/tree/_tree.pyx":339
+  /* "sklearnef/tree/_tree.pyx":343
  *         cdef double* label_count_total = self.label_count_total
  *         cdef double* label_count_left = self.label_count_left
  *         cdef double* label_count_right = self.label_count_right             # <<<<<<<<<<<<<<
@@ -3798,7 +3798,7 @@ static void __pyx_f_9sklearnef_4tree_5_tree_18LabeledOnlyEntropy_update(struct _
   __pyx_t_6 = __pyx_v_self->__pyx_base.__pyx_base.label_count_right;
   __pyx_v_label_count_right = __pyx_t_6;
 
-  /* "sklearnef/tree/_tree.pyx":341
+  /* "sklearnef/tree/_tree.pyx":345
  *         cdef double* label_count_right = self.label_count_right
  * 
  *         cdef SIZE_t i = 0             # <<<<<<<<<<<<<<
@@ -3807,7 +3807,7 @@ static void __pyx_f_9sklearnef_4tree_5_tree_18LabeledOnlyEntropy_update(struct _
  */
   __pyx_v_i = 0;
 
-  /* "sklearnef/tree/_tree.pyx":342
+  /* "sklearnef/tree/_tree.pyx":346
  * 
  *         cdef SIZE_t i = 0
  *         cdef SIZE_t p = 0             # <<<<<<<<<<<<<<
@@ -3816,7 +3816,7 @@ static void __pyx_f_9sklearnef_4tree_5_tree_18LabeledOnlyEntropy_update(struct _
  */
   __pyx_v_p = 0;
 
-  /* "sklearnef/tree/_tree.pyx":343
+  /* "sklearnef/tree/_tree.pyx":347
  *         cdef SIZE_t i = 0
  *         cdef SIZE_t p = 0
  *         cdef SIZE_t c = 0             # <<<<<<<<<<<<<<
@@ -3825,7 +3825,7 @@ static void __pyx_f_9sklearnef_4tree_5_tree_18LabeledOnlyEntropy_update(struct _
  */
   __pyx_v_c = 0;
 
-  /* "sklearnef/tree/_tree.pyx":344
+  /* "sklearnef/tree/_tree.pyx":348
  *         cdef SIZE_t p = 0
  *         cdef SIZE_t c = 0
  *         cdef SIZE_t k = 0             # <<<<<<<<<<<<<<
@@ -3834,7 +3834,7 @@ static void __pyx_f_9sklearnef_4tree_5_tree_18LabeledOnlyEntropy_update(struct _
  */
   __pyx_v_k = 0;
 
-  /* "sklearnef/tree/_tree.pyx":346
+  /* "sklearnef/tree/_tree.pyx":350
  *         cdef SIZE_t k = 0
  *         cdef SIZE_t label_index
  *         cdef DOUBLE_t w = 1.0             # <<<<<<<<<<<<<<
@@ -3843,7 +3843,7 @@ static void __pyx_f_9sklearnef_4tree_5_tree_18LabeledOnlyEntropy_update(struct _
  */
   __pyx_v_w = 1.0;
 
-  /* "sklearnef/tree/_tree.pyx":347
+  /* "sklearnef/tree/_tree.pyx":351
  *         cdef SIZE_t label_index
  *         cdef DOUBLE_t w = 1.0
  *         cdef DOUBLE_t diff_w = 0.0             # <<<<<<<<<<<<<<
@@ -3852,7 +3852,7 @@ static void __pyx_f_9sklearnef_4tree_5_tree_18LabeledOnlyEntropy_update(struct _
  */
   __pyx_v_diff_w = 0.0;
 
-  /* "sklearnef/tree/_tree.pyx":351
+  /* "sklearnef/tree/_tree.pyx":355
  *         # Note: We assume start <= pos < new_pos <= end
  * 
  *         for p in range(pos, new_pos):             # <<<<<<<<<<<<<<
@@ -3863,7 +3863,7 @@ static void __pyx_f_9sklearnef_4tree_5_tree_18LabeledOnlyEntropy_update(struct _
   for (__pyx_t_7 = __pyx_v_pos; __pyx_t_7 < __pyx_t_5; __pyx_t_7+=1) {
     __pyx_v_p = __pyx_t_7;
 
-    /* "sklearnef/tree/_tree.pyx":352
+    /* "sklearnef/tree/_tree.pyx":356
  * 
  *         for p in range(pos, new_pos):
  *             i = samples[p]             # <<<<<<<<<<<<<<
@@ -3872,7 +3872,7 @@ static void __pyx_f_9sklearnef_4tree_5_tree_18LabeledOnlyEntropy_update(struct _
  */
     __pyx_v_i = (__pyx_v_samples[__pyx_v_p]);
 
-    /* "sklearnef/tree/_tree.pyx":354
+    /* "sklearnef/tree/_tree.pyx":358
  *             i = samples[p]
  * 
  *             if sample_weight != NULL:             # <<<<<<<<<<<<<<
@@ -3882,7 +3882,7 @@ static void __pyx_f_9sklearnef_4tree_5_tree_18LabeledOnlyEntropy_update(struct _
     __pyx_t_8 = ((__pyx_v_sample_weight != NULL) != 0);
     if (__pyx_t_8) {
 
-      /* "sklearnef/tree/_tree.pyx":355
+      /* "sklearnef/tree/_tree.pyx":359
  * 
  *             if sample_weight != NULL:
  *                 w = sample_weight[i]             # <<<<<<<<<<<<<<
@@ -3894,7 +3894,7 @@ static void __pyx_f_9sklearnef_4tree_5_tree_18LabeledOnlyEntropy_update(struct _
     }
     __pyx_L5:;
 
-    /* "sklearnef/tree/_tree.pyx":357
+    /* "sklearnef/tree/_tree.pyx":361
  *                 w = sample_weight[i]
  * 
  *             c = <SIZE_t> y[i * y_stride]             # <<<<<<<<<<<<<<
@@ -3903,7 +3903,7 @@ static void __pyx_f_9sklearnef_4tree_5_tree_18LabeledOnlyEntropy_update(struct _
  */
     __pyx_v_c = ((__pyx_t_9sklearnef_4tree_5_tree_SIZE_t)(__pyx_v_y[(__pyx_v_i * __pyx_v_y_stride)]));
 
-    /* "sklearnef/tree/_tree.pyx":358
+    /* "sklearnef/tree/_tree.pyx":362
  * 
  *             c = <SIZE_t> y[i * y_stride]
  *             if c > 0: # don't consider unlabeled samples; assuming that sample is either for all outputs unlabeled or for all labeled             # <<<<<<<<<<<<<<
@@ -3913,7 +3913,7 @@ static void __pyx_f_9sklearnef_4tree_5_tree_18LabeledOnlyEntropy_update(struct _
     __pyx_t_8 = ((__pyx_v_c > 0) != 0);
     if (__pyx_t_8) {
 
-      /* "sklearnef/tree/_tree.pyx":359
+      /* "sklearnef/tree/_tree.pyx":363
  *             c = <SIZE_t> y[i * y_stride]
  *             if c > 0: # don't consider unlabeled samples; assuming that sample is either for all outputs unlabeled or for all labeled
  *                 label_index = k * label_count_stride + c             # <<<<<<<<<<<<<<
@@ -3922,7 +3922,7 @@ static void __pyx_f_9sklearnef_4tree_5_tree_18LabeledOnlyEntropy_update(struct _
  */
       __pyx_v_label_index = ((__pyx_v_k * __pyx_v_label_count_stride) + __pyx_v_c);
 
-      /* "sklearnef/tree/_tree.pyx":360
+      /* "sklearnef/tree/_tree.pyx":364
  *             if c > 0: # don't consider unlabeled samples; assuming that sample is either for all outputs unlabeled or for all labeled
  *                 label_index = k * label_count_stride + c
  *                 label_count_left[label_index] += w             # <<<<<<<<<<<<<<
@@ -3932,7 +3932,7 @@ static void __pyx_f_9sklearnef_4tree_5_tree_18LabeledOnlyEntropy_update(struct _
       __pyx_t_9 = __pyx_v_label_index;
       (__pyx_v_label_count_left[__pyx_t_9]) = ((__pyx_v_label_count_left[__pyx_t_9]) + __pyx_v_w);
 
-      /* "sklearnef/tree/_tree.pyx":361
+      /* "sklearnef/tree/_tree.pyx":365
  *                 label_index = k * label_count_stride + c
  *                 label_count_left[label_index] += w
  *                 label_count_right[label_index] -= w             # <<<<<<<<<<<<<<
@@ -3942,7 +3942,7 @@ static void __pyx_f_9sklearnef_4tree_5_tree_18LabeledOnlyEntropy_update(struct _
       __pyx_t_9 = __pyx_v_label_index;
       (__pyx_v_label_count_right[__pyx_t_9]) = ((__pyx_v_label_count_right[__pyx_t_9]) - __pyx_v_w);
 
-      /* "sklearnef/tree/_tree.pyx":363
+      /* "sklearnef/tree/_tree.pyx":367
  *                 label_count_right[label_index] -= w
  * 
  *                 for k in range(1, n_outputs):             # <<<<<<<<<<<<<<
@@ -3953,7 +3953,7 @@ static void __pyx_f_9sklearnef_4tree_5_tree_18LabeledOnlyEntropy_update(struct _
       for (__pyx_t_10 = 1; __pyx_t_10 < __pyx_t_9; __pyx_t_10+=1) {
         __pyx_v_k = __pyx_t_10;
 
-        /* "sklearnef/tree/_tree.pyx":364
+        /* "sklearnef/tree/_tree.pyx":368
  * 
  *                 for k in range(1, n_outputs):
  *                     label_index = (k * label_count_stride +             # <<<<<<<<<<<<<<
@@ -3962,7 +3962,7 @@ static void __pyx_f_9sklearnef_4tree_5_tree_18LabeledOnlyEntropy_update(struct _
  */
         __pyx_v_label_index = ((__pyx_v_k * __pyx_v_label_count_stride) + ((__pyx_t_9sklearnef_4tree_5_tree_SIZE_t)(__pyx_v_y[((__pyx_v_i * __pyx_v_y_stride) + __pyx_v_k)])));
 
-        /* "sklearnef/tree/_tree.pyx":366
+        /* "sklearnef/tree/_tree.pyx":370
  *                     label_index = (k * label_count_stride +
  *                                    <SIZE_t> y[i * y_stride + k])
  *                     label_count_left[label_index] += w             # <<<<<<<<<<<<<<
@@ -3972,7 +3972,7 @@ static void __pyx_f_9sklearnef_4tree_5_tree_18LabeledOnlyEntropy_update(struct _
         __pyx_t_11 = __pyx_v_label_index;
         (__pyx_v_label_count_left[__pyx_t_11]) = ((__pyx_v_label_count_left[__pyx_t_11]) + __pyx_v_w);
 
-        /* "sklearnef/tree/_tree.pyx":367
+        /* "sklearnef/tree/_tree.pyx":371
  *                                    <SIZE_t> y[i * y_stride + k])
  *                     label_count_left[label_index] += w
  *                     label_count_right[label_index] -= w             # <<<<<<<<<<<<<<
@@ -3983,7 +3983,7 @@ static void __pyx_f_9sklearnef_4tree_5_tree_18LabeledOnlyEntropy_update(struct _
         (__pyx_v_label_count_right[__pyx_t_11]) = ((__pyx_v_label_count_right[__pyx_t_11]) - __pyx_v_w);
       }
 
-      /* "sklearnef/tree/_tree.pyx":369
+      /* "sklearnef/tree/_tree.pyx":373
  *                     label_count_right[label_index] -= w
  * 
  *                 diff_w += w             # <<<<<<<<<<<<<<
@@ -3996,7 +3996,7 @@ static void __pyx_f_9sklearnef_4tree_5_tree_18LabeledOnlyEntropy_update(struct _
     __pyx_L6:;
   }
 
-  /* "sklearnef/tree/_tree.pyx":371
+  /* "sklearnef/tree/_tree.pyx":375
  *                 diff_w += w
  * 
  *         self.weighted_n_left += diff_w             # <<<<<<<<<<<<<<
@@ -4005,7 +4005,7 @@ static void __pyx_f_9sklearnef_4tree_5_tree_18LabeledOnlyEntropy_update(struct _
  */
   __pyx_v_self->__pyx_base.__pyx_base.__pyx_base.weighted_n_left = (__pyx_v_self->__pyx_base.__pyx_base.__pyx_base.weighted_n_left + __pyx_v_diff_w);
 
-  /* "sklearnef/tree/_tree.pyx":372
+  /* "sklearnef/tree/_tree.pyx":376
  * 
  *         self.weighted_n_left += diff_w
  *         self.weighted_n_right -= diff_w             # <<<<<<<<<<<<<<
@@ -4014,7 +4014,7 @@ static void __pyx_f_9sklearnef_4tree_5_tree_18LabeledOnlyEntropy_update(struct _
  */
   __pyx_v_self->__pyx_base.__pyx_base.__pyx_base.weighted_n_right = (__pyx_v_self->__pyx_base.__pyx_base.__pyx_base.weighted_n_right - __pyx_v_diff_w);
 
-  /* "sklearnef/tree/_tree.pyx":374
+  /* "sklearnef/tree/_tree.pyx":378
  *         self.weighted_n_right -= diff_w
  * 
  *         self.pos = new_pos             # <<<<<<<<<<<<<<
@@ -4023,7 +4023,7 @@ static void __pyx_f_9sklearnef_4tree_5_tree_18LabeledOnlyEntropy_update(struct _
  */
   __pyx_v_self->__pyx_base.__pyx_base.__pyx_base.pos = __pyx_v_new_pos;
 
-  /* "sklearnef/tree/_tree.pyx":324
+  /* "sklearnef/tree/_tree.pyx":328
  *         self.reset()
  * 
  *     cdef void update(self, SIZE_t new_pos) nogil:             # <<<<<<<<<<<<<<
@@ -4034,7 +4034,7 @@ static void __pyx_f_9sklearnef_4tree_5_tree_18LabeledOnlyEntropy_update(struct _
   /* function exit code */
 }
 
-/* "sklearnef/tree/_tree.pyx":384
+/* "sklearnef/tree/_tree.pyx":388
  *     cdef UnSupervisedClassificationCriterion criterion_real
  * 
  *     def __cinit__(self, UnSupervisedClassificationCriterion criterion, SIZE_t max_features,             # <<<<<<<<<<<<<<
@@ -4079,26 +4079,26 @@ static int __pyx_pw_9sklearnef_4tree_5_tree_24UnSupervisedBestSplitter_1__cinit_
         case  1:
         if (likely((values[1] = PyDict_GetItem(__pyx_kwds, __pyx_n_s_max_features)) != 0)) kw_args--;
         else {
-          __Pyx_RaiseArgtupleInvalid("__cinit__", 1, 5, 5, 1); {__pyx_filename = __pyx_f[0]; __pyx_lineno = 384; __pyx_clineno = __LINE__; goto __pyx_L3_error;}
+          __Pyx_RaiseArgtupleInvalid("__cinit__", 1, 5, 5, 1); {__pyx_filename = __pyx_f[0]; __pyx_lineno = 388; __pyx_clineno = __LINE__; goto __pyx_L3_error;}
         }
         case  2:
         if (likely((values[2] = PyDict_GetItem(__pyx_kwds, __pyx_n_s_min_samples_leaf)) != 0)) kw_args--;
         else {
-          __Pyx_RaiseArgtupleInvalid("__cinit__", 1, 5, 5, 2); {__pyx_filename = __pyx_f[0]; __pyx_lineno = 384; __pyx_clineno = __LINE__; goto __pyx_L3_error;}
+          __Pyx_RaiseArgtupleInvalid("__cinit__", 1, 5, 5, 2); {__pyx_filename = __pyx_f[0]; __pyx_lineno = 388; __pyx_clineno = __LINE__; goto __pyx_L3_error;}
         }
         case  3:
         if (likely((values[3] = PyDict_GetItem(__pyx_kwds, __pyx_n_s_min_weight_leaf)) != 0)) kw_args--;
         else {
-          __Pyx_RaiseArgtupleInvalid("__cinit__", 1, 5, 5, 3); {__pyx_filename = __pyx_f[0]; __pyx_lineno = 384; __pyx_clineno = __LINE__; goto __pyx_L3_error;}
+          __Pyx_RaiseArgtupleInvalid("__cinit__", 1, 5, 5, 3); {__pyx_filename = __pyx_f[0]; __pyx_lineno = 388; __pyx_clineno = __LINE__; goto __pyx_L3_error;}
         }
         case  4:
         if (likely((values[4] = PyDict_GetItem(__pyx_kwds, __pyx_n_s_random_state)) != 0)) kw_args--;
         else {
-          __Pyx_RaiseArgtupleInvalid("__cinit__", 1, 5, 5, 4); {__pyx_filename = __pyx_f[0]; __pyx_lineno = 384; __pyx_clineno = __LINE__; goto __pyx_L3_error;}
+          __Pyx_RaiseArgtupleInvalid("__cinit__", 1, 5, 5, 4); {__pyx_filename = __pyx_f[0]; __pyx_lineno = 388; __pyx_clineno = __LINE__; goto __pyx_L3_error;}
         }
       }
       if (unlikely(kw_args > 0)) {
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_pyargnames, 0, values, pos_args, "__cinit__") < 0)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 384; __pyx_clineno = __LINE__; goto __pyx_L3_error;}
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_pyargnames, 0, values, pos_args, "__cinit__") < 0)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 388; __pyx_clineno = __LINE__; goto __pyx_L3_error;}
       }
     } else if (PyTuple_GET_SIZE(__pyx_args) != 5) {
       goto __pyx_L5_argtuple_error;
@@ -4110,20 +4110,20 @@ static int __pyx_pw_9sklearnef_4tree_5_tree_24UnSupervisedBestSplitter_1__cinit_
       values[4] = PyTuple_GET_ITEM(__pyx_args, 4);
     }
     __pyx_v_criterion = ((struct __pyx_obj_9sklearnef_4tree_5_tree_UnSupervisedClassificationCriterion *)values[0]);
-    __pyx_v_max_features = __Pyx_PyInt_As_Py_intptr_t(values[1]); if (unlikely((__pyx_v_max_features == (npy_intp)-1) && PyErr_Occurred())) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 384; __pyx_clineno = __LINE__; goto __pyx_L3_error;}
-    __pyx_v_min_samples_leaf = __Pyx_PyInt_As_Py_intptr_t(values[2]); if (unlikely((__pyx_v_min_samples_leaf == (npy_intp)-1) && PyErr_Occurred())) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 385; __pyx_clineno = __LINE__; goto __pyx_L3_error;}
-    __pyx_v_min_weight_leaf = __pyx_PyFloat_AsDouble(values[3]); if (unlikely((__pyx_v_min_weight_leaf == (double)-1) && PyErr_Occurred())) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 385; __pyx_clineno = __LINE__; goto __pyx_L3_error;}
+    __pyx_v_max_features = __Pyx_PyInt_As_Py_intptr_t(values[1]); if (unlikely((__pyx_v_max_features == (npy_intp)-1) && PyErr_Occurred())) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 388; __pyx_clineno = __LINE__; goto __pyx_L3_error;}
+    __pyx_v_min_samples_leaf = __Pyx_PyInt_As_Py_intptr_t(values[2]); if (unlikely((__pyx_v_min_samples_leaf == (npy_intp)-1) && PyErr_Occurred())) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 389; __pyx_clineno = __LINE__; goto __pyx_L3_error;}
+    __pyx_v_min_weight_leaf = __pyx_PyFloat_AsDouble(values[3]); if (unlikely((__pyx_v_min_weight_leaf == (double)-1) && PyErr_Occurred())) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 389; __pyx_clineno = __LINE__; goto __pyx_L3_error;}
     __pyx_v_random_state = values[4];
   }
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("__cinit__", 1, 5, 5, PyTuple_GET_SIZE(__pyx_args)); {__pyx_filename = __pyx_f[0]; __pyx_lineno = 384; __pyx_clineno = __LINE__; goto __pyx_L3_error;}
+  __Pyx_RaiseArgtupleInvalid("__cinit__", 1, 5, 5, PyTuple_GET_SIZE(__pyx_args)); {__pyx_filename = __pyx_f[0]; __pyx_lineno = 388; __pyx_clineno = __LINE__; goto __pyx_L3_error;}
   __pyx_L3_error:;
   __Pyx_AddTraceback("sklearnef.tree._tree.UnSupervisedBestSplitter.__cinit__", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __Pyx_RefNannyFinishContext();
   return -1;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_criterion), __pyx_ptype_9sklearnef_4tree_5_tree_UnSupervisedClassificationCriterion, 1, "criterion", 0))) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 384; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_criterion), __pyx_ptype_9sklearnef_4tree_5_tree_UnSupervisedClassificationCriterion, 1, "criterion", 0))) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 388; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
   __pyx_r = __pyx_pf_9sklearnef_4tree_5_tree_24UnSupervisedBestSplitter___cinit__(((struct __pyx_obj_9sklearnef_4tree_5_tree_UnSupervisedBestSplitter *)__pyx_v_self), __pyx_v_criterion, __pyx_v_max_features, __pyx_v_min_samples_leaf, __pyx_v_min_weight_leaf, __pyx_v_random_state);
 
   /* function exit code */
@@ -4140,7 +4140,7 @@ static int __pyx_pf_9sklearnef_4tree_5_tree_24UnSupervisedBestSplitter___cinit__
   __Pyx_RefNannyDeclarations
   __Pyx_RefNannySetupContext("__cinit__", 0);
 
-  /* "sklearnef/tree/_tree.pyx":387
+  /* "sklearnef/tree/_tree.pyx":391
  *                   SIZE_t min_samples_leaf, double min_weight_leaf,
  *                   object random_state):
  *         self.criterion_real = criterion             # <<<<<<<<<<<<<<
@@ -4153,7 +4153,7 @@ static int __pyx_pf_9sklearnef_4tree_5_tree_24UnSupervisedBestSplitter___cinit__
   __Pyx_DECREF(((PyObject *)__pyx_v_self->criterion_real));
   __pyx_v_self->criterion_real = __pyx_v_criterion;
 
-  /* "sklearnef/tree/_tree.pyx":384
+  /* "sklearnef/tree/_tree.pyx":388
  *     cdef UnSupervisedClassificationCriterion criterion_real
  * 
  *     def __cinit__(self, UnSupervisedClassificationCriterion criterion, SIZE_t max_features,             # <<<<<<<<<<<<<<
@@ -4167,7 +4167,7 @@ static int __pyx_pf_9sklearnef_4tree_5_tree_24UnSupervisedBestSplitter___cinit__
   return __pyx_r;
 }
 
-/* "sklearnef/tree/_tree.pyx":389
+/* "sklearnef/tree/_tree.pyx":393
  *         self.criterion_real = criterion
  * 
  *     def __reduce__(self):             # <<<<<<<<<<<<<<
@@ -4200,7 +4200,7 @@ static PyObject *__pyx_pf_9sklearnef_4tree_5_tree_24UnSupervisedBestSplitter_2__
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__reduce__", 0);
 
-  /* "sklearnef/tree/_tree.pyx":390
+  /* "sklearnef/tree/_tree.pyx":394
  * 
  *     def __reduce__(self):
  *         return (UnSupervisedBestSplitter, (self.criterion,             # <<<<<<<<<<<<<<
@@ -4209,44 +4209,44 @@ static PyObject *__pyx_pf_9sklearnef_4tree_5_tree_24UnSupervisedBestSplitter_2__
  */
   __Pyx_XDECREF(__pyx_r);
 
-  /* "sklearnef/tree/_tree.pyx":391
+  /* "sklearnef/tree/_tree.pyx":395
  *     def __reduce__(self):
  *         return (UnSupervisedBestSplitter, (self.criterion,
  *                                            self.max_features,             # <<<<<<<<<<<<<<
  *                                            self.min_samples_leaf,
  *                                            self.min_weight_leaf,
  */
-  __pyx_t_1 = __Pyx_PyInt_From_Py_intptr_t(__pyx_v_self->__pyx_base.__pyx_base.__pyx_base.max_features); if (unlikely(!__pyx_t_1)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 391; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+  __pyx_t_1 = __Pyx_PyInt_From_Py_intptr_t(__pyx_v_self->__pyx_base.__pyx_base.__pyx_base.max_features); if (unlikely(!__pyx_t_1)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 395; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
   __Pyx_GOTREF(__pyx_t_1);
 
-  /* "sklearnef/tree/_tree.pyx":392
+  /* "sklearnef/tree/_tree.pyx":396
  *         return (UnSupervisedBestSplitter, (self.criterion,
  *                                            self.max_features,
  *                                            self.min_samples_leaf,             # <<<<<<<<<<<<<<
  *                                            self.min_weight_leaf,
  *                                            self.random_state), self.__getstate__())
  */
-  __pyx_t_2 = __Pyx_PyInt_From_Py_intptr_t(__pyx_v_self->__pyx_base.__pyx_base.__pyx_base.min_samples_leaf); if (unlikely(!__pyx_t_2)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 392; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+  __pyx_t_2 = __Pyx_PyInt_From_Py_intptr_t(__pyx_v_self->__pyx_base.__pyx_base.__pyx_base.min_samples_leaf); if (unlikely(!__pyx_t_2)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 396; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
   __Pyx_GOTREF(__pyx_t_2);
 
-  /* "sklearnef/tree/_tree.pyx":393
+  /* "sklearnef/tree/_tree.pyx":397
  *                                            self.max_features,
  *                                            self.min_samples_leaf,
  *                                            self.min_weight_leaf,             # <<<<<<<<<<<<<<
  *                                            self.random_state), self.__getstate__())
  * 
  */
-  __pyx_t_3 = PyFloat_FromDouble(__pyx_v_self->__pyx_base.__pyx_base.__pyx_base.min_weight_leaf); if (unlikely(!__pyx_t_3)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 393; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+  __pyx_t_3 = PyFloat_FromDouble(__pyx_v_self->__pyx_base.__pyx_base.__pyx_base.min_weight_leaf); if (unlikely(!__pyx_t_3)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 397; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
   __Pyx_GOTREF(__pyx_t_3);
 
-  /* "sklearnef/tree/_tree.pyx":390
+  /* "sklearnef/tree/_tree.pyx":394
  * 
  *     def __reduce__(self):
  *         return (UnSupervisedBestSplitter, (self.criterion,             # <<<<<<<<<<<<<<
  *                                            self.max_features,
  *                                            self.min_samples_leaf,
  */
-  __pyx_t_4 = PyTuple_New(5); if (unlikely(!__pyx_t_4)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 390; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+  __pyx_t_4 = PyTuple_New(5); if (unlikely(!__pyx_t_4)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 394; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_INCREF(((PyObject *)__pyx_v_self->__pyx_base.__pyx_base.__pyx_base.criterion));
   PyTuple_SET_ITEM(__pyx_t_4, 0, ((PyObject *)__pyx_v_self->__pyx_base.__pyx_base.__pyx_base.criterion));
@@ -4264,14 +4264,14 @@ static PyObject *__pyx_pf_9sklearnef_4tree_5_tree_24UnSupervisedBestSplitter_2__
   __pyx_t_2 = 0;
   __pyx_t_3 = 0;
 
-  /* "sklearnef/tree/_tree.pyx":394
+  /* "sklearnef/tree/_tree.pyx":398
  *                                            self.min_samples_leaf,
  *                                            self.min_weight_leaf,
  *                                            self.random_state), self.__getstate__())             # <<<<<<<<<<<<<<
  * 
  *     cdef void node_reset(self, SIZE_t start, SIZE_t end,
  */
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_n_s_getstate); if (unlikely(!__pyx_t_2)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 394; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_n_s_getstate); if (unlikely(!__pyx_t_2)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 398; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
   __Pyx_GOTREF(__pyx_t_2);
   __pyx_t_1 = NULL;
   if (CYTHON_COMPILING_IN_CPYTHON && likely(PyMethod_Check(__pyx_t_2))) {
@@ -4284,22 +4284,22 @@ static PyObject *__pyx_pf_9sklearnef_4tree_5_tree_24UnSupervisedBestSplitter_2__
     }
   }
   if (__pyx_t_1) {
-    __pyx_t_3 = __Pyx_PyObject_CallOneArg(__pyx_t_2, __pyx_t_1); if (unlikely(!__pyx_t_3)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 394; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+    __pyx_t_3 = __Pyx_PyObject_CallOneArg(__pyx_t_2, __pyx_t_1); if (unlikely(!__pyx_t_3)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 398; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   } else {
-    __pyx_t_3 = __Pyx_PyObject_CallNoArg(__pyx_t_2); if (unlikely(!__pyx_t_3)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 394; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+    __pyx_t_3 = __Pyx_PyObject_CallNoArg(__pyx_t_2); if (unlikely(!__pyx_t_3)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 398; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
   }
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "sklearnef/tree/_tree.pyx":390
+  /* "sklearnef/tree/_tree.pyx":394
  * 
  *     def __reduce__(self):
  *         return (UnSupervisedBestSplitter, (self.criterion,             # <<<<<<<<<<<<<<
  *                                            self.max_features,
  *                                            self.min_samples_leaf,
  */
-  __pyx_t_2 = PyTuple_New(3); if (unlikely(!__pyx_t_2)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 390; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+  __pyx_t_2 = PyTuple_New(3); if (unlikely(!__pyx_t_2)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 394; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_INCREF(((PyObject *)((PyObject*)__pyx_ptype_9sklearnef_4tree_5_tree_UnSupervisedBestSplitter)));
   PyTuple_SET_ITEM(__pyx_t_2, 0, ((PyObject *)((PyObject*)__pyx_ptype_9sklearnef_4tree_5_tree_UnSupervisedBestSplitter)));
@@ -4314,7 +4314,7 @@ static PyObject *__pyx_pf_9sklearnef_4tree_5_tree_24UnSupervisedBestSplitter_2__
   __pyx_t_2 = 0;
   goto __pyx_L0;
 
-  /* "sklearnef/tree/_tree.pyx":389
+  /* "sklearnef/tree/_tree.pyx":393
  *         self.criterion_real = criterion
  * 
  *     def __reduce__(self):             # <<<<<<<<<<<<<<
@@ -4336,7 +4336,7 @@ static PyObject *__pyx_pf_9sklearnef_4tree_5_tree_24UnSupervisedBestSplitter_2__
   return __pyx_r;
 }
 
-/* "sklearnef/tree/_tree.pyx":396
+/* "sklearnef/tree/_tree.pyx":400
  *                                            self.random_state), self.__getstate__())
  * 
  *     cdef void node_reset(self, SIZE_t start, SIZE_t end,             # <<<<<<<<<<<<<<
@@ -4347,7 +4347,7 @@ static PyObject *__pyx_pf_9sklearnef_4tree_5_tree_24UnSupervisedBestSplitter_2__
 static void __pyx_f_9sklearnef_4tree_5_tree_24UnSupervisedBestSplitter_node_reset(struct __pyx_obj_9sklearnef_4tree_5_tree_UnSupervisedBestSplitter *__pyx_v_self, __pyx_t_9sklearnef_4tree_5_tree_SIZE_t __pyx_v_start, __pyx_t_9sklearnef_4tree_5_tree_SIZE_t __pyx_v_end, double *__pyx_v_weighted_n_node_samples) {
   double __pyx_t_1;
 
-  /* "sklearnef/tree/_tree.pyx":399
+  /* "sklearnef/tree/_tree.pyx":403
  *                          double* weighted_n_node_samples) nogil:
  *         """Reset splitter on node samples[start:end]."""
  *         self.start = start             # <<<<<<<<<<<<<<
@@ -4356,7 +4356,7 @@ static void __pyx_f_9sklearnef_4tree_5_tree_24UnSupervisedBestSplitter_node_rese
  */
   __pyx_v_self->__pyx_base.__pyx_base.__pyx_base.start = __pyx_v_start;
 
-  /* "sklearnef/tree/_tree.pyx":400
+  /* "sklearnef/tree/_tree.pyx":404
  *         """Reset splitter on node samples[start:end]."""
  *         self.start = start
  *         self.end = end             # <<<<<<<<<<<<<<
@@ -4365,7 +4365,7 @@ static void __pyx_f_9sklearnef_4tree_5_tree_24UnSupervisedBestSplitter_node_rese
  */
   __pyx_v_self->__pyx_base.__pyx_base.__pyx_base.end = __pyx_v_end;
 
-  /* "sklearnef/tree/_tree.pyx":402
+  /* "sklearnef/tree/_tree.pyx":406
  *         self.end = end
  * 
  *         self.criterion_real.init2(self.X,             # <<<<<<<<<<<<<<
@@ -4374,7 +4374,7 @@ static void __pyx_f_9sklearnef_4tree_5_tree_24UnSupervisedBestSplitter_node_rese
  */
   ((struct __pyx_vtabstruct_9sklearnef_4tree_5_tree_UnSupervisedClassificationCriterion *)__pyx_v_self->criterion_real->__pyx_base.__pyx_vtab)->init2(__pyx_v_self->criterion_real, __pyx_v_self->__pyx_base.__pyx_base.X, __pyx_v_self->__pyx_base.__pyx_base.X_sample_stride, __pyx_v_self->__pyx_base.__pyx_base.__pyx_base.sample_weight, __pyx_v_self->__pyx_base.__pyx_base.__pyx_base.weighted_n_samples, __pyx_v_self->__pyx_base.__pyx_base.__pyx_base.samples, __pyx_v_start, __pyx_v_end);
 
-  /* "sklearnef/tree/_tree.pyx":410
+  /* "sklearnef/tree/_tree.pyx":414
  *                                   end)
  * 
  *         weighted_n_node_samples[0] = self.criterion_real.weighted_n_node_samples             # <<<<<<<<<<<<<<
@@ -4383,7 +4383,7 @@ static void __pyx_f_9sklearnef_4tree_5_tree_24UnSupervisedBestSplitter_node_rese
   __pyx_t_1 = __pyx_v_self->criterion_real->__pyx_base.weighted_n_node_samples;
   (__pyx_v_weighted_n_node_samples[0]) = __pyx_t_1;
 
-  /* "sklearnef/tree/_tree.pyx":396
+  /* "sklearnef/tree/_tree.pyx":400
  *                                            self.random_state), self.__getstate__())
  * 
  *     cdef void node_reset(self, SIZE_t start, SIZE_t end,             # <<<<<<<<<<<<<<
@@ -6958,19 +6958,19 @@ PyMODINIT_FUNC PyInit__tree(void)
   __pyx_vtable_9sklearnef_4tree_5_tree_LabeledOnlyEntropy.__pyx_base.__pyx_base.__pyx_base.init = (void (*)(struct __pyx_obj_7sklearn_4tree_5_tree_Criterion *, __pyx_t_7sklearn_4tree_5_tree_DOUBLE_t *, __pyx_t_7sklearn_4tree_5_tree_SIZE_t, __pyx_t_7sklearn_4tree_5_tree_DOUBLE_t *, double, __pyx_t_7sklearn_4tree_5_tree_SIZE_t *, __pyx_t_7sklearn_4tree_5_tree_SIZE_t, __pyx_t_7sklearn_4tree_5_tree_SIZE_t))__pyx_f_9sklearnef_4tree_5_tree_18LabeledOnlyEntropy_init;
   __pyx_vtable_9sklearnef_4tree_5_tree_LabeledOnlyEntropy.__pyx_base.__pyx_base.__pyx_base.update = (void (*)(struct __pyx_obj_7sklearn_4tree_5_tree_Criterion *, __pyx_t_7sklearn_4tree_5_tree_SIZE_t))__pyx_f_9sklearnef_4tree_5_tree_18LabeledOnlyEntropy_update;
   __pyx_type_9sklearnef_4tree_5_tree_LabeledOnlyEntropy.tp_base = __pyx_ptype_9sklearnef_4tree_5_tree_Entropy;
-  if (PyType_Ready(&__pyx_type_9sklearnef_4tree_5_tree_LabeledOnlyEntropy) < 0) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 267; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+  if (PyType_Ready(&__pyx_type_9sklearnef_4tree_5_tree_LabeledOnlyEntropy) < 0) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 271; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
   __pyx_type_9sklearnef_4tree_5_tree_LabeledOnlyEntropy.tp_print = 0;
-  if (__Pyx_SetVtable(__pyx_type_9sklearnef_4tree_5_tree_LabeledOnlyEntropy.tp_dict, __pyx_vtabptr_9sklearnef_4tree_5_tree_LabeledOnlyEntropy) < 0) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 267; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
-  if (PyObject_SetAttrString(__pyx_m, "LabeledOnlyEntropy", (PyObject *)&__pyx_type_9sklearnef_4tree_5_tree_LabeledOnlyEntropy) < 0) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 267; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+  if (__Pyx_SetVtable(__pyx_type_9sklearnef_4tree_5_tree_LabeledOnlyEntropy.tp_dict, __pyx_vtabptr_9sklearnef_4tree_5_tree_LabeledOnlyEntropy) < 0) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 271; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+  if (PyObject_SetAttrString(__pyx_m, "LabeledOnlyEntropy", (PyObject *)&__pyx_type_9sklearnef_4tree_5_tree_LabeledOnlyEntropy) < 0) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 271; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
   __pyx_ptype_9sklearnef_4tree_5_tree_LabeledOnlyEntropy = &__pyx_type_9sklearnef_4tree_5_tree_LabeledOnlyEntropy;
   __pyx_vtabptr_9sklearnef_4tree_5_tree_UnSupervisedBestSplitter = &__pyx_vtable_9sklearnef_4tree_5_tree_UnSupervisedBestSplitter;
   __pyx_vtable_9sklearnef_4tree_5_tree_UnSupervisedBestSplitter.__pyx_base = *__pyx_vtabptr_9sklearnef_4tree_5_tree_BestSplitter;
   __pyx_vtable_9sklearnef_4tree_5_tree_UnSupervisedBestSplitter.__pyx_base.__pyx_base.__pyx_base.node_reset = (void (*)(struct __pyx_obj_7sklearn_4tree_5_tree_Splitter *, __pyx_t_7sklearn_4tree_5_tree_SIZE_t, __pyx_t_7sklearn_4tree_5_tree_SIZE_t, double *))__pyx_f_9sklearnef_4tree_5_tree_24UnSupervisedBestSplitter_node_reset;
   __pyx_type_9sklearnef_4tree_5_tree_UnSupervisedBestSplitter.tp_base = __pyx_ptype_9sklearnef_4tree_5_tree_BestSplitter;
-  if (PyType_Ready(&__pyx_type_9sklearnef_4tree_5_tree_UnSupervisedBestSplitter) < 0) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 380; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+  if (PyType_Ready(&__pyx_type_9sklearnef_4tree_5_tree_UnSupervisedBestSplitter) < 0) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 384; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
   __pyx_type_9sklearnef_4tree_5_tree_UnSupervisedBestSplitter.tp_print = 0;
-  if (__Pyx_SetVtable(__pyx_type_9sklearnef_4tree_5_tree_UnSupervisedBestSplitter.tp_dict, __pyx_vtabptr_9sklearnef_4tree_5_tree_UnSupervisedBestSplitter) < 0) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 380; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
-  if (PyObject_SetAttrString(__pyx_m, "UnSupervisedBestSplitter", (PyObject *)&__pyx_type_9sklearnef_4tree_5_tree_UnSupervisedBestSplitter) < 0) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 380; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+  if (__Pyx_SetVtable(__pyx_type_9sklearnef_4tree_5_tree_UnSupervisedBestSplitter.tp_dict, __pyx_vtabptr_9sklearnef_4tree_5_tree_UnSupervisedBestSplitter) < 0) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 384; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+  if (PyObject_SetAttrString(__pyx_m, "UnSupervisedBestSplitter", (PyObject *)&__pyx_type_9sklearnef_4tree_5_tree_UnSupervisedBestSplitter) < 0) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 384; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
   __pyx_ptype_9sklearnef_4tree_5_tree_UnSupervisedBestSplitter = &__pyx_type_9sklearnef_4tree_5_tree_UnSupervisedBestSplitter;
   /*--- Type import code ---*/
   __pyx_ptype_7cpython_4type_type = __Pyx_ImportType(__Pyx_BUILTIN_MODULE_NAME, "type", 
