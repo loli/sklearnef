@@ -64,7 +64,7 @@ def main():
     grid = np.mgrid[x_lower:x_upper:args.resolution,y_lower:y_upper:args.resolution]
     
     # ----- Training -----
-    clf = UnSupervisedRandomForestClassifier(n_estimators=1, random_state=args.seed, min_samples_leaf=2, n_jobs=-1, max_features=None)
+    clf = UnSupervisedRandomForestClassifier(n_estimators=1, random_state=args.seed, min_samples_leaf=2, n_jobs=-1, max_features=None, min_improvement=0.25)
     clf.fit(X)
     
     # ----- Prediction -----

@@ -62,6 +62,7 @@ class UnSupervisedDecisionTreeClassifier(DecisionTreeClassifier):
                  max_features=None,
                  random_state=None,
                  max_leaf_nodes=None,
+                 min_improvement=0,
                  class_weight=None):
         super(UnSupervisedDecisionTreeClassifier, self).__init__(
             criterion=criterion,
@@ -74,6 +75,8 @@ class UnSupervisedDecisionTreeClassifier(DecisionTreeClassifier):
             max_leaf_nodes=max_leaf_nodes,
             class_weight=class_weight,
             random_state=random_state)
+        
+        self.min_improvement = min_improvement
     
     def fit(self, X, y=None, sample_weight=None, check_input=True):
         if check_input:
@@ -91,7 +94,7 @@ class UnSupervisedDecisionTreeClassifier(DecisionTreeClassifier):
         y = np.zeros((X.shape[0], X.shape[1]**2 + X.shape[1] + 1))
         # initialise criterion here, since it requires another syntax than the default ones
         if 'unsupervised' == self.criterion:
-            self.criterion =  _treeef.UnSupervisedClassificationCriterion(X.shape[0], X.shape[1])
+            self.criterion =  _treeef.UnSupervisedClassificationCriterion(X.shape[0], X.shape[1], self.min_improvement)
         DecisionTreeClassifier.fit(self, X, y, sample_weight, check_input)
         #!TODO: Here I could call compute_partition_function once to fix it forever
         return self

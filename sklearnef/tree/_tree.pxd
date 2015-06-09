@@ -27,6 +27,7 @@ cdef class UnSupervisedClassificationCriterion(Criterion):
     cdef SIZE_t X_stride        # the X_stride; is this the same as n_features... might just be, then I can remove the second and use this in __reduce__
     cdef SIZE_t n_samples       # might not be required, as only used in __cinit__ and __reduce__
     cdef SIZE_t n_features      # might not be required, as only used in __cinit__ and __reduce__
+    cdef DTYPE_t min_improvement# minimal improvement of a split to consider it
     cdef Diffentropy covr       # dynamically updateable covariance matrix (right)
     cdef Diffentropy covl       # dynamically updateable covariance matrix (left)
     # !TODO: Above, some of the member vars could be removed in the future.

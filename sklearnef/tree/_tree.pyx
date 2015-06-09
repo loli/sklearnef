@@ -11,6 +11,7 @@ from libc.string cimport memcpy, memset
 from libc.math cimport log
 
 cimport numpy as np
+import numpy as np
 np.import_array()
 
 from sklearn.tree._tree cimport Criterion, Splitter, SplitRecord
@@ -37,11 +38,12 @@ cdef extern class sklearn.tree._tree.BestSplitter(BaseDenseSplitter):
 # =============================================================================
 # Types and constants
 # =============================================================================
-#sklearn.tree._tree.MIN_IMPURITY_SPLIT = -1000
+# Any differential entropy value nearing this number is considered dense enough
+# and no new split are considered for the associated node (i.e. it will be
+# declared a leaf node). 
 cdef double ENTROPY_SHIFT = -log(1e-6)
 
-#!TODO: Potenitally unused
-import numpy as np
+# Infinity definition as used in sklearn.tree._tree
 cdef double INFINITY = np.inf
 
 # =============================================================================
@@ -53,7 +55,7 @@ cdef class UnSupervisedClassificationCriterion(Criterion):
     # note: sample weights can not be incorporated, assuming equal weight!
     # but: it could be introduced using weighted sample sums in the impurity_improvement method
 
-    def __cinit__(self, SIZE_t n_samples, SIZE_t n_features):
+    def __cinit__(self, SIZE_t n_samples, SIZE_t n_features, DTYPE_t min_improvement):
         # Default values
         self.X = NULL # all training samples
         self.X_stride = 0 # stride (i.e. feature length * feature_dtype_length)
@@ -70,6 +72,8 @@ cdef class UnSupervisedClassificationCriterion(Criterion):
         self.weighted_n_node_samples = 0.0 # total weight of all node samples
         self.weighted_n_left = 0.0 # weight of all samples in left child node
         self.weighted_n_right = 0.0 # weight of all samples in right child node
+        
+        self.min_improvement = min_improvement
         
         self.covl = Diffentropy(n_features) # left updateable cov for diffentropy calculation
         self.covr = Diffentropy(n_features) # right updateable cov for diffentropy calculation
@@ -268,9 +272,12 @@ cdef class UnSupervisedClassificationCriterion(Criterion):
            Extended version that catches any improvement < min_improvement
            and returns -INFINITY instead to invalidate the current split."""
         cdef double improvement
+        cdef DTYPE_t min_improvement
+        
         improvement = Criterion.impurity_improvement(self, impurity)
-        if improvement < .25: return -INFINITY
-        return improvement
+        min_improvement = self.min_improvement
+        
+        return improvement if improvement >= min_improvement else -INFINITY
 
 cdef inline void upper_to_matrix(DOUBLE_t* X, DOUBLE_t* Y, SIZE_t length) nogil:
     "Convert the upper triangular matrix Y to full matrix X assuming symmetry."
