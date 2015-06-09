@@ -33,7 +33,7 @@ def main():
         raise Exception("Can only plot 2D datasets.")
     
     # train forest
-    clf = UnSupervisedDecisionTreeClassifier(random_state=0, min_samples_leaf=20)
+    clf = UnSupervisedDecisionTreeClassifier(random_state=0) #, min_samples_leaf=20)
     clf.fit(data)
     
     # generate plot grid

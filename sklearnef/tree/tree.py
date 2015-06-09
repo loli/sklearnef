@@ -1,6 +1,6 @@
 """
-This module gathers tree-based methods, including decision, regression and
-randomized trees. Single and multi-output problems are both handled.
+This module gathers sklearnefs tree-based methods, including unsupervised (density)
+and semi-supervised trees. Onyl single output problems are handled.
 """
 
 # Authors: Oskar Maier <oskar.maier@googlemail.com>
@@ -31,6 +31,8 @@ import _tree as _treeef
 
 from scipy.stats import mvn
 from scipy.stats._multivariate import multivariate_normal
+
+from sklearnef.tree import _diffentropy
 
 __all__ = ["SemiSupervisedDecisionTreeClassifier",
            "UnSupervisedDecisionTreeClassifier"]
@@ -77,17 +79,24 @@ class UnSupervisedDecisionTreeClassifier(DecisionTreeClassifier):
         if check_input:
             X = check_array(X, dtype=DTYPE)
  
+        if not X.shape[1] <= self.min_samples_leaf:
+            raise ValueError("The number of minimum samples per leaf of the "
+                             "model must be at least as large as the number "
+                             "of features. Model min_samples_leaf is %s and "
+                             "input n_features is %s "
+                             % (self.min_samples_leaf, X.shape[1]))
         # !TODO: replace this crude method to get the tree to provide sufficient memory for storing the leaf values
         # remove passed y (which we do not need and only keep for interface conformity reasons)
+        #!TODO: Find a way to make an y conveying the required shape info without actually allocating any memory
         y = np.zeros((X.shape[0], X.shape[1]**2 + X.shape[1] + 1))
         # initialise criterion here, since it requires another syntax than the default ones
         if 'unsupervised' == self.criterion:
             self.criterion =  _treeef.UnSupervisedClassificationCriterion(X.shape[0], X.shape[1])
         DecisionTreeClassifier.fit(self, X, y, sample_weight, check_input)
-        #!TODO: Here I could call compute_partition_function once
+        #!TODO: Here I could call compute_partition_function once to fix it forever
         return self
 
-    def predict_proba(self, X):
+    def predict_proba(self, X, check_input=True):
         """Predict density distribution membership probabilities of the input samples X.
 
         Parameters
@@ -95,6 +104,9 @@ class UnSupervisedDecisionTreeClassifier(DecisionTreeClassifier):
         X : array-like or sparse matrix of shape = [n_samples, n_features]
             The input samples. Internally, it will be converted to
             ``dtype=np.float32``. No sparse matrixes allowed.
+        check_input : boolean, (default=True)
+            Allow to bypass several input checking.
+            Don't use this parameter unless you know what you do.
 
         Returns
         -------
@@ -103,7 +115,8 @@ class UnSupervisedDecisionTreeClassifier(DecisionTreeClassifier):
             samples.
         """
         check_is_fitted(self, 'n_outputs_')
-        X = check_array(X, dtype=DTYPE, accept_sparse=None)
+        if check_input:
+            X = check_array(X, dtype=DTYPE, accept_sparse=None)
 
         n_samples, n_features = X.shape
 
@@ -134,7 +147,7 @@ class UnSupervisedDecisionTreeClassifier(DecisionTreeClassifier):
         out = np.zeros(n_samples, np.float)
         for lidx in np.unique(leaf_indices):
             print info[lidx]['mu'], info[lidx]['cov']
-            mnd = multivariate_normal(info[lidx]['mu'], info[lidx]['cov'] + 1e-6) # !TODO: Why would I need an allow_singular=True here? 
+            mnd = multivariate_normal(info[lidx]['mu'], info[lidx]['cov'] + _diffentropy._get_singularity_threshold()) # !TODO: Why would I need an allow_singular=True here? 
             mask = lidx == leaf_indices
             out[mask] = info[lidx]['frac'] / pfi * mnd.pdf(X[mask])
         

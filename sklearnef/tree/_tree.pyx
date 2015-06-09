@@ -8,12 +8,15 @@
 # Licence: BSD 3 clause !TODO: Change!
 
 from libc.string cimport memcpy, memset
+from libc.math cimport log
 
 cimport numpy as np
 np.import_array()
 
 from sklearn.tree._tree cimport Criterion, Splitter, SplitRecord
 from sklearnef.tree._diffentropy cimport Diffentropy
+cimport sklearn.tree._tree
+import sklearn.tree._tree
 
 cdef extern class sklearn.tree._tree.ClassificationCriterion(Criterion):
     cdef SIZE_t* n_classes
@@ -34,6 +37,12 @@ cdef extern class sklearn.tree._tree.BestSplitter(BaseDenseSplitter):
 # =============================================================================
 # Types and constants
 # =============================================================================
+#sklearn.tree._tree.MIN_IMPURITY_SPLIT = -1000
+cdef double ENTROPY_SHIFT = -log(1e-6)
+
+#!TODO: Potenitally unused
+import numpy as np
+cdef double INFINITY = np.inf
 
 # =============================================================================
 # Criterion
@@ -187,15 +196,14 @@ cdef class UnSupervisedClassificationCriterion(Criterion):
         
         self.covr.compute_covariance_matrix()
         entropy = self.covr.logdet()
-        
-        return entropy
+        return entropy + ENTROPY_SHIFT
 
     cdef void children_impurity(self, double* impurity_left,
                                 double* impurity_right) nogil:
         self.covl.compute_covariance_matrix()
-        impurity_left[0] = self.covl.logdet()
+        impurity_left[0] = self.covl.logdet() + ENTROPY_SHIFT
         self.covr.compute_covariance_matrix()
-        impurity_right[0] = self.covr.logdet()
+        impurity_right[0] = self.covr.logdet() + ENTROPY_SHIFT
 
     cdef void node_value(self, double* dest) nogil:
         """Compute the node value of samples[start:end] into dest."""
@@ -247,6 +255,22 @@ cdef class UnSupervisedClassificationCriterion(Criterion):
         dest += n_features * n_features
         memcpy(dest, mu, n_features * sizeof(DOUBLE_t))
         
+    cdef double impurity_improvement(self, double impurity) nogil:
+        """Weighted impurity improvement, i.e.
+
+           N_t / N * (impurity - N_t_L / N_t * left impurity
+                               - N_t_L / N_t * right impurity),
+
+           where N is the total number of samples, N_t is the number of samples
+           in the current node, N_t_L is the number of samples in the left
+           child and N_t_R is the number of samples in the right child.
+           
+           Extended version that catches any improvement < min_improvement
+           and returns -INFINITY instead to invalidate the current split."""
+        cdef double improvement
+        improvement = Criterion.impurity_improvement(self, impurity)
+        if improvement < .25: return -INFINITY
+        return improvement
 
 cdef inline void upper_to_matrix(DOUBLE_t* X, DOUBLE_t* Y, SIZE_t length) nogil:
     "Convert the upper triangular matrix Y to full matrix X assuming symmetry."
@@ -412,4 +436,3 @@ cdef class UnSupervisedBestSplitter(BestSplitter):
                                   end)
  
         weighted_n_node_samples[0] = self.criterion_real.weighted_n_node_samples
-
