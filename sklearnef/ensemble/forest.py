@@ -23,10 +23,12 @@ Only single output problems are handled.
 
 from __future__ import division
 
+from sklearn.utils import check_array
+from sklearn.ensemble.forest import ForestClassifier
+from sklearn.tree._tree import DTYPE
+
 from ..tree import (SemiSupervisedDecisionTreeClassifier,
                     UnSupervisedDecisionTreeClassifier)
-
-from sklearn.ensemble.forest import ForestClassifier
 
 __all__ = ["UnSupervisedRandomForestClassifier",
            #"SemiSupervisedRandomForestClassifier",
@@ -90,6 +92,7 @@ class UnSupervisedRandomForestClassifier(ForestClassifier):
             Returns self.
 
         """
+        X = check_array(X, dtype=DTYPE, ensure_2d=False, order='C')
         ForestClassifier.fit(self, X, y, sample_weight=sample_weight)
         return self
 

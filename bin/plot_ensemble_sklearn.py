@@ -18,7 +18,7 @@ from sklearnef.ensemble import UnSupervisedRandomForestClassifier
 
 # information
 __author__ = "Oskar Maier"
-__version__ = "r0.1.0, 2015-06-08"
+__version__ = "r0.1.1, 2015-06-08"
 __email__ = "oskar.maier@googlemail.com"
 __status__ = "Release"
 __description__ = """
@@ -64,7 +64,12 @@ def main():
     grid = np.mgrid[x_lower:x_upper:args.resolution,y_lower:y_upper:args.resolution]
     
     # ----- Training -----
-    clf = UnSupervisedRandomForestClassifier(n_estimators=args.n_trees, random_state=args.seed, min_samples_leaf=X.shape[1], n_jobs=-1, max_features=None)
+    clf = UnSupervisedRandomForestClassifier(n_estimators=args.n_trees,
+                                             random_state=args.seed,
+                                             min_samples_leaf=2,
+                                             n_jobs=-1,
+                                             max_features='auto',
+                                             min_improvement=args.min_improvement)
     clf.fit(X)
     
     # ----- Prediction -----
@@ -77,8 +82,8 @@ def main():
     y = np.unique(y)
     
     # first plot: gt
-    plt.subplot(2, 1, 1)
-    plt.scatter(X[:, 0], X[:, 1])
+    plt.subplot(2, 1, 1, axisbg='k')
+    plt.scatter(X[:, 0], X[:, 1], c='w', alpha=.3, edgecolors='none')
     
     plt.xlim(min(x),max(x))
     plt.ylim(min(y),max(y))
@@ -86,8 +91,7 @@ def main():
     
     # second plot: prediction
     plt.subplot(2, 1, 2)
-    CS = plt.contour(x,y,prob_predict.reshape((x.size,y.size)).T,15,linewidths=0.5,colors='k')
-    CS = plt.contourf(x,y,prob_predict.reshape((x.size,y.size)).T,15,cmap=plt.cm.PiYG)
+    im = plt.imshow(prob_predict.reshape((x.size,y.size)).T, extent=[min(x),max(x),min(y),max(y)], interpolation='none', cmap=plt.cm.afmhot, aspect='auto', origin='lower') #'auto'
     plt.colorbar()
     
     plt.xlim(min(x),max(x))
@@ -106,8 +110,9 @@ def getParser():
     parser.add_argument('dataset', choices=DATASETS, help='The dataset to use.')
     parser.add_argument('--n-trees', default=10, type=int, help='The number of trees to train.')
     parser.add_argument('--n-samples', default=2500, type=int, help='The number of samples to draw.')
-    parser.add_argument('--resolution', default=0.5, type=float, help='The plotting resolution.')
-    parser.add_argument('--seed', default=None, type=int, help='The random seed to use. Fix to an integer to create reporducible results.')
+    parser.add_argument('--min-improvement', default=0, type=float, help='The minimum improvement require to consider a split valid.')
+    parser.add_argument('--resolution', default=0.01, type=float, help='The plotting resolution.')
+    parser.add_argument('--seed', default=None, type=int, help='The random seed to use. Fix to an integer to create reproducible results.')
 
     parser.add_argument('-v', dest='verbose', action='store_true', help='Display more information.')
     parser.add_argument('-d', dest='debug', action='store_true', help='Display debug information.')

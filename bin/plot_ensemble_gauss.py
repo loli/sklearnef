@@ -9,7 +9,6 @@ import argparse
 import scipy.stats
 import numpy as np
 import matplotlib.pyplot as plt
-import sklearn
 
 # path changes
 
@@ -48,10 +47,10 @@ def main():
         means.append([np.random.randint(0, args.max_area) for _ in range(N_FEATURES)])
     covs = []
     for _ in range(args.n_clusters):
-        cov = np.diag([np.random.random() * args.sigma for _ in range(N_FEATURES)])
+        cov = np.diag([(np.random.random() + .5) * args.sigma for _ in range(N_FEATURES)])
         n_tri_elements = (N_FEATURES * (N_FEATURES - 1)) / 2
-        cov[np.triu_indices(N_FEATURES, 1)] = [np.random.random() * args.sigma/2 for _ in range(n_tri_elements)]
-        cov[np.tril_indices(N_FEATURES, -1)] = [np.random.random() * args.sigma/2 for _ in range(n_tri_elements)]
+        cov[np.triu_indices(N_FEATURES, 1)] = [(np.random.random() + .5) * args.sigma/2 for _ in range(n_tri_elements)]
+        cov[np.tril_indices(N_FEATURES, -1)] = [(np.random.random() + .5) * args.sigma/2 for _ in range(n_tri_elements)]
         covs.append(cov)
     
     # ----- Sample train set -----
@@ -66,7 +65,12 @@ def main():
     
     
     # ----- Training -----
-    clf = UnSupervisedRandomForestClassifier(n_estimators=args.n_trees, random_state=args.seed, min_samples_leaf=N_FEATURES)
+    clf = UnSupervisedRandomForestClassifier(n_estimators=args.n_trees,
+                                             random_state=args.seed,
+                                             min_samples_leaf=N_FEATURES,
+                                             n_jobs=-1,
+                                             max_features='auto',
+                                             min_improvement=args.min_improvement)
     clf.fit(X_train)
     
     # ----- Prediction -----
@@ -85,8 +89,7 @@ def main():
     
     # first plot: gt
     plt.subplot(2, 1, 1)
-    CS = plt.contour(x,y,prob_gt.T,15,linewidths=0.5,colors='k')
-    CS = plt.contourf(x,y,prob_gt.T,15,cmap=plt.cm.PiYG)
+    im = plt.imshow(prob_gt.T, extent=[min(x),max(x),min(y),max(y)], interpolation='none', cmap=plt.cm.afmhot, aspect='auto', origin='lower') #'auto'
     plt.colorbar()
     
     plt.xlim(min(x),max(x))
@@ -95,8 +98,7 @@ def main():
     
     # second plot: prediction
     plt.subplot(2, 1, 2)
-    CS = plt.contour(x,y,prob_predict.reshape((x.size,y.size)).T,15,linewidths=0.5,colors='k')
-    CS = plt.contourf(x,y,prob_predict.reshape((x.size,y.size)).T,15,cmap=plt.cm.PiYG)
+    im = plt.imshow(prob_predict.reshape((x.size,y.size)).T, extent=[min(x),max(x),min(y),max(y)], interpolation='none', cmap=plt.cm.afmhot, aspect='auto', origin='lower') #'auto'
     plt.colorbar()
     
     plt.xlim(min(x),max(x))
@@ -116,9 +118,10 @@ def getParser():
     parser.add_argument('--n-clusters', default=4, type=int, help='The number of gaussian distributions to create.')
     parser.add_argument('--n-samples', default=1000, type=int, help='The number of training samples to draw from each gaussian.')
     parser.add_argument('--sigma', default=0.4, type=float, help='The sigma multiplier of the gaussian distributions.')
-    parser.add_argument('--resolution', default=0.5, type=float, help='The plotting resolution.')
+    parser.add_argument('--min-improvement', default=0, type=float, help='The minimum improvement require to consider a split valid.')
+    parser.add_argument('--resolution', default=0.05, type=float, help='The plotting resolution.')
     parser.add_argument('--max-area', default=10, type=int, help='The maximum area over which the gaussians should be distributed.')
-    parser.add_argument('--seed', default=None, type=int, help='The random seed to use. Fix to an integer to create reporducible results.')
+    parser.add_argument('--seed', default=None, type=int, help='The random seed to use. Fix to an integer to create reproducible results.')
 
     parser.add_argument('-v', dest='verbose', action='store_true', help='Display more information.')
     parser.add_argument('-d', dest='debug', action='store_true', help='Display debug information.')

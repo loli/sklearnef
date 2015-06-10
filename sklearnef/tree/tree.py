@@ -30,7 +30,11 @@ from sklearn.tree import _tree
 import _tree as _treeef
 
 from scipy.stats import mvn
-from scipy.stats._multivariate import multivariate_normal
+try:
+    from scipy.stats import multivariate_normal
+except ImportError:
+    from scipy.stats._multivariate import multivariate_normal
+
 
 from sklearnef.tree import _diffentropy
 
@@ -80,7 +84,7 @@ class UnSupervisedDecisionTreeClassifier(DecisionTreeClassifier):
     
     def fit(self, X, y=None, sample_weight=None, check_input=True):
         if check_input:
-            X = check_array(X, dtype=DTYPE)
+            X = check_array(X, dtype=DTYPE, order='C')
  
         if not X.shape[1] <= self.min_samples_leaf:
             raise ValueError("The number of minimum samples per leaf of the "
@@ -149,7 +153,6 @@ class UnSupervisedDecisionTreeClassifier(DecisionTreeClassifier):
         # values
         out = np.zeros(n_samples, np.float)
         for lidx in np.unique(leaf_indices):
-            print info[lidx]['mu'], info[lidx]['cov']
             mnd = multivariate_normal(info[lidx]['mu'], info[lidx]['cov'] + _diffentropy._get_singularity_threshold()) # !TODO: Why would I need an allow_singular=True here? 
             mask = lidx == leaf_indices
             out[mask] = info[lidx]['frac'] / pfi * mnd.pdf(X[mask])
@@ -185,7 +188,7 @@ class UnSupervisedDecisionTreeClassifier(DecisionTreeClassifier):
             lower = [r[0] for r in leaf_info['range']]
             upper = [r[1] for r in leaf_info['range']]
             integral, _ = mvn.mvnun(lower, upper, leaf_info['mu'], leaf_info['cov'])
-            z += leaf_info['frac'] * integral
+            z += integral
         
         return z
     

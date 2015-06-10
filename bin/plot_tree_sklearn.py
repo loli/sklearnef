@@ -18,7 +18,7 @@ from sklearnef.ensemble import UnSupervisedRandomForestClassifier
 
 # information
 __author__ = "Oskar Maier"
-__version__ = "r0.1.0, 2015-06-08"
+__version__ = "r0.1.1, 2015-06-08"
 __email__ = "oskar.maier@googlemail.com"
 __status__ = "Release"
 __description__ = """
@@ -27,7 +27,7 @@ the results.
 """
 
 # constants
-DATASETS = ['circles_distant', 'circles_near', 'moons', 'blobs', 's_curve', 'swiss_roll']
+DATASETS = ['circles_distant', 'circles_near', 'moons', 'blobs', 's_curve', 'swiss_roll', 'load']
 
 # code
 def main():
@@ -64,7 +64,12 @@ def main():
     grid = np.mgrid[x_lower:x_upper:args.resolution,y_lower:y_upper:args.resolution]
     
     # ----- Training -----
-    clf = UnSupervisedRandomForestClassifier(n_estimators=1, random_state=args.seed, min_samples_leaf=2, n_jobs=-1, max_features=None, min_improvement=0.25)
+    clf = UnSupervisedRandomForestClassifier(n_estimators=1,
+                                             random_state=args.seed,
+                                             min_samples_leaf=2,
+                                             n_jobs=-1, bootstrap=False,
+                                             max_features=None,
+                                             min_improvement=args.min_improvement)
     clf.fit(X)
     
     # ----- Prediction -----
@@ -85,33 +90,34 @@ def main():
     plt.title('GT: {}'.format(args.dataset))
     
     # add split-lines
-    info = clf.estimators_[0].parse_tree_leaves()
-    xmin, xmax = min(x), max(x)
-    ymin, ymax = min(y), max(y)
-    hlines = ([], [], [])
-    vlines = ([], [], [])
-    for node in info:
-        if node is not None: # leave node
-            for pos in node['range'][0]: # xrange
-                if not np.isinf(pos):
-                    xliml, xlimr = node['range'][1]
-                    vlines[0].append(pos)
-                    vlines[1].append(ymin if np.isinf(xliml) else xliml)
-                    vlines[2].append(ymax if np.isinf(xlimr) else xlimr)
-            for pos in node['range'][1]: # xrange
-                if not np.isinf(pos):
-                    yliml, ylimr = node['range'][0]
-                    hlines[0].append(pos)
-                    hlines[1].append(xmin if np.isinf(yliml) else yliml)
-                    hlines[2].append(xmax if np.isinf(ylimr) else ylimr)
-    plt.hlines(hlines[0], hlines[1], hlines[2], colors='blue', linestyles='dotted')
-    plt.vlines(vlines[0], vlines[1], vlines[2], colors='blue', linestyles='dotted')    
+    if not args.no_split_lines:
+        info = clf.estimators_[0].parse_tree_leaves()
+        xmin, xmax = min(x), max(x)
+        ymin, ymax = min(y), max(y)
+        hlines = ([], [], [])
+        vlines = ([], [], [])
+        for node in info:
+            if node is not None: # leaf node
+                for pos in node['range'][0]: # xrange
+                    if not np.isinf(pos):
+                        xliml, xlimr = node['range'][1]
+                        vlines[0].append(pos)
+                        vlines[1].append(ymin if np.isinf(xliml) else xliml)
+                        vlines[2].append(ymax if np.isinf(xlimr) else xlimr)
+                for pos in node['range'][1]: # yrange
+                    if not np.isinf(pos):
+                        yliml, ylimr = node['range'][0]
+                        hlines[0].append(pos)
+                        hlines[1].append(xmin if np.isinf(yliml) else yliml)
+                        hlines[2].append(xmax if np.isinf(ylimr) else ylimr)
+        plt.hlines(hlines[0], hlines[1], hlines[2], colors='blue', linestyles='dotted')
+        plt.vlines(vlines[0], vlines[1], vlines[2], colors='blue', linestyles='dotted')
     
     # second plot: prediction
     plt.subplot(2, 1, 2)
     #CS = plt.contour(x,y,prob_predict.reshape((x.size,y.size)).T,15,linewidths=0.5,cmap=plt.cm.afmhot)
     #CS = plt.contourf(x,y,prob_predict.reshape((x.size,y.size)).T,15,cmap=plt.cm.PiYG)
-    im = plt.imshow(prob_predict.reshape((x.size,y.size)).T, extent=[min(x),max(x),min(y),max(y)], interpolation='bicubic', cmap=plt.cm.afmhot, aspect='auto', origin='lower') #'auto'
+    im = plt.imshow(prob_predict.reshape((x.size,y.size)).T, extent=[min(x),max(x),min(y),max(y)], interpolation='none', cmap=plt.cm.afmhot, aspect='auto', origin='lower') #'auto'
     #plt.colorbar(im, use_gridspec=True)
     plt.colorbar()
     
@@ -120,27 +126,28 @@ def main():
     plt.title('Learned density: {}'.format(args.dataset))
     
     # add split-lines
-    info = clf.estimators_[0].parse_tree_leaves()
-    xmin, xmax = min(x), max(x)
-    ymin, ymax = min(y), max(y)
-    hlines = ([], [], [])
-    vlines = ([], [], [])
-    for node in info:
-        if node is not None: # leave node
-            for pos in node['range'][0]: # xrange
-                if not np.isinf(pos):
-                    xliml, xlimr = node['range'][1]
-                    vlines[0].append(pos)
-                    vlines[1].append(ymin if np.isinf(xliml) else xliml)
-                    vlines[2].append(ymax if np.isinf(xlimr) else xlimr)
-            for pos in node['range'][1]: # xrange
-                if not np.isinf(pos):
-                    yliml, ylimr = node['range'][0]
-                    hlines[0].append(pos)
-                    hlines[1].append(xmin if np.isinf(yliml) else yliml)
-                    hlines[2].append(xmax if np.isinf(ylimr) else ylimr)
-    plt.hlines(hlines[0], hlines[1], hlines[2], colors='blue', linestyles='dotted')
-    plt.vlines(vlines[0], vlines[1], vlines[2], colors='blue', linestyles='dotted')
+    if not args.no_split_lines:
+        info = clf.estimators_[0].parse_tree_leaves()
+        xmin, xmax = min(x), max(x)
+        ymin, ymax = min(y), max(y)
+        hlines = ([], [], [])
+        vlines = ([], [], [])
+        for node in info:
+            if node is not None: # leave node
+                for pos in node['range'][0]: # xrange
+                    if not np.isinf(pos):
+                        xliml, xlimr = node['range'][1]
+                        vlines[0].append(pos)
+                        vlines[1].append(ymin if np.isinf(xliml) else xliml)
+                        vlines[2].append(ymax if np.isinf(xlimr) else xlimr)
+                for pos in node['range'][1]: # xrange
+                    if not np.isinf(pos):
+                        yliml, ylimr = node['range'][0]
+                        hlines[0].append(pos)
+                        hlines[1].append(xmin if np.isinf(yliml) else yliml)
+                        hlines[2].append(xmax if np.isinf(ylimr) else ylimr)
+        plt.hlines(hlines[0], hlines[1], hlines[2], colors='blue', linestyles='dotted')
+        plt.vlines(vlines[0], vlines[1], vlines[2], colors='blue', linestyles='dotted')
     
     plt.show()
     
@@ -152,9 +159,10 @@ def getParser():
     "Creates and returns the argparse parser object."
     parser = argparse.ArgumentParser(description=__description__)
     parser.add_argument('dataset', choices=DATASETS, help='The dataset to use.')
-    parser.add_argument('--n-trees', default=10, type=int, help='The number of trees to train.')
     parser.add_argument('--n-samples', default=2500, type=int, help='The number of samples to draw.')
-    parser.add_argument('--resolution', default=0.5, type=float, help='The plotting resolution.')
+    parser.add_argument('--min-improvement', default=0, type=float, help='The minimum improvement require to consider a split valid.')
+    parser.add_argument('--no-split-lines', action='store_true', help='Do not plot the split-lines.')
+    parser.add_argument('--resolution', default=0.01, type=float, help='The plotting resolution.')
     parser.add_argument('--seed', default=None, type=int, help='The random seed to use. Fix to an integer to create reporducible results.')
 
     parser.add_argument('-v', dest='verbose', action='store_true', help='Display more information.')
