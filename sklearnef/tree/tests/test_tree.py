@@ -2,7 +2,6 @@
 Testing for the tree module (sklearnef.tree).
 """
 
-import scipy.stats
 import numpy as np
 
 from sklearn.utils.testing import assert_array_equal
@@ -97,6 +96,26 @@ def test_unsupervised_density_iris():
             assert_greater(prob_log_predict[mask].mean(),
                            prob_log_predict[~mask].mean(),
                            msg="Failed with {0} using predict_log_proba()".format(name))
+        
+def test_reproducible():
+    """Test if results are reproducible i.e. deterministic."""     
+    for name, TreeEstimator in ALL_TREES.items():
+        
+        # first run
+        est = TreeEstimator(random_state=0)
+        X = np.asarray(iris.data, dtype=np.float64)
+        y = iris.target
+        first = est.fit(X, y).predict_proba(X)
+        
+        # second run (on same estimator)
+        second = est.fit(X, y).predict_proba(X)
+        assert_array_equal(first, second)
+        
+        # third run (on new estimator)
+        est = TreeEstimator(random_state=0)
+        third = est.fit(X, y).predict_proba(X)
+        assert_array_equal(first, third)
+        
             
 @with_setup(setup_sklearn_tests, teardown_sklearn_tests)
 def test_importances():
@@ -137,7 +156,7 @@ def test_min_samples_leaf():
 def test_min_weight_fraction_leaf():
     sklearn_tests.test_min_weight_fraction_leaf()
     
-# re-writte, as score() not supported by un-supervised trees
+# re-write, as score() not supported by un-supervised trees
 def test_pickle():
     """Check that tree estimator are pickable """
     for name, TreeClassifier in ALL_TREES.items():
@@ -149,25 +168,78 @@ def test_pickle():
         clf2 = pickle.loads(serialized_object)
         assert_equal(type(clf2), clf.__class__)
         proba2 = clf2.predict_proba(iris.data)
-        assert_array_equal(proba, proba2, "Failed to generate same score "
+        assert_array_equal(proba, proba2, "Failed to generate same output "
                                           "after pickling (classification) "
-                                          "with {0}".format(name))    
-
-@with_setup(setup_sklearn_tests, teardown_sklearn_tests)
-def test_multioutput():
-    sklearn_tests.test_multioutput()
-
-@with_setup(setup_sklearn_tests, teardown_sklearn_tests)
-def test_classes_shape():
-    sklearn_tests.test_classes_shape()
-
-@with_setup(setup_sklearn_tests, teardown_sklearn_tests)
-def test_unbalanced_iris():
-    sklearn_tests.test_unbalanced_iris()
-
-@with_setup(setup_sklearn_tests, teardown_sklearn_tests)
+                                          "with {0}".format(name))
+    
+# Note: re-written as original uses classification task for test    
 def test_memory_layout():
-    sklearn_tests.test_memory_layout()
+    """Check that it works no matter the memory layout"""
+    for name, TreeEstimator in ALL_TREES.items():
+        
+        # establish baseline
+        est = TreeEstimator(random_state=0)
+        X = np.asarray(iris.data, dtype=np.float64)
+        y = iris.target
+        baseline = est.fit(X, y).predict_proba(X)
+        
+        for dtype in [np.float64, np.float32]:
+            
+            est = TreeEstimator(random_state=0)
+
+            #!TODO: Tests might require almost_equal due to precision (64, 32) issues.
+
+            # Nothing
+            X = np.asarray(iris.data, dtype=dtype)
+            y = iris.target
+            assert_array_equal(est.fit(X, y).predict_proba(X),
+                               baseline, 'Config: Nothing, {}'.format(dtype.__name__))
+    
+            # C-order
+            X = np.asarray(iris.data, order="C", dtype=dtype)
+            y = iris.target
+            assert_array_equal(est.fit(X, y).predict_proba(X),
+                               baseline, 'Config: C-order, {}'.format(dtype.__name__))
+    
+            # F-order
+            X = np.asarray(iris.data, order="F", dtype=dtype)
+            y = iris.target
+            assert_array_equal(est.fit(X, y).predict_proba(X),
+                               baseline, 'Config: F-order, {}'.format(dtype.__name__))
+    
+            # Contiguous
+            X = np.ascontiguousarray(iris.data, dtype=dtype)
+            y = iris.target
+            assert_array_equal(est.fit(X, y).predict_proba(X),
+                               baseline, 'Config: Contiguous, {}'.format(dtype.__name__))
+    
+            # Strided
+            X = np.asarray(iris.data[::3], dtype=dtype)
+            y = iris.target[::3]
+            assert_array_equal(est.fit(X, y).predict_proba(X),
+                               baseline, 'Config: Strided, {}'.format(dtype.__name__))     
+                 
+
+# Deactivated: Multi-output not supported by density forests
+#@with_setup(setup_sklearn_tests, teardown_sklearn_tests)
+#def test_multioutput():
+#    sklearn_tests.test_multioutput()
+
+# Deactivated: Classes and multi-output not supported by density forests
+#@with_setup(setup_sklearn_tests, teardown_sklearn_tests)
+#def test_classes_shape():
+#    sklearn_tests.test_classes_shape()
+
+# Deactivated: Test requires predict() method
+#@with_setup(setup_sklearn_tests, teardown_sklearn_tests)
+#def test_unbalanced_iris():
+#    sklearn_tests.test_unbalanced_iris()
+
+# Deactivated: Test is based on class prediction, using own re-implementation
+#              based on comparison
+#@with_setup(setup_sklearn_tests, teardown_sklearn_tests)
+#def test_memory_layout():
+#    sklearn_tests.test_memory_layout()
 
 @with_setup(setup_sklearn_tests, teardown_sklearn_tests)
 def test_sample_weight():
@@ -204,6 +276,7 @@ def test_only_constant_features():
 @with_setup(setup_sklearn_tests, teardown_sklearn_tests)
 def test_with_only_one_non_constant_features():
     #!TODO: Disabled as (1) very slow and (2) failing
+    #sklearn_tests.test_with_only_one_non_constant_features()
     #sklearn_tests.test_with_only_one_non_constant_features()
     pass
 
