@@ -81,6 +81,11 @@ def test_unsupervised_density():
     # !TODO: Implement a suitable scenario.
     pass
 
+def test_density_integral():
+    """Check whether the learned density function has an integral of (nearly) one."""
+    # !TODO: Implement a suitable scenario
+    pass
+
 def test_unsupervised_density_iris():
     """Check learned class density on iris dataset."""
     for name, Tree in UNSCLF_TREES.items():

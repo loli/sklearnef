@@ -29,11 +29,11 @@ from sklearn.tree import _tree
 
 import _tree as _treeef
 
-from scipy.stats import mvn
+from scipy.stats import mvn # Fortran implementation for multivariate normal CDF estimation
 try:
     from scipy.stats import multivariate_normal
 except ImportError:
-    from scipy.stats._multivariate import multivariate_normal
+    from scipy.stats._multivariate import multivariate_normal # older scipy versions
 
 
 from sklearnef.tree import _diffentropy
@@ -56,6 +56,115 @@ DENSE_SPLITTERS['unsupervised'] = _treeef.UnSupervisedBestSplitter
 # =============================================================================
 
 class UnSupervisedDecisionTreeClassifier(DecisionTreeClassifier):
+    """A tree for density estimation.
+    
+    The forest attempts to learn the probability distribution which
+    created the training data. For this purpose, bounded multivariate
+    normal distributions are fitted to the data.
+    
+    The predict_proba() and predict_log_proba() methods should then
+    be treated as probability density functions (PDF) of the learned
+    distributions, while the integral over predict_proba() is exactly
+    one.
+
+    Parameters
+    ----------
+    !TODO: Implement also a random version of the best-splitter
+    splitter : string, optional (default="unsupervised")
+        The strategy used to choose the split at each node. Currently only
+        "unsupervised" is supported, which is a variant of the "best" splitter
+        strategy.
+
+    max_features : int, float, string or None, optional (default=None)
+        The number of features to consider when looking for the best split:
+          - If int, then consider `max_features` features at each split.
+          - If float, then `max_features` is a percentage and
+            `int(max_features * n_features)` features are considered at each
+            split.
+          - If "auto", then `max_features=sqrt(n_features)`.
+          - If "sqrt", then `max_features=sqrt(n_features)`.
+          - If "log2", then `max_features=log2(n_features)`.
+          - If None, then `max_features=n_features`.
+
+        Note: the search for a split does not stop until at least one
+        valid partition of the node samples is found, even if it requires to
+        effectively inspect more than ``max_features`` features.
+        
+    min_improvement : float (default=0)
+        The minimum improvement a split must exhibit to be considered adequate.
+        One of the strongest parameters for controlling over-fitting in density
+        trees.
+
+    max_depth : int or None, optional (default=None)
+        The maximum depth of the tree. If None, then nodes are expanded until
+        all leaves are pure or until all leaves contain less than
+        min_samples_split samples.
+        Ignored if ``max_leaf_nodes`` is not None.
+
+    min_samples_split : int, optional (default=2)
+        The minimum number of samples required to split an internal node.
+
+    min_samples_leaf : int or None, optional (default=None)
+        The minimum number of samples required to be at a leaf node. Must be
+        at least as high as the number of features in the training set. If None,
+        set to the number of features at trainign time.
+
+    min_weight_fraction_leaf : float, optional (default=0.)
+        The minimum weighted fraction of the input samples required to be at a
+        leaf node.
+
+    max_leaf_nodes : int or None, optional (default=None)
+        Grow a tree with ``max_leaf_nodes`` in best-first fashion.
+        Best nodes are defined as relative reduction in impurity.
+        If None then unlimited number of leaf nodes.
+        If not None then ``max_depth`` will be ignored.
+
+    random_state : int, RandomState instance or None, optional (default=None)
+        If int, random_state is the seed used by the random number generator;
+        If RandomState instance, random_state is the random number generator;
+        If None, the random number generator is the RandomState instance used
+        by `np.random`.
+
+    Attributes
+    ----------
+    tree_ : Tree object
+        The underlying Tree object.
+
+    !TODO: This does not seem to get set. Why?
+    max_features_ : int,
+        The inferred value of max_features.
+
+    feature_importances_ : array of shape = [n_features]
+        The feature importances. The higher, the more important the
+        feature. The importance of a feature is computed as the (normalized)
+        total reduction of the criterion brought by that feature.  It is also
+        known as the Gini importance [4]_.
+
+    See also
+    --------
+    SemiSupervisedDecisionTreeClassifier
+
+    References
+    ----------
+
+    .. [1] A. Criminisi, J. Shotton and E. Konukoglu, "Decision Forests: A 
+           Unified Framework for Classification, Regression, Density
+           Estimation, Manifold Learning and Semi-Supervised Learning",
+           Foundations and Trends(r) in Computer Graphics and Vision, Vol. 7,
+           No. 2-3, pp 81-227, 2012.
+
+    Examples
+    --------
+    >>> from sklearn.datasets import load_iris
+    >>> from sklearnef.tree import UnSupervisedDecisionTreeClassifier
+    >>> clf = UnSupervisedDecisionTreeClassifier(random_state=0)
+    >>> iris = load_iris()
+    >>> clf.fit(iris.data)
+    >>> clf.predict_proba(iris.data)
+    array([  4.82956378e-01,   4.62110584e-01,   6.80794444e-01,
+         4.96085162e-01,   3.06794415e-01,   1.87555200e-01,
+         ...
+    """    
     def __init__(self,
                  criterion="unsupervised",
                  splitter="unsupervised",
@@ -81,8 +190,42 @@ class UnSupervisedDecisionTreeClassifier(DecisionTreeClassifier):
             random_state=random_state)
         
         self.min_improvement = min_improvement
+        
+        if not 'unsupervised' == criterion:
+            raise ValueError("Currently only the \"unsupervised\" criterion "
+                             "is supported for density estimation.")
+        if not 'unsupervised' == splitter:
+            raise ValueError("Currently only the \"unsupervised\" splitter "
+                             "is supported for density estimation.")
     
     def fit(self, X, y=None, sample_weight=None, check_input=True):
+        """Build a decision tree from the training set X.
+
+        Parameters
+        ----------
+        X : array-like, shape = [n_samples, n_features]
+            The training input samples whose density distribution to estimate.
+            Internally, it will be converted to ``dtype=np.float32``.
+
+        y : None
+            Not used, kep only for interface conformity reasons.
+
+        sample_weight : array-like, shape = [n_samples] or None
+            Sample weights. If None, then samples are equally weighted. Splits
+            that would create child nodes with net zero or negative weight are
+            ignored while searching for a split in each node. In the case of
+            classification, splits are also ignored if they would result in any
+            single class carrying a negative weight in either child node.
+
+        check_input : boolean, (default=True)
+            Allow to bypass several input checking.
+            Don't use this parameter unless you know what you do.
+
+        Returns
+        -------
+        self : object
+            Returns self.
+        """        
         if check_input:
             X = check_array(X, dtype=DTYPE, order='C')
  
@@ -300,7 +443,7 @@ class UnSupervisedDecisionTreeClassifier(DecisionTreeClassifier):
         
         Only kept for interface consistency reasons.
         """
-        raise NotImplementedError("Density forest do not support the predict() method.")
+        raise NotImplementedError("Density forests do not support the predict() method.")
 
 class SemiSupervisedDecisionTreeClassifier(DecisionTreeClassifier):
     def __init__(self,

@@ -35,6 +35,110 @@ __all__ = ["UnSupervisedRandomForestClassifier",
            ]
 
 class UnSupervisedRandomForestClassifier(ForestClassifier):
+    """A forest based density estimator.
+
+    A random forest is a meta estimator that fits a number of density trees
+    on various sub-samples of the dataset and use averaging to improve the
+    smoothness, predictive accuracy and to control over-fitting.
+
+    Parameters
+    ----------
+    n_estimators : integer, optional (default=10)
+        The number of trees in the forest.
+
+    max_features : int, float, string or None, optional (default="auto")
+        The number of features to consider when looking for the best split:
+
+        - If int, then consider `max_features` features at each split.
+        - If float, then `max_features` is a percentage and
+          `int(max_features * n_features)` features are considered at each
+          split.
+        - If "auto", then `max_features=sqrt(n_features)`.
+        - If "sqrt", then `max_features=sqrt(n_features)`.
+        - If "log2", then `max_features=log2(n_features)`.
+        - If None, then `max_features=n_features`.
+
+        Note: the search for a split does not stop until at least one
+        valid partition of the node samples is found, even if it requires to
+        effectively inspect more than ``max_features`` features.
+        Note: this parameter is tree-specific.
+    
+    min_improvement : float (default=0)
+        The minimum improvement a split must exhibit to be considered adequate.
+        One of the strongest parameters for controlling over-fitting in density
+        trees.
+
+    max_depth : integer or None, optional (default=None)
+        The maximum depth of the tree. If None, then nodes are expanded until
+        all leaves are pure or until all leaves contain less than
+        min_samples_split samples.
+        Ignored if ``max_leaf_nodes`` is not None.
+        Note: this parameter is tree-specific.
+
+    min_samples_split : integer, optional (default=2)
+        The minimum number of samples required to split an internal node.
+        Note: this parameter is tree-specific.
+
+    min_samples_leaf : integer, optional (default=1)
+        The minimum number of samples in newly created leaves.  A split is
+        discarded if after the split, one of the leaves would contain less then
+        ``min_samples_leaf`` samples.
+        Note: this parameter is tree-specific.
+
+    min_weight_fraction_leaf : float, optional (default=0.)
+        The minimum weighted fraction of the input samples required to be at a
+        leaf node.
+        Note: this parameter is tree-specific.
+
+    max_leaf_nodes : int or None, optional (default=None)
+        Grow trees with ``max_leaf_nodes`` in best-first fashion.
+        Best nodes are defined as relative reduction in impurity.
+        If None then unlimited number of leaf nodes.
+        If not None then ``max_depth`` will be ignored.
+        Note: this parameter is tree-specific.
+
+    bootstrap : boolean, optional (default=True)
+        Whether bootstrap samples are used when building trees.
+
+    n_jobs : integer, optional (default=1)
+        The number of jobs to run in parallel for both `fit` and `predict`.
+        If -1, then the number of jobs is set to the number of cores.
+
+    random_state : int, RandomState instance or None, optional (default=None)
+        If int, random_state is the seed used by the random number generator;
+        If RandomState instance, random_state is the random number generator;
+        If None, the random number generator is the RandomState instance used
+        by `np.random`.
+
+    verbose : int, optional (default=0)
+        Controls the verbosity of the tree building process.
+
+    warm_start : bool, optional (default=False)
+        When set to ``True``, reuse the solution of the previous call to fit
+        and add more estimators to the ensemble, otherwise, just fit a whole
+        new forest.
+
+    Attributes
+    ----------
+    estimators_ : list of DecisionTreeClassifier
+        The collection of fitted sub-estimators.
+
+    feature_importances_ : array of shape = [n_features]
+        The feature importances (the higher, the more important the feature).
+
+    References
+    ----------
+
+    .. [1] A. Criminisi, J. Shotton and E. Konukoglu, "Decision Forests: A 
+           Unified Framework for Classification, Regression, Density
+           Estimation, Manifold Learning and Semi-Supervised Learning",
+           Foundations and Trends(r) in Computer Graphics and Vision, Vol. 7,
+           No. 2-3, pp 81-227, 2012.
+
+    See also
+    --------
+    UnSupervisedDecisionTreeClassifier
+    """    
     def __init__(self,
                  n_estimators=10,
                  criterion="unsupervised",
@@ -81,10 +185,19 @@ class UnSupervisedRandomForestClassifier(ForestClassifier):
 
         Parameters
         ----------
-        X : array-like or sparse matrix, shape=(n_samples, n_features)
-            The input samples. Use ``dtype=np.float32`` for maximum
-            efficiency. Sparse matrices are also supported, use sparse
-            ``csc_matrix`` for maximum efficiency.
+        X : array-like, shape = [n_samples, n_features]
+            The training input samples whose density distribution to estimate.
+            Internally, it will be converted to ``dtype=np.float32``.
+            
+        y : None
+            Not used, kep only for interface conformity reasons.            
+            
+        sample_weight : array-like, shape = [n_samples] or None
+            Sample weights. If None, then samples are equally weighted. Splits
+            that would create child nodes with net zero or negative weight are
+            ignored while searching for a split in each node. In the case of
+            classification, splits are also ignored if they would result in any
+            single class carrying a negative weight in either child node.
 
         Returns
         -------
