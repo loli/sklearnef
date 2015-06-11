@@ -90,7 +90,8 @@ cdef class UnSupervisedClassificationCriterion(Criterion):
     def __reduce__(self): # arguemnts to __cinit__
         return (UnSupervisedClassificationCriterion,
                 (self.n_samples,
-                 self.n_features),
+                 self.n_features,
+                 self.min_improvement),
                  self.__getstate__())
 
     def __getstate__(self):
