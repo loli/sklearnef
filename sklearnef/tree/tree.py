@@ -61,7 +61,7 @@ class UnSupervisedDecisionTreeClassifier(DecisionTreeClassifier):
                  splitter="unsupervised",
                  max_depth=None,
                  min_samples_split=2,
-                 min_samples_leaf=1,
+                 min_samples_leaf=None,
                  min_weight_fraction_leaf=0.,
                  max_features=None,
                  random_state=None,
@@ -86,7 +86,9 @@ class UnSupervisedDecisionTreeClassifier(DecisionTreeClassifier):
         if check_input:
             X = check_array(X, dtype=DTYPE, order='C')
  
-        if not X.shape[1] <= self.min_samples_leaf:
+        if self.min_samples_leaf is None:
+            self.min_samples_leaf = X.shape[1]
+        elif not X.shape[1] <= self.min_samples_leaf:
             raise ValueError("The number of minimum samples per leaf of the "
                              "model must be at least as large as the number "
                              "of features. Model min_samples_leaf is %s and "
