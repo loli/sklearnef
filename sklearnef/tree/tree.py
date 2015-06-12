@@ -190,7 +190,7 @@ class UnSupervisedDecisionTreeClassifier(DecisionTreeClassifier):
             random_state=random_state)
         
         self.min_improvement = min_improvement
-        
+
         if not 'unsupervised' == criterion:
             raise ValueError("Currently only the \"unsupervised\" criterion "
                              "is supported for density estimation.")
@@ -245,7 +245,11 @@ class UnSupervisedDecisionTreeClassifier(DecisionTreeClassifier):
         if 'unsupervised' == self.criterion:
             self.criterion =  _treeef.UnSupervisedClassificationCriterion(X.shape[0], X.shape[1], self.min_improvement)
         DecisionTreeClassifier.fit(self, X, y, sample_weight, check_input)
-        #!TODO: Here I could call compute_partition_function once to fix it forever
+        
+        # extract leaf values and leaf definition bounding boxes from the tree
+        # then compute integral of learned distribution for normalization
+        self.prob_distribution_integral = self.compute_partition_function(self.parse_tree_leaves())
+        
         return self
 
     def predict_proba(self, X, check_input=True):
@@ -284,13 +288,10 @@ class UnSupervisedDecisionTreeClassifier(DecisionTreeClassifier):
         # extract leaf values and leaf definition bounding boxes from the tree
         info = self.parse_tree_leaves()
         
-        # compute the integral of the partition function
-        # !TODO: This could be computed once for the first application, and
-        # then re-used; but how to avoid re-training?
-        pfi = self.compute_partition_function(info) # Modifies info objects range entries in-place!
+        # get the distribution function integral value (pre-computed)
+        pfi = self.prob_distribution_integral
         
-        # returns the indices of the node (alle leaves) each sample dropped
-        # into
+        # returns the indices of the node (alle leaves) each sample dropped into
         leaf_indices = self.tree_.apply(X)
 
         # construct the the associated multivariate Gaussian distribution for each unique
@@ -332,9 +333,10 @@ class UnSupervisedDecisionTreeClassifier(DecisionTreeClassifier):
                 continue
             lower = [r[0] for r in leaf_info['range']]
             upper = [r[1] for r in leaf_info['range']]
-            integral, _ = mvn.mvnun(lower, upper, leaf_info['mu'], leaf_info['cov'])
+            dim = len(lower)
+            integral, _ = mvn.mvnun(lower, upper, leaf_info['mu'], leaf_info['cov'], maxpts=dim*10000, abseps=1e-20,releps=1e-20)
             z += integral
-        
+
         return z
     
     def info_inf_to_large(self, info, mult = 100):
