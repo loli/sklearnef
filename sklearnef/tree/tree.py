@@ -30,6 +30,7 @@ from sklearn.tree import _tree
 import _tree as _treeef
 
 from scipy.stats import mvn # Fortran implementation for multivariate normal CDF estimation
+from sklearn.base import ClassifierMixin
 try:
     from scipy.stats import multivariate_normal
 except ImportError:
@@ -48,7 +49,7 @@ __all__ = ["SemiSupervisedDecisionTreeClassifier",
 DTYPE = _tree.DTYPE
 DOUBLE = _tree.DOUBLE
 
-CRITERIA_CLF = {"gini": _tree.Gini, "entropy": _tree.Entropy, "semisupervised": _treeef.LabeledOnlyEntropy}
+CRITERIA_CLF = {"entropy": _tree.Entropy, "semisupervised": _treeef.LabeledOnlyEntropy, "labeledonly": _treeef.LabeledOnlyEntropy}
 DENSE_SPLITTERS['unsupervised'] = _treeef.UnSupervisedBestSplitter
 
 # =============================================================================
@@ -657,7 +658,7 @@ class SemiSupervisedDecisionTreeClassifier(DecisionTreeClassifier):
                                                 random_state)
 
         self.tree_ = Tree(self.n_features_, self.n_classes_, self.n_outputs_)
-
+        
         # Use BestFirst if max_leaf_nodes given; use DepthFirst otherwise
         if max_leaf_nodes < 0:
             builder = DepthFirstTreeBuilder(splitter, min_samples_split,
@@ -670,9 +671,9 @@ class SemiSupervisedDecisionTreeClassifier(DecisionTreeClassifier):
                                            min_weight_leaf,
                                            max_depth,
                                            max_leaf_nodes)
-
+        
         builder.build(self.tree_, X, y, sample_weight)
-
+        
         if self.n_outputs_ == 1:
             self.n_classes_ = self.n_classes_[0]
             self.classes_ = self.classes_[0]

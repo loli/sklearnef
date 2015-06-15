@@ -76,6 +76,24 @@ def teardown_sklearn_tests():
     sklearn_tests.SPARSE_TREES = SKLEARN_TESTS['SPARSE_TREES']
 
 # ---------- Tests ----------
+def test_labeled_only():
+    """Test the labeled only entropy."""
+    y = iris.target.copy()[:-10]
+    y[-1:] = -1
+    clf = SemiSupervisedDecisionTreeClassifier(random_state=0, criterion='labeledonly', max_features=None).fit(iris.data[:-10], y)
+    baseline_pred = clf.predict(iris.data)
+    baseline_prob = clf.predict_proba(iris.data)
+    
+    # adding new, unlabeled samples should not change the prediction outcome
+    for i in range(2, 10):
+        y = iris.target.copy()[:-(10 - i + 1)]
+        y[-i:] = -1
+        clf = SemiSupervisedDecisionTreeClassifier(random_state=0, criterion='labeledonly', max_features=None).fit(iris.data[:-(10 - i + 1)], y)
+        pred = clf.predict(iris.data)
+        prob = clf.predict_proba(iris.data)
+        assert_array_equal(baseline_pred, pred)
+        assert_array_equal(baseline_prob, prob)
+
 def test_unsupervised_density():
     """Check learned class density of multiple, distributed multi-variate gaussians."""
     # !TODO: Implement a suitable scenario.

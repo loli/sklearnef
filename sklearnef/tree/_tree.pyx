@@ -392,13 +392,13 @@ cdef class LabeledOnlyEntropy(Entropy):
  
             c = <SIZE_t> y[i * y_stride]
             if c > 0: # don't consider unlabeled samples; assuming that sample is either for all outputs unlabeled or for all labeled
-                label_index = k * label_count_stride + c
+                label_index = k * label_count_stride + c - 1
                 label_count_left[label_index] += w
                 label_count_right[label_index] -= w
                  
                 for k in range(1, n_outputs):
-                    label_index = (k * label_count_stride +
-                                   <SIZE_t> y[i * y_stride + k])
+                    c = <SIZE_t> y[i * y_stride + k]
+                    label_index = k * label_count_stride + c - 1
                     label_count_left[label_index] += w
                     label_count_right[label_index] -= w
      
