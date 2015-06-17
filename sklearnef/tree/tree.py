@@ -826,4 +826,40 @@ class MVND():
                          self.cov,
                          maxpts=resolution * len(self.lower),
                          abseps=abseps, releps=releps)[0]
+                         
+class MECDF:
+    def __init__(self, X):
+        r"""Multivariate estimated cumulative density function.
+        
+        Implemented as step-wise function.
+        """
+        self.X = np.asarray(X)
+        if not 2 == self.X.ndim:
+            raise ValueError('Dimensionality must be 2.')
+        self.n, self.d = self.X.shape
+        
+    def cdf(self, X):
+        r"""
+        Compute the MECDF response for samples.
+        
+        Parameters
+        ----------
+        X : array_like
+            One or more samples for which to compute the response.
+        
+        Returns
+        -------
+        cdf : ndarray
+            MECDF response for the samples in `X`.
+        """
+        #!TODO: Is there a faster way to do this in bulk?
+        X = np.atleast_2d(X)
+        if not X.shape[1] == self.d:
+            raise ValueError('Invalid dimensionality.')
+        if not 2 == X.ndim:
+            raise ValueError('Dimensionality must be 1 or 2.')
+        cdf = np.zeros(X.shape[0])
+        for i, x in enumerate(X):
+            cdf[i] = np.count_nonzero(np.all(self.X <= x, axis=1)) / float(self.n)
+        return cdf
     
