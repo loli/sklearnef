@@ -160,7 +160,7 @@ cdef class UnSupervisedClassificationCriterion(Criterion):
         
         self.covl.reset()
         self.covr.reset()
-        
+
         for i in range(start, end):
             self.covr.update_add(X + samples[i] * X_stride)
             
@@ -201,6 +201,7 @@ cdef class UnSupervisedClassificationCriterion(Criterion):
         
         self.covr.compute_covariance_matrix()
         entropy = self.covr.logdet()
+
         return entropy + ENTROPY_SHIFT
 
     cdef void children_impurity(self, double* impurity_left,
@@ -277,7 +278,7 @@ cdef class UnSupervisedClassificationCriterion(Criterion):
 
         improvement = Criterion.impurity_improvement(self, impurity)
         min_improvement = self.min_improvement
-       
+
         return improvement if improvement >= min_improvement else -INFINITY
 
 cdef inline void upper_to_matrix(DOUBLE_t* X, DOUBLE_t* Y, SIZE_t length) nogil:

@@ -78,6 +78,7 @@ def teardown_sklearn_tests():
 # ---------- Tests ----------
 def test_labeled_only():
     """Test the labeled only entropy."""
+    #!TODO: This test might require injection or another special treatment once the SemiSupervisedForest is done.
     y = iris.target.copy()[:-10]
     y[-1:] = -1
     clf = SemiSupervisedDecisionTreeClassifier(random_state=0, criterion='labeledonly', max_features=None).fit(iris.data[:-10], y)
@@ -179,7 +180,6 @@ def test_min_samples_leaf():
     # by setting max_leaf_nodes
     for max_leaf_nodes in (None, 1000):
         for name, TreeEstimator in ALL_TREES.items():
-            print TreeEstimator
             est = TreeEstimator(min_samples_leaf=5,
                                 max_leaf_nodes=max_leaf_nodes,
                                 random_state=0)

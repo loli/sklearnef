@@ -10,6 +10,7 @@ and semi-supervised trees. Onyl single output problems are handled.
 from __future__ import division
 
 import numbers
+import warnings
 
 import numpy as np
 from scipy.sparse import issparse
@@ -31,6 +32,8 @@ import _tree as _treeef
 
 from scipy.stats import mvn # Fortran implementation for multivariate normal CDF estimation
 from sklearn.base import ClassifierMixin
+from numpy.linalg.linalg import LinAlgError
+
 try:
     from scipy.stats import multivariate_normal
 except ImportError:
@@ -241,24 +244,46 @@ class UnSupervisedDecisionTreeClassifier(DecisionTreeClassifier):
         # !TODO: replace this crude method to get the tree to provide sufficient memory for storing the leaf values
         # remove passed y (which we do not need and only keep for interface conformity reasons)
         #!TODO: Find a way to make an y conveying the required shape info without actually allocating any memory
-        y = np.zeros((X.shape[0], X.shape[1]**2 + X.shape[1] + 1))
+        #y = np.zeros((X.shape[0], X.shape[1]**2 + X.shape[1] + 1), dtype=np.dtype('d'))
+        #y = np.lib.stride_tricks.as_strided(np.asarray([0], dtype=np.bool), shape=(X.shape[0], X.shape[1]**2 + X.shape[1] + 1), strides=(0, 0))
+        s = X.shape[1]**2 + X.shape[1] + 1
+        if s > X.shape[0]:
+            y = np.zeros((X.shape[0], s), dtype=np.dtype('d')) # uses n_output
+        else:
+            y = np.tile(range(s), X.shape[0]//s + 1)[:X.shape[0]] # uses n_max_classes
         # initialise criterion here, since it requires another syntax than the default ones
         if 'unsupervised' == self.criterion:
             self.criterion =  _treeef.UnSupervisedClassificationCriterion(X.shape[0], X.shape[1], self.min_improvement)
         DecisionTreeClassifier.fit(self, X, y, sample_weight, check_input)
         
-        # extract leaf values and leaf definition bounding boxes from the tree
-        # then compute integral of learned distribution for normalization
-        self.prob_distribution_integral = self.compute_partition_function(self.parse_tree_leaves())
+        # parse the tree once and create the MVND objects associated with each leaf
+        self.mvnds = self.parse_tree_leaves()
         
         return self
 
-    def predict_proba(self, X, check_input=True):
-        """Predict density distribution membership probabilities of the input samples X.
-
+    def pdf(self, X, check_input=True):
+        """Probability density function of the learned distribution.
+        
+        Notes
+        -----
+        Alias for predict_proba().
+        
+        See also
+        --------
+        predict_proba()
+        """
+        return self.predict_proba(self, X, check_input)
+    
+    def cdf(self, X, check_input=True):
+        """Cummulative density function of the learned distribution.
+        
+        \f[
+            F(x_1, x_2, ...) = P(X_1\leq x_1, X_2\lew x_2, ...)
+        \f]
+        
         Parameters
         ----------
-        X : array-like or sparse matrix of shape = [n_samples, n_features]
+        X : array-like of shape = [n_samples, n_features]
             The input samples. Internally, it will be converted to
             ``dtype=np.float32``. No sparse matrixes allowed.
         check_input : boolean, (default=True)
@@ -268,8 +293,7 @@ class UnSupervisedDecisionTreeClassifier(DecisionTreeClassifier):
         Returns
         -------
         p : array of length n_samples
-            The density distribution membership probability of the input
-            samples.
+            The responses of the CDF for all input samples.
         """
         check_is_fitted(self, 'n_outputs_')
         if check_input:
@@ -285,12 +309,43 @@ class UnSupervisedDecisionTreeClassifier(DecisionTreeClassifier):
                              " match the input. Model n_features is %s and "
                              " input n_features is %s "
                              % (self.n_features_, n_features))
-
-        # extract leaf values and leaf definition bounding boxes from the tree
-        info = self.parse_tree_leaves()
+            
         
-        # get the distribution function integral value (pre-computed)
-        pfi = self.prob_distribution_integral
+
+    def predict_proba(self, X, check_input=True):
+        """Cummulative density function of the learned distribution.
+
+        Parameters
+        ----------
+        X : array-like of shape = [n_samples, n_features]
+            The input samples. Internally, it will be converted to
+            ``dtype=np.float32``. No sparse matrixes allowed.
+        check_input : boolean, (default=True)
+            Allow to bypass several input checking.
+            Don't use this parameter unless you know what you do.
+
+        Returns
+        -------
+        p : array of length n_samples
+            The responses of the PDF for all input samples.
+        """
+        check_is_fitted(self, 'n_outputs_')
+        if check_input:
+            X = check_array(X, dtype=DTYPE, accept_sparse=None)
+
+        n_samples, n_features = X.shape
+
+        if self.tree_ is None:
+            raise NotFittedError("Tree not initialized. Perform a fit first.")
+
+        if self.n_features_ != n_features:
+            raise ValueError("Number of features of the model must "
+                             " match the input. Model n_features is %s and "
+                             " input n_features is %s "
+                             % (self.n_features_, n_features))
+        
+        # compute the distribution function integral value
+        pfi = sum([mvnd.cmnd for mvnd in self.mvnds if mvnd is not None])
         
         # returns the indices of the node (alle leaves) each sample dropped into
         leaf_indices = self.tree_.apply(X)
@@ -299,90 +354,36 @@ class UnSupervisedDecisionTreeClassifier(DecisionTreeClassifier):
         # leaf and pass the associated samples through its pdf to obtain their density
         # values
         out = np.zeros(n_samples, np.float)
+        in_singluar_samples = np.zeros(n_samples, np.bool)
         for lidx in np.unique(leaf_indices):
-            mnd = multivariate_normal(info[lidx]['mu'], info[lidx]['cov'] + _diffentropy._get_singularity_threshold()) # !TODO: Why would I need an allow_singular=True here? 
             mask = lidx == leaf_indices
-            out[mask] = info[lidx]['frac'] / pfi * mnd.pdf(X[mask])
+            try:
+                mnd = multivariate_normal(self.mvnds[lidx].mu, self.mvnds[lidx].cov + _diffentropy._get_singularity_threshold())
+                out[mask] = self.mvnds[lidx].frac / pfi * mnd.pdf(X[mask])
+            except LinAlgError:
+                warnings.warn("Singular co-variance matrix(ces) detected. Associated samples will be set to global maximum.")
+                #mnd = multivariate_normal(self.mvnds[lidx].mu, self.mvnds[lidx].cov + 10 * _diffentropy._get_singularity_threshold(), True)
+                #out[mask] = self.mvnds[lidx].frac / pfi * mnd.pdf(X[mask])
+                in_singluar_samples |= mask
+        
+        # set samples that would have fallen in a singular matrix to the sample-wide maximum value
+        out[in_singluar_samples] = out.max()
         
         # return
         return out
         
-    def compute_partition_function(self, info):
-        r"""
-        Computes the partition function of the tree. In the present case of
-        axis-aligned weak learners, this is equivalent to the sum of the
-        leaf-wise cumulative multivariate normal distributions.
-        
-        Warning
-        -------
-        Modifies info object in-place!
-        
-        Parameters
-        ----------
-        info : list of dicts
-            As returned by `parse_tree_leaves()`.
-        
-        Returns
-        -------
-        z : float
-            The partition function value for the tree.
-        """
-        info = self.info_inf_to_large(info)
-        z = 0
-        for leaf_info in info:
-            if leaf_info is None:
-                continue
-            lower = [r[0] for r in leaf_info['range']]
-            upper = [r[1] for r in leaf_info['range']]
-            dim = len(lower)
-            integral, _ = mvn.mvnun(lower, upper, leaf_info['mu'], leaf_info['cov'], maxpts=dim*10000, abseps=1e-20,releps=1e-20)
-            z += integral
-
-        return z
-    
-    def info_inf_to_large(self, info, mult = 100):
-        r"""
-        Replaces the +/-inf objects in a tree leaves info object by the associated
-        dimensions variance, multiplied by `mult`.
-        
-        Warning
-        -------
-        Modifies info object in-place!
-        
-        Parameters
-        ----------
-        info : list of dicts
-            As returned by `parse_tree_leaves()`.
-        mult : number
-            The multiplicator, choose sufficiently high.
-        
-        Returns
-        -------
-        info : list of dicts
-            The modified tree leaves info object.
-        """
-        for leaf_info in info:
-            if leaf_info is None:
-                continue
-            rang = leaf_info['range']
-            for i in range(len(rang)):
-                l, u = rang[i]
-                if np.isneginf(l):
-                    l = -1 * mult * leaf_info['cov'][i, i]
-                if np.isposinf(u):
-                    u = mult * leaf_info['cov'][i, i]
-                rang[i] = (l, u)
-        return info
-        
     def parse_tree_leaves(self):
         r"""
-        Returns information about the leaves of this density tree.
+        Returns the pice-wise multivariate normal distributions of the
+        leaves of this density tree. The returned list contains an entry
+        for each node of the tree, where internal nodes are designated by
+        None.
             
         Returns
         -------
-        info : list of dicts
-            List containing a dict with the keys ['frac', 'cov', 'mu', 'range']
-            for each leaf node and None for each internal node.
+        mvnds : list of MVND objects
+            List containing MVND objects describing a bounded multivariate
+            normal distribution each.
         """
         return self.__parse_tree_leaves_rec(self.tree_)
         
@@ -395,7 +396,7 @@ class UnSupervisedDecisionTreeClassifier(DecisionTreeClassifier):
         fid = tree.feature[pos]
         thr = tree.threshold[pos]
         
-        # if not leave node...
+        # if not leaf node...
         if not -2 == fid:
             
             info = [None]
@@ -412,17 +413,9 @@ class UnSupervisedDecisionTreeClassifier(DecisionTreeClassifier):
             
             return info
             
-        # if leave node, return information
+        # if leaf node, return information
         else:
-            nval = tree.value[pos]
-            frac = nval[0]
-            cov = np.squeeze(nval[1:tree.n_features * tree.n_features + 1]).reshape((tree.n_features,tree.n_features))
-            mu = np.squeeze(nval[tree.n_features * tree.n_features + 1:tree.n_features * tree.n_features + tree.n_features + 1])
-            
-            return [{'frac': frac,
-                     'cov': cov,
-                     'mu': mu,
-                     'range': rang}]
+            return [MVND(tree, rang, pos)]
         
     def predict_log_proba(self, X):
         """Predict density distribution membership log-probabilities of the input samples X.
@@ -679,3 +672,114 @@ class SemiSupervisedDecisionTreeClassifier(DecisionTreeClassifier):
             self.classes_ = self.classes_[0]
 
         return self
+
+
+class MVND():
+    def __init__(self, tree, range, node_id):
+        r"""Bounded multivariate normal distribution."""
+        if not len(range) == tree.n_features:
+            raise ValueError('The length of `range` must equal the \
+                              number of features in the tree')
+        
+        self.__range = range
+        self.__node_id = node_id
+        self.__cmnd = None
+        self.__n_features = tree.n_features
+        self.__tree = tree
+        
+        self.inf_to_large()
+        
+    @property
+    def __node_value(self):
+        return self.__tree.value[self.node_id].flat
+        
+    @property
+    def node_id(self):
+        """The id of the represented node."""
+        return self.__node_id
+    
+    @property
+    def range(self):
+        """The MVNDs bounding box."""
+        return self.__range
+    
+    @property
+    def frac(self):
+        """The represented nodes weight in the tree."""
+        return self.__node_value[0]
+    
+    @property
+    def cov(self):
+        """The MVNDs co-variance matrix."""
+        return self.__node_value[1:self.__n_features * self.__n_features + 1].reshape((self.__n_features, self.__n_features))
+    
+    @property
+    def mu(self):
+        """The MVNDs mean."""
+        return self.__node_value[self.__n_features * self.__n_features + 1:self.__n_features * self.__n_features + self.__n_features + 1]
+    
+    @property
+    def lower(self):
+        """The lower corner of the MVNDs bounding box."""
+        return [l for l, _ in self.range]
+    
+    @property
+    def upper(self):
+        """The upper corner of the MVNDs bounding box."""
+        return [u for _, u in self.range]
+        
+    def inf_to_large(self, mult = 100):
+        r"""
+        Replace possible +/-inf values in the MVNs bounding box by the
+        associated dimensions variance, multiplied by `mult`.
+        
+        Parameters
+        ----------
+        mult : number
+            The multiplicator, choose sufficiently high.
+        """
+        for d, (l, u) in enumerate(self.range):
+            if np.isneginf(l):
+                l = -1 * mult * self.cov[d, d]
+            if np.isposinf(u):
+                u = mult * self.cov[d, d]
+            self.range[d] = (l, u)
+
+    @property  
+    def cmnd(self, resolution = 10000, abseps = 1e-20, releps = 1e-20):
+        r"""
+        Compute the bounded cummulative multivariate normal distribution
+        i.e. the maximum of this bounded MVNs CDF.
+        
+        The computed value corresponds to the integral of the MVNs PDF
+        over the bounded area. This is equivalent to the maximum of the
+        CDF function.
+        
+        Notes
+        -----
+        For high dimensional MVNs, this approach can become quite slow. In
+        that case lowering the resolution can help speed up the
+        computation.
+        
+        Warning
+        -------
+        As the CDF of a MVN has no closed form solution, an iterative
+        estimation approach is used, that can return varying results
+        for the same input data due to the choice of sampling points.
+        
+        Parameters
+        ----------
+        resolution : int
+            Resolution i.e. number of points to use in this iterative
+            estimation approach to the CDF. The number is multiplied with
+            the dimensionality.
+        """
+        # Lazy-computation when needed, but then fixed, as the
+        # non-deterministic nature of the algorithm will underwise lead to
+        # non-reproducible results
+        if self.__cmnd is None:
+            self.__cmnd, _ = mvn.mvnun(self.lower, self.upper, self.mu,
+                                       self.cov,
+                                       maxpts=resolution * len(self.lower),
+                                       abseps=abseps, releps=releps)
+        return self.__cmnd
