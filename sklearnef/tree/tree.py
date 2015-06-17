@@ -272,7 +272,7 @@ class UnSupervisedDecisionTreeClassifier(DecisionTreeClassifier):
         --------
         predict_proba()
         """
-        return self.predict_proba(self, X, check_input)
+        return self.predict_proba(X, check_input)
     
     def cdf(self, X, check_input=True):
         """Cummulative density function of the learned distribution.
@@ -310,7 +310,21 @@ class UnSupervisedDecisionTreeClassifier(DecisionTreeClassifier):
                              " input n_features is %s "
                              % (self.n_features_, n_features))
             
+        # returns the indices of the node (alle leaves) each sample dropped into
+        #leaf_indices = self.tree_.apply(X)
         
+        cdf = np.zeros(X.shape[0])
+        
+        for i, x in enumerate(X):
+            for mvnd in self.mvnds:
+                if mvnd is None:
+                    continue
+                if np.all(x > np.asarray(mvnd.upper)): # complete cell covered
+                    cdf[i] += mvnd.cmnd #!TODO: multiply by frac?
+                elif np.any(x > np.asarray(mvnd.lower)): # partially contained
+                    _x = np.minimum(x, mvnd.upper)
+                    cdf[i] += mvnd.cdf(_x)
+        return cdf
 
     def predict_proba(self, X, check_input=True):
         """Cummulative density function of the learned distribution.
@@ -358,12 +372,9 @@ class UnSupervisedDecisionTreeClassifier(DecisionTreeClassifier):
         for lidx in np.unique(leaf_indices):
             mask = lidx == leaf_indices
             try:
-                mnd = multivariate_normal(self.mvnds[lidx].mu, self.mvnds[lidx].cov + _diffentropy._get_singularity_threshold())
-                out[mask] = self.mvnds[lidx].frac / pfi * mnd.pdf(X[mask])
+                out[mask] = self.mvnds[lidx].frac / pfi * self.mvnds[lidx].pdf(X[mask])
             except LinAlgError:
                 warnings.warn("Singular co-variance matrix(ces) detected. Associated samples will be set to global maximum.")
-                #mnd = multivariate_normal(self.mvnds[lidx].mu, self.mvnds[lidx].cov + 10 * _diffentropy._get_singularity_threshold(), True)
-                #out[mask] = self.mvnds[lidx].frac / pfi * mnd.pdf(X[mask])
                 in_singluar_samples |= mask
         
         # set samples that would have fallen in a singular matrix to the sample-wide maximum value
@@ -418,24 +429,20 @@ class UnSupervisedDecisionTreeClassifier(DecisionTreeClassifier):
             return [MVND(tree, rang, pos)]
         
     def predict_log_proba(self, X):
-        """Predict density distribution membership log-probabilities of the input samples X.
+        r"""Log cummulative density function of the learned distribution.
 
-        Parameters
-        ----------
-        X : array-like or sparse matrix of shape = [n_samples, n_features]
-            The input samples. Internally, it will be converted to
-            ``dtype=np.float32``. No sparse matrixes allowed.
-
-        Returns
-        -------
-        p : array of length n_samples
-            The density distribution membership log-probability of the
-            input samples.
+        Notes
+        -----
+        Log version of predict_proba() and pdf().
+        
+        See also
+        --------
+        predict_proba(), pdf()
         """
         return np.log(self.predict_proba(X)) # self.n_outputs is set to > 1, even if only one outcome enforced
     
     def predict(self, X):
-        """Not supported for density forest.
+        r"""Not supported for density forest.
         
         Only kept for interface consistency reasons.
         """
@@ -695,37 +702,37 @@ class MVND():
         
     @property
     def node_id(self):
-        """The id of the represented node."""
+        r"""The id of the represented node."""
         return self.__node_id
     
     @property
     def range(self):
-        """The MVNDs bounding box."""
+        r"""The MVNDs bounding box."""
         return self.__range
     
     @property
     def frac(self):
-        """The represented nodes weight in the tree."""
+        r"""The represented nodes weight in the tree."""
         return self.__node_value[0]
     
     @property
     def cov(self):
-        """The MVNDs co-variance matrix."""
+        r"""The MVNDs co-variance matrix."""
         return self.__node_value[1:self.__n_features * self.__n_features + 1].reshape((self.__n_features, self.__n_features))
     
     @property
     def mu(self):
-        """The MVNDs mean."""
+        r"""The MVNDs mean."""
         return self.__node_value[self.__n_features * self.__n_features + 1:self.__n_features * self.__n_features + self.__n_features + 1]
     
     @property
     def lower(self):
-        """The lower corner of the MVNDs bounding box."""
+        r"""The lower corner of the MVNDs bounding box."""
         return [l for l, _ in self.range]
     
     @property
     def upper(self):
-        """The upper corner of the MVNDs bounding box."""
+        r"""The upper corner of the MVNDs bounding box."""
         return [u for _, u in self.range]
         
     def inf_to_large(self, mult = 100):
@@ -778,8 +785,45 @@ class MVND():
         # non-deterministic nature of the algorithm will underwise lead to
         # non-reproducible results
         if self.__cmnd is None:
-            self.__cmnd, _ = mvn.mvnun(self.lower, self.upper, self.mu,
-                                       self.cov,
-                                       maxpts=resolution * len(self.lower),
-                                       abseps=abseps, releps=releps)
+            self.__cmnd = self.cdf(self.upper, resolution=resolution,
+                                   abseps=abseps, releps=releps)
         return self.__cmnd
+
+    @property
+    def pdf(self):
+        r"""Probability density function.
+        
+        Notes
+        -----
+        A small normalization value is added to the co-variance matrix to
+        avoid most cases of singularity. 
+        
+        Warning
+        -------
+        Does not check whether the supplied values lie inside the MVNDs
+        bounding box.
+        """
+        return multivariate_normal(self.mu, self.cov + _diffentropy._get_singularity_threshold()).pdf
+    
+    def cdf(self, x, resolution = 10000, abseps = 1e-20, releps = 1e-20):
+        r"""Cumulative density function for a single point.
+        
+        Parameters
+        ----------
+        x : ndarray
+            The point for which to compute the CDF.
+        resolution : int
+            Resolution i.e. number of points to use in this iterative
+            estimation approach to the CDF. The number is multiplied with
+            the dimensionality.
+        
+        Warning
+        -------
+        Does not check whether the supplied value lies inside the MVNDs
+        bounding box.
+        """
+        return mvn.mvnun(self.lower, x, self.mu,
+                         self.cov,
+                         maxpts=resolution * len(self.lower),
+                         abseps=abseps, releps=releps)[0]
+    
