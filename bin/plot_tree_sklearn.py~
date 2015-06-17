@@ -134,15 +134,15 @@ def main():
         vlines = ([], [], [])
         for node in info:
             if node is not None: # leave node
-                for pos in node.range[0]: # xrange
+                for pos in node['range'][0]: # xrange
                     if not np.isinf(pos):
-                        xliml, xlimr = node.range[1]
+                        xliml, xlimr = node['range'][1]
                         vlines[0].append(pos)
                         vlines[1].append(ymin if np.isinf(xliml) else xliml)
                         vlines[2].append(ymax if np.isinf(xlimr) else xlimr)
-                for pos in node.range[1]: # xrange
+                for pos in node['range'][1]: # xrange
                     if not np.isinf(pos):
-                        yliml, ylimr = node.range[0]
+                        yliml, ylimr = node['range'][0]
                         hlines[0].append(pos)
                         hlines[1].append(xmin if np.isinf(yliml) else yliml)
                         hlines[2].append(xmax if np.isinf(ylimr) else ylimr)
