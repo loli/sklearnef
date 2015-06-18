@@ -916,7 +916,7 @@ class GoodnessOfFit():
         
         https://en.wikipedia.org/wiki/Kolmogorov%E2%80%93Smirnov_test
         """
-        return (self.ecdf_x - self.cdf_x).max()
+        return np.abs(self.ecdf_x - self.cdf_x).max()
 
     def mean_error(self):
         """
