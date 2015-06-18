@@ -863,3 +863,109 @@ class MECDF:
             cdf[i] = np.count_nonzero(np.all(self.X <= x, axis=1)) / float(self.n)
         return cdf
     
+class GoodnessOfFit():
+    
+    def __init__(self, cdf, X):
+        r"""
+        Measures and statistics for goodness of fit criteria between a
+        distribution defined by its `cdf` and a set of samples `X`.
+        
+        Frozen version to avoid expensive re-computations.
+        
+        Parameters
+        ----------
+        cdf : function
+            a d-dimensional CDF function
+        X : sequence
+            a sequence of d-dimensional samples
+        """
+        X = np.atleast_2d(X)
+        
+        if not 2 == X.ndim:
+            raise ValueError('X must be two dimensional.')
+        if not hasattr(cdf, '__call__'):
+            raise ValueError('cdf must be callable.')
+        
+        self.__cdf = cdf
+        self.__X = X
+        self.__ecdf = MECDF(X)
+        
+        self.__cdf_x = None
+        self.__ecdf_x = None
+
+    @property
+    def cdf_x(self):
+        if self.__cdf_x is None:
+            self.__cdf_x = self.__cdf(self.__X)
+        return self.__cdf_x
+    
+    @property
+    def ecdf_x(self):
+        if self.__ecdf_x is None:
+            self.__ecdf_x = self.__ecdf(self.__X)
+        return self.__ecdf_x    
+    
+    def kolmogorov_smirnov(self):
+        """
+        Kolmogorov–Smirnov test.
+        Max error between CDF and ECDF at all points of X.
+        
+        \f[
+            D_n = \sup_x\left|ECDF(x)-CDF(x)\right|
+        \f]
+        
+        https://en.wikipedia.org/wiki/Kolmogorov%E2%80%93Smirnov_test
+        """
+        return (self.ecdf_x - self.cdf_x).max()
+
+    def mean_error(self):
+        """
+        Mean error between CDF and ECDF at all points of X.
+        """
+        return (self.ecdf_x - self.cdf_x).mean()
+    
+    def mean_squared_error(self):
+        """
+        Mean squared error between CDF and ECDF at all points of X.
+        """
+        return ((self.ecdf_x - self.cdf_x)**2).mean()
+    
+    def mean_squared_error_weighted(self, pdf):
+        """
+        Full error between CDF and ECDF at all points of X weighted by
+        CDF'(x) (=PDF(x)).
+        
+        May be considered some type of Cramér–von Mises criterion.
+        
+        Parameters
+        ----------
+        pdf : function
+            the d-dimensional PDF function correpsonding to the CDF
+            function used to initialize the object
+        """
+        pdf_x = pdf(self.__X)
+        return (((self.ecdf_x - self.cdf_x)**2) * pdf_x).mean()
+    
+# def CvM(cdf, pdf, X):
+#     """
+#     Note: cdf can not be determined by X, i.e. X must differ from 
+#     the X_cdf used to create CDF.
+#     
+#     \f[
+#         \omega^2 = \integral_{-\inf}^{+\inf}\left[ECDF(x) - CDF(x)\right]^2 dCDF(x)
+#     \f]
+#     resolving the Stieltjesintegral, we get
+#     \f[
+#         \omega^2 = \integral_{-\inf}^{+\inf}\left[ECDF(x) - CDF(x)\right]^2 * CDF'(X) dx
+#     \f]
+#     now, taking into account that \f$CDF'(x) = PDF(x)\f$, we get
+#     \f[
+#         \omega^2 = \integral_{-\inf}^{+\inf}\left[ECDF(x) - CDF(x)\right]^2 * PDF(X) dx
+#     \f]
+#     """
+#     n, d = X.shape
+#     ecdf = MECDF(X)
+#     omega_square = np.pow(ecdf(X) - cdf(X), 2) * pdf(X)
+#     T = n * omega_square
+#     # cant make multivariate rieman integral of fixed points that easily!
+    
