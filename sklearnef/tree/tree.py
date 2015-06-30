@@ -251,6 +251,7 @@ class UnSupervisedDecisionTreeClassifier(DecisionTreeClassifier):
             y = np.zeros((X.shape[0], s), dtype=np.dtype('d')) # uses n_output
         else:
             y = np.tile(range(s), X.shape[0]//s + 1)[:X.shape[0]] # uses n_max_classes
+            
         # initialise criterion here, since it requires another syntax than the default ones
         if 'unsupervised' == self.criterion:
             self.criterion =  _treeef.UnSupervisedClassificationCriterion(X.shape[0], X.shape[1], self.min_improvement)
@@ -313,17 +314,17 @@ class UnSupervisedDecisionTreeClassifier(DecisionTreeClassifier):
         # returns the indices of the node (alle leaves) each sample dropped into
         #leaf_indices = self.tree_.apply(X)
         
-        cdf = np.zeros(X.shape[0])
+        cdf = np.zeros(n_samples, dtype=np.float)
         
         for i, x in enumerate(X):
             for mvnd in self.mvnds:
                 if mvnd is None:
                     continue
                 if np.all(x > np.asarray(mvnd.upper)): # complete cell covered
-                    cdf[i] += mvnd.cmnd #!TODO: multiply by frac?
+                    cdf[i] += mvnd.cmnd * mvnd.frac #!TODO: multiply by frac?
                 elif np.any(x > np.asarray(mvnd.lower)): # partially contained
                     _x = np.minimum(x, mvnd.upper)
-                    cdf[i] += mvnd.cdf(_x)
+                    cdf[i] += mvnd.cdf(_x) * mvnd.frac
         return cdf
 
     def predict_proba(self, X, check_input=True):
@@ -359,7 +360,7 @@ class UnSupervisedDecisionTreeClassifier(DecisionTreeClassifier):
                              % (self.n_features_, n_features))
         
         # compute the distribution function integral value
-        pfi = sum([mvnd.cmnd for mvnd in self.mvnds if mvnd is not None])
+        pfi = sum([mvnd.frac * mvnd.cmnd for mvnd in self.mvnds if mvnd is not None])
         
         # returns the indices of the node (alle leaves) each sample dropped into
         leaf_indices = self.tree_.apply(X)
@@ -765,7 +766,7 @@ class MVND():
         Notes
         -----
         For high dimensional MVNs, this approach can become quite slow. In
-        that case lowering the resolution can help speed up the
+        that case, lowering the resolution can help speed up the
         computation.
         
         Warning
@@ -888,7 +889,7 @@ class GoodnessOfFit():
         
         self.__cdf = cdf
         self.__X = X
-        self.__ecdf = MECDF(X)
+        self.__ecdf = MECDF(X).cdf
         
         self.__cdf_x = None
         self.__ecdf_x = None
@@ -907,7 +908,7 @@ class GoodnessOfFit():
     
     def kolmogorov_smirnov(self):
         """
-        Kolmogorov–Smirnov test.
+        Kolmogorov-Smirnov test.
         Max error between CDF and ECDF at all points of X.
         
         \f[
@@ -935,7 +936,7 @@ class GoodnessOfFit():
         Full error between CDF and ECDF at all points of X weighted by
         CDF'(x) (=PDF(x)).
         
-        May be considered some type of Cramér–von Mises criterion.
+        Maybe considered some type of Cramer-von Mises criterion.
         
         Parameters
         ----------
