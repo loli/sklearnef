@@ -14,6 +14,7 @@ import matplotlib.pyplot as plt
 
 # own modules
 from sklearnef.tree import UnSupervisedDecisionTreeClassifier
+from sklearnef.tree import GoodnessOfFit, MECDF
 
 # information
 __author__ = "Oskar Maier"
@@ -80,111 +81,106 @@ def main():
     X_test_gt = np.rollaxis(grid, 0, 3)
     prob_gt = np.sum([scipy.stats.multivariate_normal.pdf(X_test_gt, mean, cov) for mean, cov in zip(means, covs)], 0)
     prob_gt /= args.n_clusters # normalize
+
+    # ----- Goodness of fit measure -----
+    X_eval = np.concatenate([scipy.stats.multivariate_normal.rvs(mean, cov, args.n_samples) for mean, cov in zip(means, covs)])
+    gof = GoodnessOfFit(clf.cdf, X_eval, resolution=200)
+    print 'Goodness of fit evaluation over {}^{} grid-points:'.format(200, X_eval.shape[1])
+    print '\tkolmogorov_smirnov:', gof.kolmogorov_smirnov()
+    print '\tmean_squared_error:', gof.mean_squared_error()
+    print '\tmean_squared_error_weighted:', gof.mean_squared_error_weighted(clf.pdf)
+    
+    # ----- E(M)CDF -----
+    emcdf = gof.ecdf(X_test_pred)
     
     # ----- Plotting -----
     x, y = grid
     x = np.unique(x)
-    y = np.unique(y)
+    y = np.unique(y) 
     
-    # first plot: gt
-    plt.subplot(3, 1, 1)
-    im = plt.imshow(prob_gt.T, extent=[min(x),max(x),min(y),max(y)], interpolation='none', cmap=plt.cm.afmhot, aspect='auto', origin='lower') #'auto'
+    # colour range: pdf
+    pdf_vmin = min(prob_gt.min(), pdf.min())
+    pdf_vmax = min(prob_gt.max(), pdf.max())
+    
+    # plot: gt - pdf
+    plt.subplot(4, 1, 1)
+    plt.imshow(prob_gt.T, extent=[min(x),max(x),min(y),max(y)], interpolation='none',
+               cmap=plt.cm.afmhot, aspect='auto', origin='lower',
+               vmin=pdf_vmin, vmax=pdf_vmax) #'auto'
     plt.colorbar()
     
     plt.xlim(min(x),max(x))
     plt.ylim(min(y),max(y))
-    plt.title('GT')
+    plt.title('Ground-truth: PDF')
     
     if not args.no_split_lines:
-        info = clf.parse_tree_leaves()
-        xmin, xmax = min(x), max(x)
-        ymin, ymax = min(y), max(y)
-        hlines = ([], [], [])
-        vlines = ([], [], [])
-        for node in info:
-            if node is not None: # leave node
-                for pos in node.range[0]: # xrange
-                    if not np.isinf(pos):
-                        xliml, xlimr = node.range[1]
-                        vlines[0].append(pos)
-                        vlines[1].append(ymin if np.isinf(xliml) else xliml)
-                        vlines[2].append(ymax if np.isinf(xlimr) else xlimr)
-                for pos in node.range[1]: # xrange
-                    if not np.isinf(pos):
-                        yliml, ylimr = node.range[0]
-                        hlines[0].append(pos)
-                        hlines[1].append(xmin if np.isinf(yliml) else yliml)
-                        hlines[2].append(xmax if np.isinf(ylimr) else ylimr)
-        plt.hlines(hlines[0], hlines[1], hlines[2], colors='blue', linestyles='dotted')
-        plt.vlines(vlines[0], vlines[1], vlines[2], colors='blue', linestyles='dotted')    
+        draw_split_lines(clf, x, y)
     
-    # second plot: pdf
-    plt.subplot(3, 1, 2)
-    im = plt.imshow(pdf.reshape((x.size,y.size)).T, extent=[min(x),max(x),min(y),max(y)], interpolation='none', cmap=plt.cm.afmhot, aspect='auto', origin='lower') #'auto'
+    # plot: learned - pdf
+    plt.subplot(4, 1, 2)
+    plt.imshow(pdf.reshape((x.size,y.size)).T, extent=[min(x),max(x),min(y),max(y)],
+               interpolation='none', cmap=plt.cm.afmhot, aspect='auto', origin='lower',
+               vmin=pdf_vmin, vmax=pdf_vmax) #'auto'
     plt.colorbar()
     
     plt.xlim(min(x),max(x))
     plt.ylim(min(y),max(y))
-    plt.title('PDF')
+    plt.title('Learned: PDF')
     
     # add split-lines
     if not args.no_split_lines:
-        info = clf.parse_tree_leaves()
-        xmin, xmax = min(x), max(x)
-        ymin, ymax = min(y), max(y)
-        hlines = ([], [], [])
-        vlines = ([], [], [])
-        for node in info:
-            if node is not None: # leave node
-                for pos in node.range[0]: # xrange
-                    if not np.isinf(pos):
-                        xliml, xlimr = node.range[1]
-                        vlines[0].append(pos)
-                        vlines[1].append(ymin if np.isinf(xliml) else xliml)
-                        vlines[2].append(ymax if np.isinf(xlimr) else xlimr)
-                for pos in node.range[1]: # xrange
-                    if not np.isinf(pos):
-                        yliml, ylimr = node.range[0]
-                        hlines[0].append(pos)
-                        hlines[1].append(xmin if np.isinf(yliml) else yliml)
-                        hlines[2].append(xmax if np.isinf(ylimr) else ylimr)
-        plt.hlines(hlines[0], hlines[1], hlines[2], colors='blue', linestyles='dotted')
-        plt.vlines(vlines[0], vlines[1], vlines[2], colors='blue', linestyles='dotted')
+        draw_split_lines(clf, x, y)
         
-    # second plot: cdf
-    plt.subplot(3, 1, 3)
-    im = plt.imshow(cdf.reshape((x.size,y.size)).T, extent=[min(x),max(x),min(y),max(y)], interpolation='none', cmap=plt.cm.afmhot, aspect='auto', origin='lower') #'auto'
+    # colour range: cdf
+    cdf_vmin = min(emcdf.min(), cdf.min())
+    cdf_vmax = min(emcdf.max(), cdf.max())        
+        
+    # plot: gt - ecdf 
+    plt.subplot(4, 1, 3)
+    plt.imshow(emcdf.reshape((x.size,y.size)).T, extent=[min(x),max(x),min(y),max(y)],
+               interpolation='none', cmap=plt.cm.afmhot, aspect='auto', origin='lower',
+               vmin=cdf_vmin, vmax=cdf_vmax) #'auto'
+    plt.colorbar()
+    plt.xlim(min(x),max(x))
+    plt.ylim(min(y),max(y))
+    plt.title('Ground-truth: Empirical CDF')   
+        
+    # plot: cdf
+    plt.subplot(4, 1, 4)
+    plt.imshow(cdf.reshape((x.size,y.size)).T, extent=[min(x),max(x),min(y),max(y)],
+               interpolation='none', cmap=plt.cm.afmhot, aspect='auto', origin='lower',
+               vmin=cdf_vmin, vmax=cdf_vmax) #'auto'
     plt.colorbar()
     
     plt.xlim(min(x),max(x))
     plt.ylim(min(y),max(y))
-    plt.title('CDF')
-    
-    # add split-lines
-    if not args.no_split_lines:
-        info = clf.parse_tree_leaves()
-        xmin, xmax = min(x), max(x)
-        ymin, ymax = min(y), max(y)
-        hlines = ([], [], [])
-        vlines = ([], [], [])
-        for node in info:
-            if node is not None: # leave node
-                for pos in node.range[0]: # xrange
-                    if not np.isinf(pos):
-                        xliml, xlimr = node.range[1]
-                        vlines[0].append(pos)
-                        vlines[1].append(ymin if np.isinf(xliml) else xliml)
-                        vlines[2].append(ymax if np.isinf(xlimr) else xlimr)
-                for pos in node.range[1]: # xrange
-                    if not np.isinf(pos):
-                        yliml, ylimr = node.range[0]
-                        hlines[0].append(pos)
-                        hlines[1].append(xmin if np.isinf(yliml) else yliml)
-                        hlines[2].append(xmax if np.isinf(ylimr) else ylimr)
-        plt.hlines(hlines[0], hlines[1], hlines[2], colors='blue', linestyles='dotted')
-        plt.vlines(vlines[0], vlines[1], vlines[2], colors='blue', linestyles='dotted')        
+    plt.title('Learned: CDF')
     
     plt.show()
+    
+def draw_split_lines(clf, x, y):
+    """Draw the trees split lines into the current image."""
+    info = clf.parse_tree_leaves()
+    xmin, xmax = min(x), max(x)
+    ymin, ymax = min(y), max(y)
+    hlines = ([], [], [])
+    vlines = ([], [], [])
+    for node in info:
+        if node is not None: # leave node
+            for pos in node.range[0]: # xrange
+                if not np.isinf(pos):
+                    xliml, xlimr = node.range[1]
+                    vlines[0].append(pos)
+                    vlines[1].append(ymin if np.isinf(xliml) else xliml)
+                    vlines[2].append(ymax if np.isinf(xlimr) else xlimr)
+            for pos in node.range[1]: # xrange
+                if not np.isinf(pos):
+                    yliml, ylimr = node.range[0]
+                    hlines[0].append(pos)
+                    hlines[1].append(xmin if np.isinf(yliml) else yliml)
+                    hlines[2].append(xmax if np.isinf(ylimr) else ylimr)
+    plt.hlines(hlines[0], hlines[1], hlines[2], colors='blue', linestyles='dotted')
+    plt.vlines(vlines[0], vlines[1], vlines[2], colors='blue', linestyles='dotted')
     
 def getArguments(parser):
     "Provides additional validation of the arguments collected by argparse."
