@@ -866,30 +866,41 @@ class MECDF:
     
 class GoodnessOfFit():
     
-    def __init__(self, cdf, X):
+    def __init__(self, cdf, X_ecdf, resolution=100):
         r"""
         Measures and statistics for goodness of fit criteria between a
-        distribution defined by its `cdf` and a set of samples `X`.
+        distribution defined by its `cdf` and a set of samples `X_ecdf`.
         
         Frozen version to avoid expensive re-computations.
+        
+        Notes
+        -----
+        The samples in `X_ecdf` can not be the same used to train the distribution
+        behind the supplied `cdf`.
         
         Parameters
         ----------
         cdf : function
             a d-dimensional CDF function
-        X : sequence
-            a sequence of d-dimensional samples
+        X_ecdf : sequence
+            a sequence of d-dimensional samples from which to compute the ECDF
+        resolution : int
+            number of points over which to compute the measures
         """
-        X = np.atleast_2d(X)
+        X_ecdf = np.atleast_2d(X_ecdf)
         
-        if not 2 == X.ndim:
+        if not 2 == X_ecdf.ndim:
             raise ValueError('X must be two dimensional.')
         if not hasattr(cdf, '__call__'):
             raise ValueError('cdf must be callable.')
         
-        self.__cdf = cdf
-        self.__X = X
-        self.__ecdf = MECDF(X).cdf
+        self.cdf = cdf
+        self.ecdf = MECDF(X_ecdf).cdf
+        
+        self.xmin = np.min(X_ecdf, 0)
+        self.xmax = np.max(X_ecdf, 0)
+        
+        self.resolution = resolution
         
         self.__cdf_x = None
         self.__ecdf_x = None
@@ -897,14 +908,20 @@ class GoodnessOfFit():
     @property
     def cdf_x(self):
         if self.__cdf_x is None:
-            self.__cdf_x = self.__cdf(self.__X)
+            self.__cdf_x = self.cdf(self.grid)
         return self.__cdf_x
     
     @property
     def ecdf_x(self):
         if self.__ecdf_x is None:
-            self.__ecdf_x = self.__ecdf(self.__X)
-        return self.__ecdf_x    
+            self.__ecdf_x = self.ecdf(self.grid)
+        return self.__ecdf_x
+
+    @property
+    def grid(self):
+        mgrid = np.meshgrid(*[np.linspace(_min, _max, self.resolution) for _min, _max in zip(self.xmin, self.xmax)])
+        mgrid = np.concatenate([x[..., np.newaxis] for x in mgrid], -1)
+        return mgrid.reshape(np.product(mgrid.shape[:-1]), mgrid.shape[-1])
     
     def kolmogorov_smirnov(self):
         """
@@ -918,12 +935,6 @@ class GoodnessOfFit():
         https://en.wikipedia.org/wiki/Kolmogorov%E2%80%93Smirnov_test
         """
         return np.abs(self.ecdf_x - self.cdf_x).max()
-
-    def mean_error(self):
-        """
-        Mean error between CDF and ECDF at all points of X.
-        """
-        return (self.ecdf_x - self.cdf_x).mean()
     
     def mean_squared_error(self):
         """
@@ -944,7 +955,7 @@ class GoodnessOfFit():
             the d-dimensional PDF function correpsonding to the CDF
             function used to initialize the object
         """
-        pdf_x = pdf(self.__X)
+        pdf_x = pdf(self.grid)
         return (((self.ecdf_x - self.cdf_x)**2) * pdf_x).mean()
     
 # def CvM(cdf, pdf, X):
