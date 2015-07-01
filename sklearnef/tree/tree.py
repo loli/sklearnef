@@ -259,7 +259,7 @@ class UnSupervisedDecisionTreeClassifier(DecisionTreeClassifier):
         
         # parse the tree once and create the MVND objects associated with each leaf
         self.mvnds = self.parse_tree_leaves()
-        
+
         return self
 
     def pdf(self, X, check_input=True):
@@ -296,20 +296,8 @@ class UnSupervisedDecisionTreeClassifier(DecisionTreeClassifier):
         p : array of length n_samples
             The responses of the CDF for all input samples.
         """
-        check_is_fitted(self, 'n_outputs_')
-        if check_input:
-            X = check_array(X, dtype=DTYPE, accept_sparse=None)
-
-        n_samples, n_features = X.shape
-
-        if self.tree_ is None:
-            raise NotFittedError("Tree not initialized. Perform a fit first.")
-
-        if self.n_features_ != n_features:
-            raise ValueError("Number of features of the model must "
-                             " match the input. Model n_features is %s and "
-                             " input n_features is %s "
-                             % (self.n_features_, n_features))
+        self.__is_fitted()
+        X, n_samples, n_features = self.__check_X(X, check_input)
             
         # returns the indices of the node (alle leaves) each sample dropped into
         #leaf_indices = self.tree_.apply(X)
@@ -344,20 +332,8 @@ class UnSupervisedDecisionTreeClassifier(DecisionTreeClassifier):
         p : array of length n_samples
             The responses of the PDF for all input samples.
         """
-        check_is_fitted(self, 'n_outputs_')
-        if check_input:
-            X = check_array(X, dtype=DTYPE, accept_sparse=None)
-
-        n_samples, n_features = X.shape
-
-        if self.tree_ is None:
-            raise NotFittedError("Tree not initialized. Perform a fit first.")
-
-        if self.n_features_ != n_features:
-            raise ValueError("Number of features of the model must "
-                             " match the input. Model n_features is %s and "
-                             " input n_features is %s "
-                             % (self.n_features_, n_features))
+        self.__is_fitted()
+        X, n_samples, n_features = self.__check_X(X, check_input)
         
         # compute the distribution function integral value
         pfi = sum([mvnd.frac * mvnd.cmnd for mvnd in self.mvnds if mvnd is not None])
@@ -429,6 +405,24 @@ class UnSupervisedDecisionTreeClassifier(DecisionTreeClassifier):
         else:
             return [MVND(tree, rang, pos)]
         
+    def __is_fitted(self):
+        check_is_fitted(self, 'n_outputs_')
+        if self.tree_ is None:
+            raise NotFittedError("Tree not initialized. Perform a fit first.")
+
+        
+        
+    def __check_X(self, X, check_input):
+        if check_input:
+            X = check_array(X, dtype=DTYPE, accept_sparse=None)
+        n_samples, n_features = X.shape
+        if self.n_features_ != n_features:
+            raise ValueError("Number of features of the model must "
+                             " match the input. Model n_features is %s and "
+                             " input n_features is %s "
+                             % (self.n_features_, n_features))
+        return X, n_samples, n_features
+        
     def predict_log_proba(self, X):
         r"""Log cummulative density function of the learned distribution.
 
@@ -448,6 +442,54 @@ class UnSupervisedDecisionTreeClassifier(DecisionTreeClassifier):
         Only kept for interface consistency reasons.
         """
         raise NotImplementedError("Density forests do not support the predict() method.")
+    
+    def goodness_of_fit(self, X, eval_type = 'mean_squared_error', check_input = True):
+        r"""Goodness of fit of the learned density distribution.
+        
+        Compares the learned distribution function with an empirical CDF constructed
+        from the datapoints in `X` i.e. roughly \f[error(CDF(X)-ECDF_X(X)\f].
+        
+        Provided measures
+        -----------------
+        `mean_squared_error`
+            The mean squared error over all datapoints of X.
+        `mean_squared_error_weighted`
+            The mean squared error over all datapoints of X,
+            weighted by the PDF.
+        `maximum`
+            Maximum error over all datapoints of X.
+        
+        Notes
+        -----
+        The provided measures are better described as fit error, than as goodness of fit
+        criteria in a statistical sense. Therefore, it is only suitable to compare
+        different learned distributions against each other under the condition, that the
+        same samples (`X`) are used. Higher values denote a stronger error. 
+        
+        Parameters
+        ----------
+        X : array_like
+            Samples form the original distribution. Must be distinct from the ones used
+            to train the tree to obtain meaningfull results.
+        eval_type : string
+            The type of goodness measure. One of `mean_squared_error`,
+            `mean_squared_error_weighted` and `kolmogorov_smirnov`.
+        """
+        self.__is_fitted()
+        X, n_samples, n_features = self.__check_X(X, check_input)
+        
+        # initialize goodness of fit object
+        gof = GoodnessOfFit(self.cdf, X)
+        
+        eval_types = ['mean_squared_error', 'mean_squared_error_weighted', 'maximum']
+        if eval_type == 'mean_squared_error':
+            return gof.mean_squared_error()
+        elif eval_type == 'mean_squared_error_weighted':
+            return gof.mean_squared_error_weighted(self.pdf)
+        elif eval_type == 'maximum':
+            return gof.maximum()
+        else:
+            raise ValueError("Invalid eval type {}. Expected one of: {}" .format(eval_type, eval_types))
 
 class SemiSupervisedDecisionTreeClassifier(DecisionTreeClassifier):
     def __init__(self,
@@ -754,7 +796,7 @@ class MVND():
             self.range[d] = (l, u)
 
     @property  
-    def cmnd(self, resolution = 10000, abseps = 1e-20, releps = 1e-20):
+    def cmnd(self, resolution = 5000, abseps = 1e-20, releps = 1e-20):
         r"""
         Compute the bounded cummulative multivariate normal distribution
         i.e. the maximum of this bounded MVNs CDF.
@@ -806,7 +848,7 @@ class MVND():
         """
         return multivariate_normal(self.mu, self.cov + _diffentropy._get_singularity_threshold()).pdf
     
-    def cdf(self, x, resolution = 10000, abseps = 1e-20, releps = 1e-20):
+    def cdf(self, x, resolution = 5000, abseps = 1e-20, releps = 1e-20):
         r"""Cumulative density function for a single point.
         
         Parameters
@@ -823,9 +865,10 @@ class MVND():
         Does not check whether the supplied value lies inside the MVNDs
         bounding box.
         """
+        d = len(self.lower)
         return mvn.mvnun(self.lower, x, self.mu,
                          self.cov,
-                         maxpts=resolution * len(self.lower),
+                         maxpts=resolution * d * d,
                          abseps=abseps, releps=releps)[0]
                          
 class MECDF:
@@ -866,41 +909,39 @@ class MECDF:
     
 class GoodnessOfFit():
     
-    def __init__(self, cdf, X_ecdf, resolution=100):
+    def __init__(self, cdf, X):
         r"""
         Measures and statistics for goodness of fit criteria between a
-        distribution defined by its `cdf` and a set of samples `X_ecdf`.
+        distribution defined by its `cdf` and a set of samples `X`.
         
         Frozen version to avoid expensive re-computations.
         
         Notes
         -----
-        The samples in `X_ecdf` can not be the same used to train the distribution
+        The samples in `X` can not be the same used to train the distribution
         behind the supplied `cdf`.
         
         Parameters
         ----------
         cdf : function
             a d-dimensional CDF function
-        X_ecdf : sequence
+        X : sequence
             a sequence of d-dimensional samples from which to compute the ECDF
-        resolution : int
-            number of points over which to compute the measures
         """
-        X_ecdf = np.atleast_2d(X_ecdf)
+        X = np.atleast_2d(X)
         
-        if not 2 == X_ecdf.ndim:
+        if not 2 == X.ndim:
             raise ValueError('X must be two dimensional.')
         if not hasattr(cdf, '__call__'):
             raise ValueError('cdf must be callable.')
         
         self.cdf = cdf
-        self.ecdf = MECDF(X_ecdf).cdf
+        self.ecdf = MECDF(X).cdf
         
-        self.xmin = np.min(X_ecdf, 0)
-        self.xmax = np.max(X_ecdf, 0)
+        self.xmin = np.min(X, 0)
+        self.xmax = np.max(X, 0)
         
-        self.resolution = resolution
+        self.X = X
         
         self.__cdf_x = None
         self.__ecdf_x = None
@@ -908,31 +949,28 @@ class GoodnessOfFit():
     @property
     def cdf_x(self):
         if self.__cdf_x is None:
-            self.__cdf_x = self.cdf(self.grid)
+            self.__cdf_x = self.cdf(self.X)
         return self.__cdf_x
     
     @property
     def ecdf_x(self):
         if self.__ecdf_x is None:
-            self.__ecdf_x = self.ecdf(self.grid)
+            self.__ecdf_x = self.ecdf(self.X)
         return self.__ecdf_x
-
-    @property
-    def grid(self):
-        mgrid = np.meshgrid(*[np.linspace(_min, _max, self.resolution) for _min, _max in zip(self.xmin, self.xmax)])
-        mgrid = np.concatenate([x[..., np.newaxis] for x in mgrid], -1)
-        return mgrid.reshape(np.product(mgrid.shape[:-1]), mgrid.shape[-1])
     
-    def kolmogorov_smirnov(self):
+    def maximum(self):
         """
-        Kolmogorov-Smirnov test.
+        Kolmogorov-Smirnov similar maximum-error test.
         Max error between CDF and ECDF at all points of X.
         
         \f[
             D_n = \sup_x\left|ECDF(x)-CDF(x)\right|
         \f]
         
-        https://en.wikipedia.org/wiki/Kolmogorov%E2%80%93Smirnov_test
+        Notes
+        -----
+        While similar to the Kolmogorov-Smirnov test, an implementation of said criterion
+        on higher dimensions is unpractical.
         """
         return np.abs(self.ecdf_x - self.cdf_x).max()
     
@@ -955,7 +993,7 @@ class GoodnessOfFit():
             the d-dimensional PDF function correpsonding to the CDF
             function used to initialize the object
         """
-        pdf_x = pdf(self.grid)
+        pdf_x = pdf(self.X)
         return (((self.ecdf_x - self.cdf_x)**2) * pdf_x).mean()
     
 # def CvM(cdf, pdf, X):

@@ -19,6 +19,7 @@ from sklearn.utils.testing import raises
 from sklearn import datasets
 
 from sklearn import tree
+from sklearn.utils.validation import NotFittedError
 from sklearnef.tree import UnSupervisedDecisionTreeClassifier
 from sklearnef.tree import SemiSupervisedDecisionTreeClassifier
 from nose.tools.nontrivial import with_setup
@@ -141,11 +142,11 @@ def test_reproducible():
         # different results, but with the same distribution. Cause is scipy's
         # fortran-based mvn (scipy.statsmvn) method, which estimates the CDF of
         # multi-variate gaussian distributions via an interative approach. Here, the
-        # resulting value can vary up to the 4th or 5th digit after the comma. 
+        # resulting value can vary up to the 3rd or 4th digit after the comma. 
         
         # run (on same estimator, fitted again)
         third = est.fit(X, y).predict_proba(X)
-        assert_array_almost_equal(first, third, 4,
+        assert_array_almost_equal(first, third, 3,
                            err_msg="Re-train-apply: Failed with {0}".format(name))
         
         # run (on new estimator)
@@ -274,7 +275,7 @@ def test_memory_layout():
             X = np.asarray(X[::2], dtype=dtype)
             y = iris.target[::3]
             assert_array_almost_equal(est.fit(X, y).predict_proba(X), baseline,
-                                      4, 'Config: Strided, {}'.format(dtype.__name__))     
+                                      3, 'Config: Strided, {}'.format(dtype.__name__))     
                  
 
 # Deactivated: Multi-output not supported by density forests
@@ -356,3 +357,31 @@ def test_1d_input():
 @with_setup(setup_sklearn_tests, teardown_sklearn_tests)
 def test_min_weight_leaf_split_level():
     sklearn_tests.test_min_weight_leaf_split_level()
+
+def test_goodness_of_fit():
+    """Check the goodness of fit computation."""
+    for name, TreeEstimator in UNSCLF_TREES.items():
+        
+        X = np.asarray(iris.data, dtype=np.float64)
+        Xl = X[:X.shape[0]//2]
+        Xr = X[X.shape[0]//2:]
+        y = iris.target
+        est1 = TreeEstimator(random_state=0)
+        est2 = TreeEstimator(random_state=0)
+        
+        # check exceptions
+        assert_raises(NotFittedError, est1.goodness_of_fit, X,
+                      "Failed to raise NotFittedError with {0}".format(name))
+        assert_raises(ValueError, est1.goodness_of_fit, y,
+                      "Failed to raise ValueError with {0}".format(name))
+        
+        est1.fit(X)
+        est2.fit(Xl)
+        
+        # check that using more training samples leads to a better fit
+        assert_less(est2.goodness_of_fit(Xr, 'maximum'), est1.goodness_of_fit(Xr, 'maximum'))
+                    #"Failed `kolmogorov_smirnov` with {0}".format(name))
+        assert_less(est2.goodness_of_fit(Xr, 'mean_squared_error'), est1.goodness_of_fit(Xr, 'mean_squared_error'))
+                    #"Failed `mean_squared_error` with {0}".format(name))
+        assert_less(est2.goodness_of_fit(Xr, 'mean_squared_error_weighted'), est1.goodness_of_fit(Xr, 'mean_squared_error_weighted'))
+                    #"Failed `mean_squared_error_weighted` with {0}".format(name))
