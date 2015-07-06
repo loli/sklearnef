@@ -33,6 +33,7 @@ import _tree as _treeef
 from scipy.stats import mvn # Fortran implementation for multivariate normal CDF estimation
 from sklearn.base import ClassifierMixin
 from numpy.linalg.linalg import LinAlgError
+from sklearn.preprocessing.data import StandardScaler
 
 try:
     from scipy.stats import multivariate_normal
@@ -62,7 +63,7 @@ DENSE_SPLITTERS['unsupervised'] = _treeef.UnSupervisedBestSplitter
 class UnSupervisedDecisionTreeClassifier(DecisionTreeClassifier):
     """A tree for density estimation.
     
-    The forest attempts to learn the probability distribution which
+    The tree attempts to learn the probability distribution which
     created the training data. For this purpose, bounded multivariate
     normal distributions are fitted to the data.
     
@@ -229,7 +230,8 @@ class UnSupervisedDecisionTreeClassifier(DecisionTreeClassifier):
         -------
         self : object
             Returns self.
-        """        
+        """
+        random_state = check_random_state(self.random_state)
         if check_input:
             X = check_array(X, dtype=DTYPE, order='C')
  
@@ -492,9 +494,121 @@ class UnSupervisedDecisionTreeClassifier(DecisionTreeClassifier):
             raise ValueError("Invalid eval type {}. Expected one of: {}" .format(eval_type, eval_types))
 
 class SemiSupervisedDecisionTreeClassifier(DecisionTreeClassifier):
+    r"""A tree for semi.-upervised classification.
+    
+    The tree takes a mix of labelled and un-labelled training samples,
+    ultimately assign class labels to the un-labelled data.
+    
+Parameters
+    ----------
+    splitter : string, optional (default="semisupervised")
+        The strategy used to choose the split at each node. Currently only
+        "semisupervised" is supported, which is a variant of the "best"
+        splitter strategy.
+
+    max_features : int, float, string or None, optional (default=None)
+        The number of features to consider when looking for the best split:
+          - If int, then consider `max_features` features at each split.
+          - If float, then `max_features` is a percentage and
+            `int(max_features * n_features)` features are considered at each
+            split.
+          - If "auto", then `max_features=sqrt(n_features)`.
+          - If "sqrt", then `max_features=sqrt(n_features)`.
+          - If "log2", then `max_features=log2(n_features)`.
+          - If None, then `max_features=n_features`.
+
+        Note: the search for a split does not stop until at least one
+        valid partition of the node samples is found, even if it requires to
+        effectively inspect more than ``max_features`` features.
+        
+        
+    supervised_weight: float, optional (default=0.5)
+        Factor balancing the supervised against the un-supervised measures of
+        split quality. A value of `1.0` would mean to consider only the
+        labelled samples, a value of `0.0` would equal a density tree. 
+        
+    unsupervised_transformation: string, object or None, optional (default='scale')
+        Transformation method for the un-supervised samples (their split
+        quality measure requires features of equal scale). Choices are:
+            - 'scale', in which case the `StandardScaler` is employed.
+            - Any object which implements the fit() and transform() methods.
+            - None, in which the user is responsible for data normalization.
+
+    max_depth : int or None, optional (default=None)
+        The maximum depth of the tree. If None, then nodes are expanded until
+        all leaves are pure or until all leaves contain less than
+        min_samples_split samples.
+        Ignored if ``max_leaf_nodes`` is not None.
+
+    min_samples_split : int, optional (default=2)
+        The minimum number of samples required to split an internal node.
+
+    min_samples_leaf : int or None, optional (default=None)
+        The minimum number of samples required to be at a leaf node. Must be
+        at least as high as the number of features in the training set. If None,
+        set to the number of features at trainign time.
+
+    min_weight_fraction_leaf : float, optional (default=0.)
+        The minimum weighted fraction of the input samples required to be at a
+        leaf node.
+
+    max_leaf_nodes : int or None, optional (default=None)
+        Grow a tree with ``max_leaf_nodes`` in best-first fashion.
+        Best nodes are defined as relative reduction in impurity.
+        If None then unlimited number of leaf nodes.
+        If not None then ``max_depth`` will be ignored.
+
+    random_state : int, RandomState instance or None, optional (default=None)
+        If int, random_state is the seed used by the random number generator;
+        If RandomState instance, random_state is the random number generator;
+        If None, the random number generator is the RandomState instance used
+        by `np.random`.
+
+    Attributes
+    ----------
+    tree_ : Tree object
+        The underlying Tree object.
+
+    !TODO: This does not seem to get set. Why?
+    max_features_ : int,
+        The inferred value of max_features.
+
+    feature_importances_ : array of shape = [n_features]
+        The feature importances. The higher, the more important the
+        feature. The importance of a feature is computed as the (normalized)
+        total reduction of the criterion brought by that feature.  It is also
+        known as the Gini importance [4]_.
+
+    See also
+    --------
+    UnSupervisedDecisionTreeClassifier
+
+    References
+    ----------
+
+    .. [1] A. Criminisi, J. Shotton and E. Konukoglu, "Decision Forests: A 
+           Unified Framework for Classification, Regression, Density
+           Estimation, Manifold Learning and Semi-Supervised Learning",
+           Foundations and Trends(r) in Computer Graphics and Vision, Vol. 7,
+           No. 2-3, pp 81-227, 2012.
+
+    Examples
+    --------
+    !TODO: Adapt to semi-supervised.
+    >>> from sklearn.datasets import load_iris
+    >>> from sklearnef.tree import UnSupervisedDecisionTreeClassifier
+    >>> clf = UnSupervisedDecisionTreeClassifier(random_state=0)
+    >>> iris = load_iris()
+    >>> clf.fit(iris.data)
+    >>> clf.predict_proba(iris.data)
+    array([  4.82956378e-01,   4.62110584e-01,   6.80794444e-01,
+         4.96085162e-01,   3.06794415e-01,   1.87555200e-01,
+         ...    
+    """
+    
     def __init__(self,
                  criterion="semisupervised",
-                 splitter="best",
+                 splitter="semisupervised",
                  max_depth=None,
                  min_samples_split=2,
                  min_samples_leaf=1,
@@ -502,6 +616,9 @@ class SemiSupervisedDecisionTreeClassifier(DecisionTreeClassifier):
                  max_features=None,
                  random_state=None,
                  max_leaf_nodes=None,
+                 #min_improvement=0,
+                 supervised_weight=0.5,
+                 unsupervised_transformation='scale',
                  class_weight=None):
         super(SemiSupervisedDecisionTreeClassifier, self).__init__(
             criterion=criterion,
@@ -514,21 +631,32 @@ class SemiSupervisedDecisionTreeClassifier(DecisionTreeClassifier):
             max_leaf_nodes=max_leaf_nodes,
             class_weight=class_weight,
             random_state=random_state)
+        
+        self.supervised_weight = supervised_weight
+        if 'scale' == unsupervised_transformation:
+            unsupervised_transformation = StandardScaler()
+        self.unsupervised_transformation = unsupervised_transformation
+
+        if not 'semisupervised' == criterion:
+            raise ValueError("Currently only the \"semisupervised\" criterion "
+                             "is supported for density estimation.")
+        if not 'semisupervised' == splitter:
+            raise ValueError("Currently only the \"semisupervised\" splitter "
+                             "is supported for density estimation.")
 
     def fit(self, X, y, sample_weight=None, check_input=True):
         """Build a decision tree from the training set (X, y).
 
         Parameters
         ----------
-        X : array-like or sparse matrix, shape = [n_samples, n_features]
+        X : array-like, shape = [n_samples, n_features]
             The training input samples. Internally, it will be converted to
-            ``dtype=np.float32`` and if a sparse matrix is provided
-            to a sparse ``csc_matrix``.
+            ``dtype=np.float32`` and can not be sparse..
 
-        y : array-like, shape = [n_samples] or [n_samples, n_outputs]
-            The target values (class labels in classification, real numbers in
-            regression). In the regression case, use ``dtype=np.float64`` and
-            ``order='C'`` for maximum efficiency.
+        y : array-like, shape = [n_samples]
+            The target values (class labels in classification). The lowest
+            label is always taken as marker for the un-labelled samples
+            (usually -1).
 
         sample_weight : array-like, shape = [n_samples] or None
             Sample weights. If None, then samples are equally weighted. Splits
@@ -548,13 +676,7 @@ class SemiSupervisedDecisionTreeClassifier(DecisionTreeClassifier):
         """
         random_state = check_random_state(self.random_state)
         if check_input:
-            X = check_array(X, dtype=DTYPE, accept_sparse="csc")
-            if issparse(X):
-                X.sort_indices()
-
-                if X.indices.dtype != np.intc or X.indptr.dtype != np.intc:
-                    raise ValueError("No support for np.int64 index based "
-                                     "sparse matrices")
+            X = check_array(X, dtype=DTYPE, order='C')
 
         # Determine output settings
         n_samples, self.n_features_ = X.shape

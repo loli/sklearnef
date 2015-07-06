@@ -40,3 +40,14 @@ cdef class UnSupervisedClassificationCriterion(Criterion):
     cdef void init2(self, DTYPE_t* X, SIZE_t X_stride,
                     DOUBLE_t* sample_weight, double weighted_n_samples,
                     SIZE_t* samples, SIZE_t start, SIZE_t end) nogil
+
+cdef class SemiSupervisedClassificationCriterion(Criterion):
+    # Internal structures
+    cdef DTYPE_t supervised_weight                                  # balancing weight
+    cdef UnSupervisedClassificationCriterion criterion_unsupervised # unsupervised split quality criterion
+    cdef Criterion criterion_supervised                    # supervised split quality criterion
+
+    # Methods
+    cdef void init3(self, DTYPE_t* X, SIZE_t X_stride, DOUBLE_t* y, SIZE_t y_stride,
+                    DOUBLE_t* sample_weight, double weighted_n_samples,
+                    SIZE_t* samples, SIZE_t start, SIZE_t end) nogil

@@ -297,10 +297,92 @@ cdef inline void upper_to_matrix(DOUBLE_t* X, DOUBLE_t* Y, SIZE_t length) nogil:
         for p2 in range(0, p1):
             X[p2 + p1 * length] = X[p1 + p2 * length]
 
-# cdef inline SIZE_t upper_n_elements(SIZE_t n) nogil:
-#     "The number of (diagonal including) elements of an upper triangular nxn matrix."
-#     return (n * n + n) / 2
- 
+cdef class SemiSupervisedClassificationCriterion(Criterion):
+    """Semi-supervised criteria that combines `LabeledOnlyEntropy` and
+    `UnSupervisedClassificationCriterion` into one balanced quality measure.
+    """ 
+    
+    def __cinit__(self, SIZE_t n_samples, SIZE_t n_features, DTYPE_t supervised_weight, 
+                  SIZE_t n_outputs, np.ndarray[SIZE_t, ndim=1] n_classes):
+        self.supervised_weight = supervised_weight
+        self.criterion_unsupervised = UnSupervisedClassificationCriterion(n_samples, n_features, min_improvement = 0.0)
+        self.criterion_supervised = LabeledOnlyEntropy(n_outputs, n_classes)
+        
+    cdef void init3(self, DTYPE_t* X, SIZE_t X_stride, DOUBLE_t* y, SIZE_t y_stride,
+                    DOUBLE_t* sample_weight, double weighted_n_samples,
+                    SIZE_t* samples, SIZE_t start, SIZE_t end) nogil:
+        """Initialize the criterion at node samples[start:end] and
+           children samples[start:start] and samples[start:end].
+           
+           Note that the signature of this init3() does not
+           correspond to the parent classes (Criterion) init()
+           signature and therefore can only be used by a dedicated
+           splitter class."""
+        self.criterion_unsupervised.init2(X, X_stride, sample_weight, weighted_n_samples,
+                                          samples, start, end)
+        self.criterion_supervised.init(y, y_stride, sample_weight, weighted_n_samples,
+                                       samples, start, end)
+        
+    cdef void reset(self) nogil:
+        self.criterion_unsupervised.reset()
+        self.criterion_supervised.reset()
+        
+    cdef void update(self, SIZE_t new_pos) nogil:
+        self.criterion_unsupervised.update(new_pos)
+        self.criterion_supervised.update(new_pos)
+        
+    cdef double node_impurity(self) nogil:
+        cdef double uimp, simp
+        cdef DTYPE_t supervised_weight
+        
+        supervised_weight = self.supervised_weight
+        uimp = self.criterion_unsupervised.node_impurity()
+        simp = self.criterion_supervised.node_impurity()
+        
+        return (1. - supervised_weight) * uimp + supervised_weight * simp
+    
+    cdef void children_impurity(self, double* impurity_left,
+                                double* impurity_right) nogil:
+        cdef DTYPE_t supervised_weight
+        cdef double uimp_impurity_left
+        cdef double uimp_impurity_right
+        cdef double simp_impurity_left
+        cdef double simp_impurity_right
+        
+        supervised_weight = self.supervised_weight
+        self.criterion_unsupervised.children_impurity(&uimp_impurity_left, &uimp_impurity_right)
+        self.criterion_supervised.children_impurity(&simp_impurity_left, &simp_impurity_right)
+        
+        impurity_left[0] = (1. - supervised_weight) * uimp_impurity_left + supervised_weight * simp_impurity_left
+        impurity_right[0] = (1. - supervised_weight) * uimp_impurity_right + supervised_weight * simp_impurity_right
+        
+    cdef void node_value(self, double* dest) nogil:
+        self.criterion_unsupervised.node_value(dest)
+        self.criterion_supervised.node_value(dest)
+        
+    cdef double impurity_improvement(self, double impurity) nogil:
+        cdef double uimp, simp
+        cdef DTYPE_t supervised_weight
+        
+        supervised_weight = self.supervised_weight
+        uimp = self.criterion_unsupervised.impurity_improvement(impurity)
+        simp = self.criterion_supervised.impurity_improvement(impurity)
+        
+        return (1. - supervised_weight) * uimp + supervised_weight * simp
+    
+    #!TODO: Is the unsupervised the right criterion to ask these values from?
+    property weighted_n_node_samples:
+        def __get__(self):
+            return self.criterion_unsupervised.weighted_n_node_samples
+        
+    property weighted_n_left:
+        def __get__(self):
+            return self.criterion_unsupervised.weighted_n_left
+    
+    property weighted_n_right:
+        def __get__(self):
+            return self.criterion_unsupervised.weighted_n_right
+    
 cdef class LabeledOnlyEntropy(Entropy):
     """Cross Entropy impurity criteria applied to labeled samples only."""
  
@@ -438,6 +520,40 @@ cdef class UnSupervisedBestSplitter(BestSplitter):
  
         self.criterion_real.init2(self.X,
                                   self.X_sample_stride,
+                                  self.sample_weight,
+                                  self.weighted_n_samples,
+                                  self.samples,
+                                  start,
+                                  end)
+ 
+        weighted_n_node_samples[0] = self.criterion_real.weighted_n_node_samples
+
+cdef class SemiSupervisedBestSplitter(BestSplitter):
+    """Splitter for finding the best split on partially labelled data."""
+    cdef SemiSupervisedClassificationCriterion criterion_real
+     
+    def __cinit__(self, SemiSupervisedClassificationCriterion criterion, SIZE_t max_features,
+                   SIZE_t min_samples_leaf, double min_weight_leaf,
+                   object random_state):
+        self.criterion_real = criterion
+     
+    def __reduce__(self):
+        return (SemiSupervisedBestSplitter, (self.criterion,
+                                             self.max_features,
+                                             self.min_samples_leaf,
+                                             self.min_weight_leaf,
+                                             self.random_state), self.__getstate__())    
+ 
+    cdef void node_reset(self, SIZE_t start, SIZE_t end,
+                         double* weighted_n_node_samples) nogil:
+        """Reset splitter on node samples[start:end]."""
+        self.start = start
+        self.end = end
+ 
+        self.criterion_real.init3(self.X,
+                                  self.X_sample_stride,
+                                  self.y,
+                                  self.y_stride,
                                   self.sample_weight,
                                   self.weighted_n_samples,
                                   self.samples,
