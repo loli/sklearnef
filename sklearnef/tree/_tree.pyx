@@ -14,27 +14,6 @@ cimport numpy as np
 import numpy as np
 np.import_array()
 
-from sklearn.tree._tree cimport Criterion, Splitter, SplitRecord
-from sklearnef.tree._diffentropy cimport Diffentropy
-cimport sklearn.tree._tree
-import sklearn.tree._tree
-
-cdef extern class sklearn.tree._tree.ClassificationCriterion(Criterion):
-    cdef SIZE_t* n_classes
-    cdef SIZE_t label_count_stride
-    cdef double* label_count_left
-    cdef double* label_count_right
-    cdef double* label_count_total
-cdef extern class sklearn.tree._tree.Entropy(ClassificationCriterion):
-    pass
-
-cdef extern class sklearn.tree._tree.BaseDenseSplitter(Splitter):
-    cdef DTYPE_t* X
-    cdef SIZE_t X_sample_stride
-    cdef SIZE_t X_fx_stride
-cdef extern class sklearn.tree._tree.BestSplitter(BaseDenseSplitter):
-    pass
-
 # =============================================================================
 # Types and constants
 # =============================================================================
@@ -92,7 +71,7 @@ cdef class UnSupervisedClassificationCriterion(Criterion):
                 (self.n_samples,
                  self.n_features,
                  self.min_improvement),
-                 self.__getstate__())
+                self.__getstate__())
 
     def __getstate__(self):
         return {}
@@ -298,7 +277,8 @@ cdef inline void upper_to_matrix(DOUBLE_t* X, DOUBLE_t* Y, SIZE_t length) nogil:
             X[p2 + p1 * length] = X[p1 + p2 * length]
 
 cdef class SemiSupervisedClassificationCriterion(Criterion):
-    """Semi-supervised criteria that combines `LabeledOnlyEntropy` and
+    """
+    Semi-supervised criteria that combines `LabeledOnlyEntropy` and
     `UnSupervisedClassificationCriterion` into one balanced quality measure.
     """ 
     
@@ -308,30 +288,77 @@ cdef class SemiSupervisedClassificationCriterion(Criterion):
         self.criterion_unsupervised = UnSupervisedClassificationCriterion(n_samples, n_features, min_improvement = 0.0)
         self.criterion_supervised = LabeledOnlyEntropy(n_outputs, n_classes)
         
+    def __dealloc__(self):
+        """Destructor."""
+        pass
+        
+    # !TODO: Figure out, if the first, the second or another configuration
+    # allows for pickling the objects. What happens with the sub-criteria
+    # in self.criterion_unsupervised and self.criterion_supervised?
+    def __reduce__(self): # arguments to __cinit__
+        return (UnSupervisedClassificationCriterion,
+                (self.supervised_weight),
+                self.__getstate__())
+        
+    def __reduce__(self): # arguemnts to __cinit__
+        return (UnSupervisedClassificationCriterion,
+                (self.criterion_unsupervised.n_samples,
+                 self.criterion_unsupervised.n_features,
+                 self.supervised_weight,
+                 self.criterion_supervised.n_outputs,
+                 sizet_ptr_to_ndarray(self.criterion_supervised.n_classes,
+                                      self.criterion_supervised.n_outputs)),
+                self.__getstate__())
+
+    def __getstate__(self):
+        return {}
+
+    def __setstate__(self, d):
+        pass
+        
     cdef void init3(self, DTYPE_t* X, SIZE_t X_stride, DOUBLE_t* y, SIZE_t y_stride,
                     DOUBLE_t* sample_weight, double weighted_n_samples,
                     SIZE_t* samples, SIZE_t start, SIZE_t end) nogil:
-        """Initialize the criterion at node samples[start:end] and
-           children samples[start:start] and samples[start:end].
+        """
+        Initialize the criterion at node samples[start:end] and
+        children samples[start:start] and samples[start:end].
            
-           Note that the signature of this init3() does not
-           correspond to the parent classes (Criterion) init()
-           signature and therefore can only be used by a dedicated
-           splitter class."""
+        Notes
+        -----
+        The signature of this init3() does not entirely
+        correspond to the parent classes (Criterion) init()
+        signature and therefore can only be used by a dedicated
+        splitter class.
+        """
         self.criterion_unsupervised.init2(X, X_stride, sample_weight, weighted_n_samples,
                                           samples, start, end)
         self.criterion_supervised.init(y, y_stride, sample_weight, weighted_n_samples,
                                        samples, start, end)
         
     cdef void reset(self) nogil:
+        """Reset the criterion at pos=start."""
         self.criterion_unsupervised.reset()
         self.criterion_supervised.reset()
         
     cdef void update(self, SIZE_t new_pos) nogil:
+        """
+        Update the collected statistics by moving samples[pos:new_pos] from
+        the right child to the left child.
+        """
         self.criterion_unsupervised.update(new_pos)
         self.criterion_supervised.update(new_pos)
         
     cdef double node_impurity(self) nogil:
+        """
+        Evaluate the impurity of the current node, i.e. the impurity of
+        samples[start:end].
+        
+        The supervised \f$H_s\f$ and unsupervised \f$H_u\f$ criteria are
+        balanced by the `supervised_weight` term \f$\alpha\f$ using:
+        \f[
+            H = \alpha H_s + (1 - \alpha) H_u
+        \f]
+        """
         cdef double uimp, simp
         cdef DTYPE_t supervised_weight
         
@@ -343,6 +370,17 @@ cdef class SemiSupervisedClassificationCriterion(Criterion):
     
     cdef void children_impurity(self, double* impurity_left,
                                 double* impurity_right) nogil:
+        """
+        Evaluate the impurity in children nodes, i.e. the impurity of the
+        left child (samples[start:pos]) and the impurity the right child
+        (samples[pos:end]).
+        
+        The supervised \f$H_s\f$ and unsupervised \f$H_u\f$ criteria are
+        balanced by the `supervised_weight` term \f$\alpha\f$ using:
+        \f[
+            H = \alpha H_s + (1 - \alpha) H_u
+        \f]
+        """
         cdef DTYPE_t supervised_weight
         cdef double uimp_impurity_left
         cdef double uimp_impurity_right
@@ -357,20 +395,29 @@ cdef class SemiSupervisedClassificationCriterion(Criterion):
         impurity_right[0] = (1. - supervised_weight) * uimp_impurity_right + supervised_weight * simp_impurity_right
         
     cdef void node_value(self, double* dest) nogil:
-        self.criterion_unsupervised.node_value(dest)
+        """
+        Compute the node value of samples[start:end] into dest.
+        
+        !TODO: Read into the induction from transduction section (7.4) and
+        implement it in Cython -> That way it should be possible to avoid
+        storing the actuall density distributions of the leaves and instead
+        instead just store the class-probabilities as in the traditional trees.
+        """
+        
+        #self.criterion_unsupervised.node_value(dest)
         self.criterion_supervised.node_value(dest)
-        
-    cdef double impurity_improvement(self, double impurity) nogil:
-        cdef double uimp, simp
-        cdef DTYPE_t supervised_weight
-        
-        supervised_weight = self.supervised_weight
-        uimp = self.criterion_unsupervised.impurity_improvement(impurity)
-        simp = self.criterion_supervised.impurity_improvement(impurity)
-        
-        return (1. - supervised_weight) * uimp + supervised_weight * simp
     
-    #!TODO: Is the unsupervised the right criterion to ask these values from?
+    #!TODO: This implementation (i.e. using the Criterias class
+    # impurity_improvement method) weights the unlabelled as well as the
+    # labelled term with the whole sample weight. The original implementation
+    # according to Criminisi does weight the labelled term, which uses only
+    # the labelled data, only by the weight of the labelled samples.
+    # The change should not make a huge difference and might actually
+    # constitute a more sensible choice. Experiments will tell.
+    property weighted_n_samples:
+        def __get__(self):
+            return self.criterion_unsupervised.weighted_n_samples
+    
     property weighted_n_node_samples:
         def __get__(self):
             return self.criterion_unsupervised.weighted_n_node_samples
@@ -385,6 +432,10 @@ cdef class SemiSupervisedClassificationCriterion(Criterion):
     
 cdef class LabeledOnlyEntropy(Entropy):
     """Cross Entropy impurity criteria applied to labeled samples only."""
+ 
+    #!TODO: Orignal entropy class computes entropy in children_impurity and
+    # node_impurity by dividing throught the number of n_outputs -> but this
+    # parameter I use to stear the amount of memory reserved for the trees!
  
     cdef void init(self, DOUBLE_t* y, SIZE_t y_stride,
                    DOUBLE_t* sample_weight, double weighted_n_samples,
@@ -491,6 +542,7 @@ cdef class LabeledOnlyEntropy(Entropy):
         self.weighted_n_right -= diff_w
  
         self.pos = new_pos   
+
  
 # =============================================================================
 # Splitter
@@ -537,12 +589,24 @@ cdef class SemiSupervisedBestSplitter(BestSplitter):
                    object random_state):
         self.criterion_real = criterion
      
+    def __dealloc__(self):
+        """Destructor."""
+        pass
+     
     def __reduce__(self):
-        return (SemiSupervisedBestSplitter, (self.criterion,
-                                             self.max_features,
-                                             self.min_samples_leaf,
-                                             self.min_weight_leaf,
-                                             self.random_state), self.__getstate__())    
+        return (SemiSupervisedBestSplitter, 
+                (self.criterion,
+                 self.max_features,
+                 self.min_samples_leaf,
+                 self.min_weight_leaf,
+                 self.random_state),
+                self.__getstate__())    
+ 
+    def __getstate__(self):
+        return {}
+
+    def __setstate__(self, d):
+        pass  
  
     cdef void node_reset(self, SIZE_t start, SIZE_t end,
                          double* weighted_n_node_samples) nogil:
@@ -561,3 +625,9 @@ cdef class SemiSupervisedBestSplitter(BestSplitter):
                                   end)
  
         weighted_n_node_samples[0] = self.criterion_real.weighted_n_node_samples
+
+cdef inline np.ndarray sizet_ptr_to_ndarray(SIZE_t* data, SIZE_t size):
+    """Encapsulate data into a 1D numpy array of intp's."""
+    cdef np.npy_intp shape[1]
+    shape[0] = <np.npy_intp> size
+    return np.PyArray_SimpleNewFromData(1, shape, np.NPY_INTP, data)

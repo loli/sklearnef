@@ -231,7 +231,6 @@ class UnSupervisedDecisionTreeClassifier(DecisionTreeClassifier):
         self : object
             Returns self.
         """
-        random_state = check_random_state(self.random_state)
         if check_input:
             X = check_array(X, dtype=DTYPE, order='C')
  
@@ -257,7 +256,7 @@ class UnSupervisedDecisionTreeClassifier(DecisionTreeClassifier):
         # initialise criterion here, since it requires another syntax than the default ones
         if 'unsupervised' == self.criterion:
             self.criterion =  _treeef.UnSupervisedClassificationCriterion(X.shape[0], X.shape[1], self.min_improvement)
-        DecisionTreeClassifier.fit(self, X, y, sample_weight, check_input)
+        DecisionTreeClassifier.fit(self, X, y, sample_weight, False)
         
         # parse the tree once and create the MVND objects associated with each leaf
         self.mvnds = self.parse_tree_leaves()
@@ -494,12 +493,12 @@ class UnSupervisedDecisionTreeClassifier(DecisionTreeClassifier):
             raise ValueError("Invalid eval type {}. Expected one of: {}" .format(eval_type, eval_types))
 
 class SemiSupervisedDecisionTreeClassifier(DecisionTreeClassifier):
-    r"""A tree for semi.-upervised classification.
+    r"""A tree for semi-supervised classification.
     
     The tree takes a mix of labelled and un-labelled training samples,
     ultimately assign class labels to the un-labelled data.
     
-Parameters
+    Parameters
     ----------
     splitter : string, optional (default="semisupervised")
         The strategy used to choose the split at each node. Currently only
@@ -674,177 +673,64 @@ Parameters
         self : object
             Returns self.
         """
-        random_state = check_random_state(self.random_state)
         if check_input:
             X = check_array(X, dtype=DTYPE, order='C')
-
-        # Determine output settings
-        n_samples, self.n_features_ = X.shape
-        is_classification = isinstance(self, ClassifierMixin)
-
+ 
+        # apply transformation to data
+        if self.unsupervised_transformation is not None:
+            X = self.unsupervised_transformation.fit_transform(X)
+ 
+        if self.min_samples_leaf is None:
+            self.min_samples_leaf = X.shape[1]
+        elif not X.shape[1] <= self.min_samples_leaf:
+            raise ValueError("The number of minimum samples per leaf of the "
+                             "model must be at least as large as the number "
+                             "of features. Model min_samples_leaf is %s and "
+                             "input n_features is %s "
+                             % (self.min_samples_leaf, X.shape[1]))
+        
         y = np.atleast_1d(y)
-        expanded_class_weight = None
 
         if y.ndim == 1:
             # reshape is necessary to preserve the data contiguity against vs
             # [:, np.newaxis] that does not.
             y = np.reshape(y, (-1, 1))
-
-        self.n_outputs_ = y.shape[1]
-
-        if is_classification:
-            y = np.copy(y)
-
-            self.classes_ = []
-            self.n_classes_ = []
-
-            if self.class_weight is not None:
-                y_original = np.copy(y)
-
-            for k in range(self.n_outputs_):
-                classes_k, y[:, k] = np.unique(y[:, k], return_inverse=True)
-                # remove smallest label (assuming that always same (i.e. smallest) over all n_outputs and consistent)
-                self.classes_.append(classes_k[1:])
-                self.n_classes_.append(classes_k.shape[0] - 1)
-
-            if self.class_weight is not None:
-                expanded_class_weight = compute_sample_weight(
-                    self.class_weight, y_original)
-
-        else:
-            self.classes_ = [None] * self.n_outputs_
-            self.n_classes_ = [1] * self.n_outputs_
-
-        self.n_classes_ = np.array(self.n_classes_, dtype=np.intp)
-
-        if getattr(y, "dtype", None) != DOUBLE or not y.flags.contiguous:
-            y = np.ascontiguousarray(y, dtype=DOUBLE)
-
-        # Check parameters
-        max_depth = ((2 ** 31) - 1 if self.max_depth is None
-                     else self.max_depth)
-        max_leaf_nodes = (-1 if self.max_leaf_nodes is None
-                          else self.max_leaf_nodes)
-
-        if isinstance(self.max_features, six.string_types):
-            if self.max_features == "auto":
-                if is_classification:
-                    max_features = max(1, int(np.sqrt(self.n_features_)))
-                else:
-                    max_features = self.n_features_
-            elif self.max_features == "sqrt":
-                max_features = max(1, int(np.sqrt(self.n_features_)))
-            elif self.max_features == "log2":
-                max_features = max(1, int(np.log2(self.n_features_)))
-            else:
-                raise ValueError(
-                    'Invalid value for max_features. Allowed string '
-                    'values are "auto", "sqrt" or "log2".')
-        elif self.max_features is None:
-            max_features = self.n_features_
-        elif isinstance(self.max_features, (numbers.Integral, np.integer)):
-            max_features = self.max_features
-        else:  # float
-            if self.max_features > 0.0:
-                max_features = max(1, int(self.max_features * self.n_features_))
-            else:
-                max_features = 0
-
-        self.max_features_ = max_features
-
-        if len(y) != n_samples:
-            raise ValueError("Number of labels=%d does not match "
-                             "number of samples=%d" % (len(y), n_samples))
-        if self.min_samples_split <= 0:
-            raise ValueError("min_samples_split must be greater than zero.")
-        if self.min_samples_leaf <= 0:
-            raise ValueError("min_samples_leaf must be greater than zero.")
-        if not 0 <= self.min_weight_fraction_leaf <= 0.5:
-            raise ValueError("min_weight_fraction_leaf must in [0, 0.5]")
-        if max_depth <= 0:
-            raise ValueError("max_depth must be greater than zero. ")
-        if not (0 < max_features <= self.n_features_):
-            raise ValueError("max_features must be in (0, n_features]")
-        if not isinstance(max_leaf_nodes, (numbers.Integral, np.integer)):
-            raise ValueError("max_leaf_nodes must be integral number but was "
-                             "%r" % max_leaf_nodes)
-        if -1 < max_leaf_nodes < 2:
-            raise ValueError(("max_leaf_nodes {0} must be either smaller than "
-                              "0 or larger than 1").format(max_leaf_nodes))
-
-        if sample_weight is not None:
-            if (getattr(sample_weight, "dtype", None) != DOUBLE or
-                    not sample_weight.flags.contiguous):
-                sample_weight = np.ascontiguousarray(
-                    sample_weight, dtype=DOUBLE)
-            if len(sample_weight.shape) > 1:
-                raise ValueError("Sample weights array has more "
-                                 "than one dimension: %d" %
-                                 len(sample_weight.shape))
-            if len(sample_weight) != n_samples:
-                raise ValueError("Number of weights=%d does not match "
-                                 "number of samples=%d" %
-                                 (len(sample_weight), n_samples))
-
-        if expanded_class_weight is not None:
-            if sample_weight is not None:
-                sample_weight = sample_weight * expanded_class_weight
-            else:
-                sample_weight = expanded_class_weight
-
-        # Set min_weight_leaf from min_weight_fraction_leaf
-        if self.min_weight_fraction_leaf != 0. and sample_weight is not None:
-            min_weight_leaf = (self.min_weight_fraction_leaf *
-                               np.sum(sample_weight))
-        else:
-            min_weight_leaf = 0.
-
-        # Set min_samples_split sensibly
-        min_samples_split = max(self.min_samples_split,
-                                2 * self.min_samples_leaf)
-
-        # Build tree
-        criterion = self.criterion
-        if not isinstance(criterion, Criterion):
-            if is_classification:
-                criterion = CRITERIA_CLF[self.criterion](self.n_outputs_,
-                                                         self.n_classes_)
-            else:
-                criterion = CRITERIA_REG[self.criterion](self.n_outputs_)
-
-        SPLITTERS = SPARSE_SPLITTERS if issparse(X) else DENSE_SPLITTERS
-
-        splitter = self.splitter
-        if not isinstance(self.splitter, Splitter):
-            splitter = SPLITTERS[self.splitter](criterion,
-                                                self.max_features_,
-                                                self.min_samples_leaf,
-                                                min_weight_leaf,
-                                                random_state)
-
-        self.tree_ = Tree(self.n_features_, self.n_classes_, self.n_outputs_)
         
-        # Use BestFirst if max_leaf_nodes given; use DepthFirst otherwise
-        if max_leaf_nodes < 0:
-            builder = DepthFirstTreeBuilder(splitter, min_samples_split,
-                                            self.min_samples_leaf,
-                                            min_weight_leaf,
-                                            max_depth)
-        else:
-            builder = BestFirstTreeBuilder(splitter, min_samples_split,
-                                           self.min_samples_leaf,
-                                           min_weight_leaf,
-                                           max_depth,
-                                           max_leaf_nodes)
-        
-        builder.build(self.tree_, X, y, sample_weight)
-        
-        if self.n_outputs_ == 1:
-            self.n_classes_ = self.n_classes_[0]
-            self.classes_ = self.classes_[0]
+        if not 1 == y.shape[1]:
+            raise ValueError("The semi-supervised classification allows only "
+                             "for one output per sample. Provided class "
+                             " ground truth holds %s outputs per sample."
+                             % (y.shape[1]))
+
+        # n_outputs_ and n_classes_ must be pre-computed to init the
+        # classification criterion (note: always classification)
+        # !TODO: This creates redundancy, as the same process will be
+        # repeated int the parent classes fit() method
+        y_copied = np.copy(y)
+        self.n_classes_ = []
+        classes_k, y_copied[:, 0] = np.unique(y_copied[:, 0], return_inverse=True)
+        self.n_classes_.append(classes_k.shape[0])
+            
+        # initialise criterion here, since it requires another syntax than the default ones
+        if 'semisupervised' == self.criterion:
+            self.criterion =  _treeef.SemiSupervisedClassificationCriterion(
+                                        X.shape[0],
+                                        X.shape[1],
+                                        self.supervised_weight,
+                                        1, #self.n_outputs_ always 1
+                                        self.n_classes_)
+        DecisionTreeClassifier.fit(self, X, y, sample_weight, False)
 
         return self
 
+    def predict_proba(self, X, check_input=True):
+        if check_input:
+            X = check_array(X, dtype=DTYPE, accept_sparse=None)
+        # apply transformation to data
+        if self.unsupervised_transformation is not None:
+            X = self.unsupervised_transformation.transform(X)
+        DecisionTreeClassifier.predict_proba(self, X, False)
+        
 
 class MVND():
     def __init__(self, tree, range, node_id):

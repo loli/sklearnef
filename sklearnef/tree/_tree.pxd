@@ -6,6 +6,8 @@
 
 import numpy as np
 cimport numpy as np
+cimport sklearn.tree._tree
+import sklearn.tree._tree
 
 #cdef extern from *:
 ctypedef np.npy_float32 DTYPE_t          # Type of X
@@ -14,8 +16,26 @@ ctypedef np.npy_intp SIZE_t              # Type for indices and counters
 ctypedef np.npy_int32 INT32_t            # Signed 32 bit integer
 ctypedef np.npy_uint32 UINT32_t          # Unsigned 32 bit integer
 
-from sklearn.tree._tree cimport Criterion
+# Import external extension types (with associated PXD files)
+from sklearn.tree._tree cimport Criterion, Splitter, SplitRecord
 from sklearnef.tree._diffentropy cimport Diffentropy
+
+# Define external extension types (without associated PXD files)
+cdef extern class sklearn.tree._tree.ClassificationCriterion(Criterion):
+    cdef SIZE_t* n_classes
+    cdef SIZE_t label_count_stride
+    cdef double* label_count_left
+    cdef double* label_count_right
+    cdef double* label_count_total
+cdef extern class sklearn.tree._tree.Entropy(ClassificationCriterion):
+    pass
+
+cdef extern class sklearn.tree._tree.BaseDenseSplitter(Splitter):
+    cdef DTYPE_t* X
+    cdef SIZE_t X_sample_stride
+    cdef SIZE_t X_fx_stride
+cdef extern class sklearn.tree._tree.BestSplitter(BaseDenseSplitter):
+    pass
 
 # =============================================================================
 # Criterion
@@ -45,7 +65,7 @@ cdef class SemiSupervisedClassificationCriterion(Criterion):
     # Internal structures
     cdef DTYPE_t supervised_weight                                  # balancing weight
     cdef UnSupervisedClassificationCriterion criterion_unsupervised # unsupervised split quality criterion
-    cdef Criterion criterion_supervised                    # supervised split quality criterion
+    cdef ClassificationCriterion criterion_supervised                    # supervised split quality criterion
 
     # Methods
     cdef void init3(self, DTYPE_t* X, SIZE_t X_stride, DOUBLE_t* y, SIZE_t y_stride,
