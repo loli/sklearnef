@@ -53,8 +53,10 @@ __all__ = ["SemiSupervisedDecisionTreeClassifier",
 DTYPE = _tree.DTYPE
 DOUBLE = _tree.DOUBLE
 
-CRITERIA_CLF = {"entropy": _tree.Entropy, "semisupervised": _treeef.LabeledOnlyEntropy, "labeledonly": _treeef.LabeledOnlyEntropy}
+CRITERIA_CLF = {"entropy": _tree.Entropy, "labeledonly": _treeef.LabeledOnlyEntropy}
 DENSE_SPLITTERS['unsupervised'] = _treeef.UnSupervisedBestSplitter
+DENSE_SPLITTERS['semisupervised'] = _treeef.SemiSupervisedBestSplitter
+
 
 # =============================================================================
 # Base decision tree
@@ -610,7 +612,7 @@ class SemiSupervisedDecisionTreeClassifier(DecisionTreeClassifier):
                  splitter="semisupervised",
                  max_depth=None,
                  min_samples_split=2,
-                 min_samples_leaf=1,
+                 min_samples_leaf=None,
                  min_weight_fraction_leaf=0.,
                  max_features=None,
                  random_state=None,
@@ -710,12 +712,14 @@ class SemiSupervisedDecisionTreeClassifier(DecisionTreeClassifier):
         self.n_classes_ = []
         classes_k, y_copied[:, 0] = np.unique(y_copied[:, 0], return_inverse=True)
         self.n_classes_.append(classes_k.shape[0])
+        self.n_classes_ = np.array(self.n_classes_, dtype=np.intp)
             
         # initialise criterion here, since it requires another syntax than the default ones
         if 'semisupervised' == self.criterion:
             self.criterion =  _treeef.SemiSupervisedClassificationCriterion(
                                         X.shape[0],
                                         X.shape[1],
+                                        0, # disable min_improvement stop criteria
                                         self.supervised_weight,
                                         1, #self.n_outputs_ always 1
                                         self.n_classes_)
@@ -729,7 +733,7 @@ class SemiSupervisedDecisionTreeClassifier(DecisionTreeClassifier):
         # apply transformation to data
         if self.unsupervised_transformation is not None:
             X = self.unsupervised_transformation.transform(X)
-        DecisionTreeClassifier.predict_proba(self, X, False)
+        return DecisionTreeClassifier.predict_proba(self, X, False)
         
 
 class MVND():

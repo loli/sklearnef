@@ -34,7 +34,7 @@ cdef class UnSupervisedClassificationCriterion(Criterion):
     # note: sample weights can not be incorporated, assuming equal weight!
     # but: it could be introduced using weighted sample sums in the impurity_improvement method
 
-    def __cinit__(self, SIZE_t n_samples, SIZE_t n_features, DTYPE_t min_improvement):
+    def __cinit__(self, SIZE_t n_samples, SIZE_t n_features, DTYPE_t min_improvement, *args, **kwargs):
         # Default values
         self.X = NULL # all training samples
         self.X_stride = 0 # stride (i.e. feature length * feature_dtype_length)
@@ -276,38 +276,32 @@ cdef inline void upper_to_matrix(DOUBLE_t* X, DOUBLE_t* Y, SIZE_t length) nogil:
         for p2 in range(0, p1):
             X[p2 + p1 * length] = X[p1 + p2 * length]
 
-cdef class SemiSupervisedClassificationCriterion(Criterion):
+cdef class SemiSupervisedClassificationCriterion(UnSupervisedClassificationCriterion):
     """
     Semi-supervised criteria that combines `LabeledOnlyEntropy` and
     `UnSupervisedClassificationCriterion` into one balanced quality measure.
     """ 
     
-    def __cinit__(self, SIZE_t n_samples, SIZE_t n_features, DTYPE_t supervised_weight, 
+    def __cinit__(self, SIZE_t n_samples, SIZE_t n_features, DTYPE_t min_improvement,
+                  DTYPE_t supervised_weight, 
                   SIZE_t n_outputs, np.ndarray[SIZE_t, ndim=1] n_classes):
         self.supervised_weight = supervised_weight
-        self.criterion_unsupervised = UnSupervisedClassificationCriterion(n_samples, n_features, min_improvement = 0.0)
         self.criterion_supervised = LabeledOnlyEntropy(n_outputs, n_classes)
         
     def __dealloc__(self):
         """Destructor."""
         pass
         
-    # !TODO: Figure out, if the first, the second or another configuration
-    # allows for pickling the objects. What happens with the sub-criteria
+    # !TODO: Figure out, if this works. What happens with the sub-criteria
     # in self.criterion_unsupervised and self.criterion_supervised?
     def __reduce__(self): # arguments to __cinit__
-        return (UnSupervisedClassificationCriterion,
-                (self.supervised_weight),
-                self.__getstate__())
-        
-    def __reduce__(self): # arguemnts to __cinit__
-        return (UnSupervisedClassificationCriterion,
-                (self.criterion_unsupervised.n_samples,
-                 self.criterion_unsupervised.n_features,
-                 self.supervised_weight,
-                 self.criterion_supervised.n_outputs,
-                 sizet_ptr_to_ndarray(self.criterion_supervised.n_classes,
-                                      self.criterion_supervised.n_outputs)),
+        return (SemiSupervisedClassificationCriterion,
+                (self.n_samples,
+                 self.n_features,
+                 self.min_improvement,
+                 self.supervised_weight),
+                 #self.criterion_supervised.n_outputs,
+                 #self.criterion_supervised.n_classes),
                 self.__getstate__())
 
     def __getstate__(self):
@@ -330,14 +324,14 @@ cdef class SemiSupervisedClassificationCriterion(Criterion):
         signature and therefore can only be used by a dedicated
         splitter class.
         """
-        self.criterion_unsupervised.init2(X, X_stride, sample_weight, weighted_n_samples,
-                                          samples, start, end)
+        UnSupervisedClassificationCriterion.init2(self, X, X_stride, sample_weight, weighted_n_samples,
+                                                  samples, start, end)
         self.criterion_supervised.init(y, y_stride, sample_weight, weighted_n_samples,
                                        samples, start, end)
         
     cdef void reset(self) nogil:
         """Reset the criterion at pos=start."""
-        self.criterion_unsupervised.reset()
+        UnSupervisedClassificationCriterion.reset(self)
         self.criterion_supervised.reset()
         
     cdef void update(self, SIZE_t new_pos) nogil:
@@ -345,7 +339,7 @@ cdef class SemiSupervisedClassificationCriterion(Criterion):
         Update the collected statistics by moving samples[pos:new_pos] from
         the right child to the left child.
         """
-        self.criterion_unsupervised.update(new_pos)
+        UnSupervisedClassificationCriterion.update(self, new_pos)
         self.criterion_supervised.update(new_pos)
         
     cdef double node_impurity(self) nogil:
@@ -363,7 +357,7 @@ cdef class SemiSupervisedClassificationCriterion(Criterion):
         cdef DTYPE_t supervised_weight
         
         supervised_weight = self.supervised_weight
-        uimp = self.criterion_unsupervised.node_impurity()
+        uimp = UnSupervisedClassificationCriterion.node_impurity(self)
         simp = self.criterion_supervised.node_impurity()
         
         return (1. - supervised_weight) * uimp + supervised_weight * simp
@@ -388,11 +382,25 @@ cdef class SemiSupervisedClassificationCriterion(Criterion):
         cdef double simp_impurity_right
         
         supervised_weight = self.supervised_weight
-        self.criterion_unsupervised.children_impurity(&uimp_impurity_left, &uimp_impurity_right)
+        UnSupervisedClassificationCriterion.children_impurity(self, &uimp_impurity_left, &uimp_impurity_right)
         self.criterion_supervised.children_impurity(&simp_impurity_left, &simp_impurity_right)
         
         impurity_left[0] = (1. - supervised_weight) * uimp_impurity_left + supervised_weight * simp_impurity_left
         impurity_right[0] = (1. - supervised_weight) * uimp_impurity_right + supervised_weight * simp_impurity_right
+        
+    cdef double impurity_improvement(self, double impurity) nogil:
+        """!TODO: Delete!"""
+        cdef double impurity_left
+        cdef double impurity_right
+
+        self.children_impurity(&impurity_left, &impurity_right)
+
+        cdef double imp
+        imp = ((self.weighted_n_node_samples / self.weighted_n_samples) *
+                (impurity - self.weighted_n_right / self.weighted_n_node_samples * impurity_right
+                          - self.weighted_n_left / self.weighted_n_node_samples * impurity_left))
+
+        return imp
         
     cdef void node_value(self, double* dest) nogil:
         """
@@ -406,29 +414,6 @@ cdef class SemiSupervisedClassificationCriterion(Criterion):
         
         #self.criterion_unsupervised.node_value(dest)
         self.criterion_supervised.node_value(dest)
-    
-    #!TODO: This implementation (i.e. using the Criterias class
-    # impurity_improvement method) weights the unlabelled as well as the
-    # labelled term with the whole sample weight. The original implementation
-    # according to Criminisi does weight the labelled term, which uses only
-    # the labelled data, only by the weight of the labelled samples.
-    # The change should not make a huge difference and might actually
-    # constitute a more sensible choice. Experiments will tell.
-    property weighted_n_samples:
-        def __get__(self):
-            return self.criterion_unsupervised.weighted_n_samples
-    
-    property weighted_n_node_samples:
-        def __get__(self):
-            return self.criterion_unsupervised.weighted_n_node_samples
-        
-    property weighted_n_left:
-        def __get__(self):
-            return self.criterion_unsupervised.weighted_n_left
-    
-    property weighted_n_right:
-        def __get__(self):
-            return self.criterion_unsupervised.weighted_n_right
     
 cdef class LabeledOnlyEntropy(Entropy):
     """Cross Entropy impurity criteria applied to labeled samples only."""

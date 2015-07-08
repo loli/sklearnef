@@ -61,10 +61,9 @@ cdef class UnSupervisedClassificationCriterion(Criterion):
                     DOUBLE_t* sample_weight, double weighted_n_samples,
                     SIZE_t* samples, SIZE_t start, SIZE_t end) nogil
 
-cdef class SemiSupervisedClassificationCriterion(Criterion):
+cdef class SemiSupervisedClassificationCriterion(UnSupervisedClassificationCriterion):
     # Internal structures
     cdef DTYPE_t supervised_weight                                  # balancing weight
-    cdef UnSupervisedClassificationCriterion criterion_unsupervised # unsupervised split quality criterion
     cdef ClassificationCriterion criterion_supervised                    # supervised split quality criterion
 
     # Methods
