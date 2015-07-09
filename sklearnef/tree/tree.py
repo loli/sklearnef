@@ -34,6 +34,8 @@ from scipy.stats import mvn # Fortran implementation for multivariate normal CDF
 from sklearn.base import ClassifierMixin
 from numpy.linalg.linalg import LinAlgError
 from sklearn.preprocessing.data import StandardScaler
+from scipy.spatial.distance import mahalanobis
+from scipy.sparse.csgraph import shortest_path, csgraph_from_dense
 
 try:
     from scipy.stats import multivariate_normal
@@ -49,6 +51,8 @@ __all__ = ["SemiSupervisedDecisionTreeClassifier",
 # =============================================================================
 # Types and constants
 # =============================================================================
+
+SINGULARITY_REGULARIZATION_TERM = 1e-6
 
 DTYPE = _tree.DTYPE
 DOUBLE = _tree.DOUBLE
@@ -704,15 +708,20 @@ class SemiSupervisedDecisionTreeClassifier(DecisionTreeClassifier):
                              " ground truth holds %s outputs per sample."
                              % (y.shape[1]))
 
+        # get mask denoting unlabelled samples
+        mask_unlabelled = (np.min(y[:,0]) == y[:,0])
+
         # n_outputs_ and n_classes_ must be pre-computed to init the
         # classification criterion (note: always classification)
         # !TODO: This creates redundancy, as the same process will be
         # repeated int the parent classes fit() method
-        y_copied = np.copy(y)
-        self.n_classes_ = []
-        classes_k, y_copied[:, 0] = np.unique(y_copied[:, 0], return_inverse=True)
-        self.n_classes_.append(classes_k.shape[0])
-        self.n_classes_ = np.array(self.n_classes_, dtype=np.intp)
+        n_classes_ = np.array([np.unique(y[:,0]).shape[0]], dtype=np.intp)
+            
+        # Expand y by tiling. This will cause the Tree to allocate sufficient
+        # memory for storing the gaussian distributions per leaf.
+        # !TODO: Can I find a better approach than this?
+        s = X.shape[1]**2 + X.shape[1] + 1
+        y = np.tile(y, (1, s))
             
         # initialise criterion here, since it requires another syntax than the default ones
         if 'semisupervised' == self.criterion:
@@ -722,8 +731,19 @@ class SemiSupervisedDecisionTreeClassifier(DecisionTreeClassifier):
                                         0, # disable min_improvement stop criteria
                                         self.supervised_weight,
                                         1, #self.n_outputs_ always 1
-                                        self.n_classes_)
+                                        n_classes_)
         DecisionTreeClassifier.fit(self, X, y, sample_weight, False)
+
+        # parse the tree once and create the MVND objects associated with each leaf
+        self.mvnds = self.parse_tree_leaves()
+
+        yu = self.__transduction(X[mask_unlabelled], X[~mask_unlabelled],
+                            y[~mask_unlabelled][:,0])
+        
+        self.__induction_from_transduction(X[mask_unlabelled],
+                                           yu,
+                                           X[~mask_unlabelled],
+                                           y[~mask_unlabelled][:,0])
 
         return self
 
@@ -735,6 +755,142 @@ class SemiSupervisedDecisionTreeClassifier(DecisionTreeClassifier):
             X = self.unsupervised_transformation.transform(X)
         return DecisionTreeClassifier.predict_proba(self, X, False)
         
+    def __induction_from_transduction(self, Xu, yu, Xl, yl):
+        """
+        Re-writes the trees memory, changing the Gaussian distributin based
+        nodes into the default class posteriors.
+        """
+        # prepare
+        yu = np.squeeze(yu)
+        yl = np.squeeze(yl)
+        X = np.vstack((Xu, Xl))
+        y = np.hstack((yu, yl)) # Note: y will not contain the unsupervised class
+        
+        # get leaf indices
+        leaf_indices = self.tree_.apply(X)
+        
+        # convert to a zero-based class membership array
+        class_k, y = np.unique(y, return_inverse=True)
+        n_classes = len(class_k)
+        
+        # count class occurence per leaf and edit tree accordingly
+        for lidx in np.unique(leaf_indices):
+            mask = lidx == leaf_indices
+            label_count = np.bincount(y[mask])
+            label_count = np.pad(label_count, (0, n_classes - len(label_count)), 'constant')
+            #!TODO: Is the unlabelled data really the last dimension?
+            self.tree_.value[lidx][0][:-1] = label_count
+        
+    def __transduction(self, Xu, Xl, yl):
+        """
+        Compute the class-memberships of the unlabelled `Xu` samples using
+        geodisic distances on a surface formed by the trees piecewise
+        Gaussians to the `yl` labelled set `Xl`. This is similar to label
+        propagation.
+        
+        Warning
+        -------
+        This method requires the Gaussian distribution to be saved in the
+        tree leaves. This holds only true directly after fitting, while a
+        call to __induction_from_transduction() will remove that information. 
+        """
+        # prepare
+        X = np.vstack((Xu, Xl))
+        n = X.shape[0]
+        nl = Xl.shape[0]
+        nu = Xu.shape[0]
+
+        # get leaves and other info
+        leaf_indices = self.tree_.apply(X)
+        
+        # inline, memoization function to get icov
+        @memoize
+        def get_icov(nidx):
+            """Get cov and compute its inverse with conditional regularization."""
+            lidx = leaf_indices[nidx]
+            try:
+                return np.linalg.inv(self.mvnds[lidx].cov)
+            except LinAlgError:
+                v = [SINGULARITY_REGULARIZATION_TERM] * self.mvnds[lidx].cov.shape[0]
+                return np.linalg.inv(self.mvnds[lidx].cov + np.diag(v))
+        
+        # compute pair-wise symmetric Mahalanobis distances
+        pdists = np.zeros((n, n), np.float32)
+        for i, si in enumerate(X):
+            icov = get_icov(i)
+            for j, sj in enumerate(X[i+1:]):
+                j += i + 1
+                #!TODO: Won't i need the mean here, too?
+                pdists[i,j] = smahalanobis(si, sj, icov, get_icov(j))
+                
+        # search shortest path between all
+        pdists_sparse = csgraph_from_dense(pdists, null_value=0)
+        spaths = shortest_path(pdists_sparse, 'auto', directed=False)
+
+        # find nearest labelled samples of each unlabelled sample
+        argnearest = np.argmin(spaths[:nu,nu:], axis=1)
+        
+        # transfer labels
+        yu = yl[argnearest]
+
+        return yu
+        
+    def parse_tree_leaves(self):
+        r"""
+        Returns the pice-wise multivariate normal distributions of the
+        leaves of this density tree. The returned list contains an entry
+        for each node of the tree, where internal nodes are designated by
+        None.
+            
+        Returns
+        -------
+        mvnds : list of MVND objects
+            List containing MVND objects describing a bounded multivariate
+            normal distribution each.
+        """
+        return self.__parse_tree_leaves_rec(self.tree_)
+        
+    def __parse_tree_leaves_rec(self, tree, pos = 0, rang = None):
+        # init
+        if rang is None:
+            rang = [(-np.inf, np.inf)] * tree.n_features
+        
+        # get node info
+        fid = tree.feature[pos]
+        thr = tree.threshold[pos]
+        
+        # if not leaf node...
+        if not -2 == fid:
+            
+            info = [None]
+    
+            # ...update range of cell and ascend to left node
+            lrang = rang[:]
+            lrang[fid] = (lrang[fid][0], min(lrang[fid][1], thr))
+            info.extend(self.__parse_tree_leaves_rec(tree, tree.children_left[pos], lrang))
+            
+            # ...update range of cell and ascend to right node
+            rrang = rang[:]
+            rrang[fid] = (max(rrang[fid][0], thr), rrang[fid][1])
+            info.extend(self.__parse_tree_leaves_rec(tree, tree.children_right[pos], rrang))
+            
+            return info
+            
+        # if leaf node, return information
+        else:
+            return [MVND(tree, rang, pos)]        
+        
+def smahalanobis(x, y, icovx, icovy):
+    """The symmetric, cov-dependent Mahalanobis distance"""
+    return 0.5 * (mahalanobis(x, y, icovx) + mahalanobis(y, x, icovy))
+
+def memoize(f):
+    """ Memoization decorator for a function taking a single argument """
+    class memodict(dict):
+        def __missing__(self, key):
+            ret = self[key] = f(key)
+            return ret 
+    return memodict().__getitem__
 
 class MVND():
     def __init__(self, tree, range, node_id):

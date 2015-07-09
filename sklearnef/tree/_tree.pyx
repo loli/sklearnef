@@ -406,14 +406,12 @@ cdef class SemiSupervisedClassificationCriterion(UnSupervisedClassificationCrite
         """
         Compute the node value of samples[start:end] into dest.
         
-        !TODO: Read into the induction from transduction section (7.4) and
-        implement it in Cython -> That way it should be possible to avoid
-        storing the actuall density distributions of the leaves and instead
-        instead just store the class-probabilities as in the traditional trees.
+        Writes the results of the UnSupervisedCriterion into the tree. This
+        is a temporary solution, as directly afterwards the main tree class
+        manipulates the memory to allow for simple induction from transduction.
         """
-        
-        #self.criterion_unsupervised.node_value(dest)
-        self.criterion_supervised.node_value(dest)
+        UnSupervisedClassificationCriterion.node_value(self, dest)
+        #self.criterion_supervised.node_value(dest)
     
 cdef class LabeledOnlyEntropy(Entropy):
     """Cross Entropy impurity criteria applied to labeled samples only."""
