@@ -733,19 +733,36 @@ class SemiSupervisedDecisionTreeClassifier(DecisionTreeClassifier):
                                         1, #self.n_outputs_ always 1
                                         n_classes_)
         DecisionTreeClassifier.fit(self, X, y, sample_weight, False)
+        
+        # fix faulty member vars caused by using articifically increased n_output
+        # for memory reservation
+        #!TODO: This does not work, as the underlying cdef Tree object still sees more n_outputs_ and hence screws up the predict computation
+        #self.n_outputs_ = 2
+        #self.n_classes_ = self.n_classes_[0:2]
+        #self.classes_ = self.classes_[0:2] #[1:] # remove unlabelled class
 
         # parse the tree once and create the MVND objects associated with each leaf
         self.mvnds = self.parse_tree_leaves()
 
-        yu = self.__transduction(X[mask_unlabelled], X[~mask_unlabelled],
-                            y[~mask_unlabelled][:,0])
+        yu = self.transduction(X[mask_unlabelled], X[~mask_unlabelled],
+                               y[~mask_unlabelled][:,0])
         
-        self.__induction_from_transduction(X[mask_unlabelled],
-                                           yu,
-                                           X[~mask_unlabelled],
-                                           y[~mask_unlabelled][:,0])
+        Xa = np.concatenate((X[mask_unlabelled], X[~mask_unlabelled]), 0)
+        print np.squeeze(yu).shape
+        print np.squeeze(y[~mask_unlabelled][:,0]).shape
+        ya = np.concatenate((yu, np.squeeze(y[~mask_unlabelled][:,0])), 0) # Note: y will not contain the unsupervised class
+        
+        self.__induction(Xa, ya)
 
         return self
+
+    def predict(self, X, check_input=True):
+        if check_input:
+            X = check_array(X, dtype=DTYPE, accept_sparse=None)
+        # apply transformation to data
+        if self.unsupervised_transformation is not None:
+            X = self.unsupervised_transformation.transform(X)
+        return DecisionTreeClassifier.predict(self, X, False)[:,0] # only first of all outputs
 
     def predict_proba(self, X, check_input=True):
         if check_input:
@@ -753,19 +770,22 @@ class SemiSupervisedDecisionTreeClassifier(DecisionTreeClassifier):
         # apply transformation to data
         if self.unsupervised_transformation is not None:
             X = self.unsupervised_transformation.transform(X)
-        return DecisionTreeClassifier.predict_proba(self, X, False)
+        return DecisionTreeClassifier.predict_proba(self, X, False)[0][:,:-1] # only first of all outputs; remove last probability (is for unlabelled class)
+    
+    def predict_log_proba(self, X):
+        return np.log(self.predict_proba(X))
         
-    def __induction_from_transduction(self, Xu, yu, Xl, yl):
+    def __induction(self, X, y):
         """
         Re-writes the trees memory, changing the Gaussian distributin based
         nodes into the default class posteriors.
+        
+        Essentially, simply counts the class occurences per leaf and computes
+        the class posteriori for each.
         """
         # prepare
-        yu = np.squeeze(yu)
-        yl = np.squeeze(yl)
-        X = np.vstack((Xu, Xl))
-        y = np.hstack((yu, yl)) # Note: y will not contain the unsupervised class
-        
+        y = np.squeeze(y)
+
         # get leaf indices
         leaf_indices = self.tree_.apply(X)
         
@@ -781,18 +801,40 @@ class SemiSupervisedDecisionTreeClassifier(DecisionTreeClassifier):
             #!TODO: Is the unlabelled data really the last dimension?
             self.tree_.value[lidx][0][:-1] = label_count
         
-    def __transduction(self, Xu, Xl, yl):
+#     def predict(self, X, check_input=True):
+#         proba = self.tree_.predict(X.astype(np.float32))
+#         print proba.shape
+#         print proba[:,0:2,:]
+#         print np.argmax(proba, axis=1).shape
+#         return DecisionTreeClassifier.predict(self, X, check_input)
+        
+    def transduction(self, Xu, Xl, yl):
         """
         Compute the class-memberships of the unlabelled `Xu` samples using
         geodisic distances on a surface formed by the trees piecewise
         Gaussians to the `yl` labelled set `Xl`. This is similar to label
         propagation.
         
+        Parameters
+        ----------
+        Xu : array_like
+            Unlabelled samples.
+        Xl : array_like
+            Labelled samples.
+        yl : array_like
+            Labels of the labelled samples.
+            
+        Returns
+        -------
+        xu : ndarray
+            Labels of the unlabelled samples.
+        
         Warning
         -------
         This method requires the Gaussian distribution to be saved in the
         tree leaves. This holds only true directly after fitting, while a
-        call to __induction_from_transduction() will remove that information. 
+        call to __induction_from_transduction() will remove that information.
+         
         """
         # prepare
         X = np.vstack((Xu, Xl))

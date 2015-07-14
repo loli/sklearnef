@@ -386,7 +386,7 @@ cdef class SemiSupervisedClassificationCriterion(UnSupervisedClassificationCrite
         self.criterion_supervised.children_impurity(&simp_impurity_left, &simp_impurity_right)
         
         impurity_left[0] = (1. - supervised_weight) * uimp_impurity_left + supervised_weight * simp_impurity_left
-        impurity_right[0] = (1. - supervised_weight) * uimp_impurity_right + supervised_weight * simp_impurity_right
+        impurity_right[0] = (1. - supervised_weight) * uimp_impurity_right + supervised_weight * simp_impurity_right 
         
     cdef double impurity_improvement(self, double impurity) nogil:
         """!TODO: Delete!"""
