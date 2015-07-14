@@ -1,6 +1,25 @@
 """
-The :mod:`sklearnef.tree` module includes decision tree-based models for
-un-supervised and semi-supervised classification.
+=====================================================
+Trees underlying the forests (:mod: `sklearnef.tree`)
+=====================================================
+.. currentmodule:: sklearnef.tree
+
+This package contains the `DensityTree` and the
+`SemiSupervisedDecisionTreeClassifier` ensemble methods.
+
+Forest ensemble classes :mod:`sklearnef.tree.tree`
+==================================================
+Short description string.
+
+.. module:: sklearnef.tree.tree
+.. autosummary::
+    :toctree: generated/
+    
+    DensityTree
+    SemiSupervisedRandomForestClassifier
+    GoodnessOfFit
+    MECDF
+
 """
 
 from .tree import SemiSupervisedDecisionTreeClassifier

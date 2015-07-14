@@ -7,6 +7,10 @@ sklearnef
 sklearnef extends the random decision forest functionality of sklearn
 by un- and semi-supervised random decision forest implementations.
 
+https://pypi.python.org/pypi/sklearnef/
+https://github.com/loli/sklearnef/
+
+
 sklearn
 -------
 sklearn is a Python module integrating classical machine
@@ -18,6 +22,11 @@ that are accessible to everybody and reusable in various contexts:
 machine-learning as a versatile tool for science and engineering.
 
 See http://scikit-learn.org for complete documentation.
+
+
+Copyright (C) 2013 Oskar Maier, <oskar.maier@googlemail.com>
+
+!TODO: Add a license.
 """
 import sys
 import re

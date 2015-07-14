@@ -34,8 +34,9 @@ try:
 except ImportError:
     from scipy.stats._multivariate import multivariate_normal # older scipy versions
 
-__all__ = ["SemiSupervisedDecisionTreeClassifier",
-           "DensityTree"]
+__all__ = ["DensityTree",
+           "SemiSupervisedDecisionTreeClassifier",
+           "GoodnessOfFit", "MECDF"]
 
 # =============================================================================
 # Types and constants

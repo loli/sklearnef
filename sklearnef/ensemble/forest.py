@@ -4,7 +4,7 @@ Those methods include un- and semi-supervised forests
 
 The module structure is the following:
 
-- The ``UnSupervisedRandomForestClassifier`` derived
+- The ``DensityForest`` derived
   classes provide the user with concrete implementations of
   the density forest method.
 
@@ -30,11 +30,11 @@ from sklearn.tree._tree import DTYPE
 from ..tree import (SemiSupervisedDecisionTreeClassifier,
                     DensityTree)
 
-__all__ = ["UnSupervisedRandomForestClassifier",
+__all__ = ["DensityForest",
            #"SemiSupervisedRandomForestClassifier",
            ]
 
-class UnSupervisedRandomForestClassifier(ForestClassifier):
+class DensityForest(ForestClassifier):
     """A forest based density estimator.
 
     A random forest is a meta estimator that fits a number of density trees
@@ -156,7 +156,7 @@ class UnSupervisedRandomForestClassifier(ForestClassifier):
                  verbose=0,
                  warm_start=False,
                  class_weight=None):
-        super(UnSupervisedRandomForestClassifier, self).__init__(
+        super(DensityForest, self).__init__(
             base_estimator=DensityTree(),
             n_estimators=n_estimators,
             estimator_params=("criterion", "max_depth", "min_samples_split",

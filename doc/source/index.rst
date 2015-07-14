@@ -1,5 +1,5 @@
-MedPy
-=====
+sklearnef
+=========
 
 :Release: |release|
 :Date: |today|
