@@ -1,6 +1,6 @@
 """
 This module gathers sklearnefs tree-based methods, including unsupervised (density)
-and semi-supervised trees. Onyl single output problems are handled.
+and semi-supervised trees. Only single output problems are handled.
 """
 
 # Authors: Oskar Maier <oskar.maier@googlemail.com>
@@ -8,32 +8,24 @@ and semi-supervised trees. Onyl single output problems are handled.
 # Licence: BSD 3 clause !TODO: Change
 
 from __future__ import division
-
-import numbers
 import warnings
 
 import numpy as np
-from scipy.sparse import issparse
+from numpy.linalg.linalg import LinAlgError
 
-from sklearn.externals import six
-
-from sklearn.utils import check_array, check_random_state, compute_sample_weight
+from sklearn.utils import check_array
 from sklearn.utils.validation import NotFittedError, check_is_fitted
 
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.tree.tree import DENSE_SPLITTERS
-from sklearn.tree._tree import Criterion
-from sklearn.tree._tree import Splitter
-from sklearn.tree._tree import DepthFirstTreeBuilder, BestFirstTreeBuilder
-from sklearn.tree._tree import Tree
 from sklearn.tree import _tree
 
-import _tree as _treeef
+from sklearn.preprocessing.data import StandardScaler
+
+from sklearnef.tree import _tree as _treeef
+from sklearnef.tree import _diffentropy
 
 from scipy.stats import mvn # Fortran implementation for multivariate normal CDF estimation
-from sklearn.base import ClassifierMixin
-from numpy.linalg.linalg import LinAlgError
-from sklearn.preprocessing.data import StandardScaler
 from scipy.spatial.distance import mahalanobis
 from scipy.sparse.csgraph import shortest_path, csgraph_from_dense
 
@@ -42,11 +34,8 @@ try:
 except ImportError:
     from scipy.stats._multivariate import multivariate_normal # older scipy versions
 
-
-from sklearnef.tree import _diffentropy
-
 __all__ = ["SemiSupervisedDecisionTreeClassifier",
-           "UnSupervisedDecisionTreeClassifier"]
+           "DensityTree"]
 
 # =============================================================================
 # Types and constants
@@ -66,8 +55,8 @@ DENSE_SPLITTERS['semisupervised'] = _treeef.SemiSupervisedBestSplitter
 # Base decision tree
 # =============================================================================
 
-class UnSupervisedDecisionTreeClassifier(DecisionTreeClassifier):
-    """A tree for density estimation.
+class DensityTree(DecisionTreeClassifier):
+    r"""A tree for density estimation.
     
     The tree attempts to learn the probability distribution which
     created the training data. For this purpose, bounded multivariate
@@ -101,7 +90,7 @@ class UnSupervisedDecisionTreeClassifier(DecisionTreeClassifier):
         valid partition of the node samples is found, even if it requires to
         effectively inspect more than ``max_features`` features.
         
-    min_improvement : float (default=0)
+    min_improvement : float (default=0.)
         The minimum improvement a split must exhibit to be considered adequate.
         One of the strongest parameters for controlling over-fitting in density
         trees.
@@ -118,7 +107,7 @@ class UnSupervisedDecisionTreeClassifier(DecisionTreeClassifier):
     min_samples_leaf : int or None, optional (default=None)
         The minimum number of samples required to be at a leaf node. Must be
         at least as high as the number of features in the training set. If None,
-        set to the number of features at trainign time.
+        set to the number of features at training time.
 
     min_weight_fraction_leaf : float, optional (default=0.)
         The minimum weighted fraction of the input samples required to be at a
@@ -141,8 +130,7 @@ class UnSupervisedDecisionTreeClassifier(DecisionTreeClassifier):
     tree_ : Tree object
         The underlying Tree object.
 
-    !TODO: This does not seem to get set. Why?
-    max_features_ : int,
+    max_features_ : int
         The inferred value of max_features.
 
     feature_importances_ : array of shape = [n_features]
@@ -150,6 +138,21 @@ class UnSupervisedDecisionTreeClassifier(DecisionTreeClassifier):
         feature. The importance of a feature is computed as the (normalized)
         total reduction of the criterion brought by that feature.  It is also
         known as the Gini importance [4]_.
+        
+    n_outputs_ : int
+        For internal use only. Value does not convey any meaning for `DensityTree`s.
+    
+    n_classes_ : array of shape = [n_outputs]
+        For internal use only. Value does not convey any meaning for `DensityTree`s.
+        
+    classes_ : array of shape = [n_outputs, n_classes]
+        For internal use only. Value does not convey any meaning for `DensityTree`s.
+
+    Notes
+    -----
+    A third party fortran library uses its own random number generator, hence the
+    results of two consecutive training with the same data and same random seed
+    can differ slightly.
 
     See also
     --------
@@ -167,13 +170,13 @@ class UnSupervisedDecisionTreeClassifier(DecisionTreeClassifier):
     Examples
     --------
     >>> from sklearn.datasets import load_iris
-    >>> from sklearnef.tree import UnSupervisedDecisionTreeClassifier
-    >>> clf = UnSupervisedDecisionTreeClassifier(random_state=0)
+    >>> from sklearnef.tree import DensityTree
+    >>> clf = DensityTree(random_state=0)
     >>> iris = load_iris()
     >>> clf.fit(iris.data)
     >>> clf.predict_proba(iris.data)
-    array([  4.82956378e-01,   4.62110584e-01,   6.80794444e-01,
-         4.96085162e-01,   3.06794415e-01,   1.87555200e-01,
+    array([  5.17937424e+00,   4.95581747e+00,   7.30105111e+00,
+             5.32017140e+00,   3.29015862e+00,   2.01140023e+00,
          ...
     """    
     def __init__(self,
@@ -188,7 +191,7 @@ class UnSupervisedDecisionTreeClassifier(DecisionTreeClassifier):
                  max_leaf_nodes=None,
                  min_improvement=0,
                  class_weight=None):
-        super(UnSupervisedDecisionTreeClassifier, self).__init__(
+        super(DensityTree, self).__init__(
             criterion=criterion,
             splitter=splitter,
             max_depth=max_depth,
@@ -210,7 +213,7 @@ class UnSupervisedDecisionTreeClassifier(DecisionTreeClassifier):
                              "is supported for density estimation.")
     
     def fit(self, X, y=None, sample_weight=None, check_input=True):
-        """Build a decision tree from the training set X.
+        r"""Build a density tree from the training set X.
 
         Parameters
         ----------
@@ -219,14 +222,13 @@ class UnSupervisedDecisionTreeClassifier(DecisionTreeClassifier):
             Internally, it will be converted to ``dtype=np.float32``.
 
         y : None
-            Not used, kep only for interface conformity reasons.
+            Not used, kept only for interface conformity reasons.
 
+        !TODO: Check if the density split algorithm real honors the sample_weight passed.
         sample_weight : array-like, shape = [n_samples] or None
             Sample weights. If None, then samples are equally weighted. Splits
             that would create child nodes with net zero or negative weight are
-            ignored while searching for a split in each node. In the case of
-            classification, splits are also ignored if they would result in any
-            single class carrying a negative weight in either child node.
+            ignored while searching for a split in each node.
 
         check_input : boolean, (default=True)
             Allow to bypass several input checking.
@@ -248,20 +250,23 @@ class UnSupervisedDecisionTreeClassifier(DecisionTreeClassifier):
                              "of features. Model min_samples_leaf is %s and "
                              "input n_features is %s "
                              % (self.min_samples_leaf, X.shape[1]))
+            
+        # Notes: I could get the tree to allocate more memory by sub-classign it and re-implementing a number of its
+        # methods. The question is mainly, which approach would make more sense: This or the Tree-subclassing. Which
+        # would, sadly, also require a re-writing of the fit() method, which I've avoided so far.
         # !TODO: replace this crude method to get the tree to provide sufficient memory for storing the leaf values
         # remove passed y (which we do not need and only keep for interface conformity reasons)
-        #!TODO: Find a way to make an y conveying the required shape info without actually allocating any memory
-        #y = np.zeros((X.shape[0], X.shape[1]**2 + X.shape[1] + 1), dtype=np.dtype('d'))
-        #y = np.lib.stride_tricks.as_strided(np.asarray([0], dtype=np.bool), shape=(X.shape[0], X.shape[1]**2 + X.shape[1] + 1), strides=(0, 0))
-        s = X.shape[1]**2 + X.shape[1] + 1
+        s = X.shape[1]**2 + X.shape[1] + 1 # required memory (double)
         if s > X.shape[0]:
             y = np.zeros((X.shape[0], s), dtype=np.dtype('d')) # uses n_output
         else:
             y = np.tile(range(s), X.shape[0]//s + 1)[:X.shape[0]] # uses n_max_classes
             
-        # initialise criterion here, since it requires another syntax than the default ones
+        # initialize criterion here, since it requires another syntax than the default ones
         if 'unsupervised' == self.criterion:
             self.criterion =  _treeef.UnSupervisedClassificationCriterion(X.shape[0], X.shape[1], self.min_improvement)
+            
+        # class parent fit method
         DecisionTreeClassifier.fit(self, X, y, sample_weight, False)
         
         # parse the tree once and create the MVND objects associated with each leaf
@@ -270,7 +275,16 @@ class UnSupervisedDecisionTreeClassifier(DecisionTreeClassifier):
         return self
 
     def pdf(self, X, check_input=True):
-        """Probability density function of the learned distribution.
+        r"""Probability density function of the learned distribution.
+        
+        Parameters
+        ----------
+        X : array-like of shape = [n_samples, n_features]
+            The input samples. Internally, it will be converted to
+            ``dtype=np.float32``. No sparse matrixes allowed.
+        check_input : boolean, (default=True)
+            Allow to bypass several input checking.
+            Don't use this parameter unless you know what you do.
         
         Notes
         -----
@@ -283,7 +297,7 @@ class UnSupervisedDecisionTreeClassifier(DecisionTreeClassifier):
         return self.predict_proba(X, check_input)
     
     def cdf(self, X, check_input=True):
-        """Cummulative density function of the learned distribution.
+        r"""Cumulative density function of the learned distribution.
         
         \f[
             F(x_1, x_2, ...) = P(X_1\leq x_1, X_2\lew x_2, ...)
@@ -304,11 +318,8 @@ class UnSupervisedDecisionTreeClassifier(DecisionTreeClassifier):
             The responses of the CDF for all input samples.
         """
         self.__is_fitted()
-        X, n_samples, n_features = self.__check_X(X, check_input)
-            
-        # returns the indices of the node (alle leaves) each sample dropped into
-        #leaf_indices = self.tree_.apply(X)
-        
+        X, n_samples, _ = self.__check_X(X, check_input)
+
         cdf = np.zeros(n_samples, dtype=np.float)
         
         for i, x in enumerate(X):
@@ -316,14 +327,14 @@ class UnSupervisedDecisionTreeClassifier(DecisionTreeClassifier):
                 if mvnd is None:
                     continue
                 if np.all(x > np.asarray(mvnd.upper)): # complete cell covered
-                    cdf[i] += mvnd.cmnd * mvnd.frac #!TODO: multiply by frac?
+                    cdf[i] += mvnd.cmnd * mvnd.frac
                 elif np.any(x > np.asarray(mvnd.lower)): # partially contained
                     _x = np.minimum(x, mvnd.upper)
                     cdf[i] += mvnd.cdf(_x) * mvnd.frac
         return cdf
 
     def predict_proba(self, X, check_input=True):
-        """Cummulative density function of the learned distribution.
+        r"""Probability density function of the learned distribution.
 
         Parameters
         ----------
@@ -340,12 +351,12 @@ class UnSupervisedDecisionTreeClassifier(DecisionTreeClassifier):
             The responses of the PDF for all input samples.
         """
         self.__is_fitted()
-        X, n_samples, n_features = self.__check_X(X, check_input)
+        X, n_samples, _ = self.__check_X(X, check_input)
         
         # compute the distribution function integral value
         pfi = sum([mvnd.frac * mvnd.cmnd for mvnd in self.mvnds if mvnd is not None])
         
-        # returns the indices of the node (alle leaves) each sample dropped into
+        # returns the indices of the node (all leaves) each sample dropped into
         leaf_indices = self.tree_.apply(X)
 
         # construct the the associated multivariate Gaussian distribution for each unique
@@ -366,10 +377,84 @@ class UnSupervisedDecisionTreeClassifier(DecisionTreeClassifier):
         
         # return
         return out
+
+    def predict_log_proba(self, X):
+        r"""Log probability density function of the learned distribution.
+
+        Parameters
+        ----------
+        X : array-like of shape = [n_samples, n_features]
+            The input samples. Internally, it will be converted to
+            ``dtype=np.float32``. No sparse matrixes allowed.
+
+        Notes
+        -----
+        Log version of predict_proba() and pdf().
+        
+        See also
+        --------
+        predict_proba(), pdf()
+        """
+        return np.log(self.predict_proba(X)) # self.n_outputs is set to > 1, even if only one outcome enforced
+    
+    def predict(self, X):
+        r"""Not supported for density forest.
+        
+        Only kept for interface consistency reasons.
+        """
+        raise NotImplementedError("Density forests do not support the predict() method.")
+    
+    def goodness_of_fit(self, X, eval_type = 'mean_squared_error', check_input = True):
+        r"""Goodness of fit of the learned density distribution.
+        
+        Compares the learned distribution function with an empirical CDF constructed
+        from the data-points in `X` i.e. roughly \f[error(CDF(X)-ECDF_X(X)\f].
+        
+        Provided measures
+        -----------------
+        `mean_squared_error`
+            The mean squared error over all data-points of X.
+        `mean_squared_error_weighted`
+            The mean squared error over all data-points of X,
+            weighted by the PDF.
+        `maximum`
+            Maximum error over all data-points of X.
+        
+        Notes
+        -----
+        The provided measures are better described as fit error, than as goodness of fit
+        criteria in a statistical sense. Therefore, it is only suitable to compare
+        different learned distributions against each other under the condition, that the
+        same samples (`X`) are used. Higher values denote a stronger error. 
+        
+        Parameters
+        ----------
+        X : array_like
+            Samples form the original distribution. Must be distinct from the ones used
+            to train the tree to obtain meaningful results.
+        eval_type : string
+            The type of goodness measure. One of `mean_squared_error`,
+            `mean_squared_error_weighted` and `kolmogorov_smirnov`.
+        """
+        self.__is_fitted()
+        X, _, _ = self.__check_X(X, check_input)
+        
+        # initialize goodness of fit object
+        gof = GoodnessOfFit(self.cdf, X)
+        
+        eval_types = ['mean_squared_error', 'mean_squared_error_weighted', 'maximum']
+        if eval_type == 'mean_squared_error':
+            return gof.mean_squared_error()
+        elif eval_type == 'mean_squared_error_weighted':
+            return gof.mean_squared_error_weighted(self.pdf)
+        elif eval_type == 'maximum':
+            return gof.maximum()
+        else:
+            raise ValueError("Invalid eval type {}. Expected one of: {}" .format(eval_type, eval_types))
         
     def parse_tree_leaves(self):
         r"""
-        Returns the pice-wise multivariate normal distributions of the
+        Returns the piecewise multivariate normal distributions of the
         leaves of this density tree. The returned list contains an entry
         for each node of the tree, where internal nodes are designated by
         None.
@@ -383,6 +468,8 @@ class UnSupervisedDecisionTreeClassifier(DecisionTreeClassifier):
         return self.__parse_tree_leaves_rec(self.tree_)
         
     def __parse_tree_leaves_rec(self, tree, pos = 0, rang = None):
+        r"""Extract cov, mean and frac of each leaves and creates a MVND
+        object from them."""
         # init
         if rang is None:
             rang = [(-np.inf, np.inf)] * tree.n_features
@@ -416,8 +503,6 @@ class UnSupervisedDecisionTreeClassifier(DecisionTreeClassifier):
         check_is_fitted(self, 'n_outputs_')
         if self.tree_ is None:
             raise NotFittedError("Tree not initialized. Perform a fit first.")
-
-        
         
     def __check_X(self, X, check_input):
         if check_input:
@@ -428,81 +513,17 @@ class UnSupervisedDecisionTreeClassifier(DecisionTreeClassifier):
                              " match the input. Model n_features is %s and "
                              " input n_features is %s "
                              % (self.n_features_, n_features))
-        return X, n_samples, n_features
-        
-    def predict_log_proba(self, X):
-        r"""Log cummulative density function of the learned distribution.
-
-        Notes
-        -----
-        Log version of predict_proba() and pdf().
-        
-        See also
-        --------
-        predict_proba(), pdf()
-        """
-        return np.log(self.predict_proba(X)) # self.n_outputs is set to > 1, even if only one outcome enforced
-    
-    def predict(self, X):
-        r"""Not supported for density forest.
-        
-        Only kept for interface consistency reasons.
-        """
-        raise NotImplementedError("Density forests do not support the predict() method.")
-    
-    def goodness_of_fit(self, X, eval_type = 'mean_squared_error', check_input = True):
-        r"""Goodness of fit of the learned density distribution.
-        
-        Compares the learned distribution function with an empirical CDF constructed
-        from the datapoints in `X` i.e. roughly \f[error(CDF(X)-ECDF_X(X)\f].
-        
-        Provided measures
-        -----------------
-        `mean_squared_error`
-            The mean squared error over all datapoints of X.
-        `mean_squared_error_weighted`
-            The mean squared error over all datapoints of X,
-            weighted by the PDF.
-        `maximum`
-            Maximum error over all datapoints of X.
-        
-        Notes
-        -----
-        The provided measures are better described as fit error, than as goodness of fit
-        criteria in a statistical sense. Therefore, it is only suitable to compare
-        different learned distributions against each other under the condition, that the
-        same samples (`X`) are used. Higher values denote a stronger error. 
-        
-        Parameters
-        ----------
-        X : array_like
-            Samples form the original distribution. Must be distinct from the ones used
-            to train the tree to obtain meaningfull results.
-        eval_type : string
-            The type of goodness measure. One of `mean_squared_error`,
-            `mean_squared_error_weighted` and `kolmogorov_smirnov`.
-        """
-        self.__is_fitted()
-        X, n_samples, n_features = self.__check_X(X, check_input)
-        
-        # initialize goodness of fit object
-        gof = GoodnessOfFit(self.cdf, X)
-        
-        eval_types = ['mean_squared_error', 'mean_squared_error_weighted', 'maximum']
-        if eval_type == 'mean_squared_error':
-            return gof.mean_squared_error()
-        elif eval_type == 'mean_squared_error_weighted':
-            return gof.mean_squared_error_weighted(self.pdf)
-        elif eval_type == 'maximum':
-            return gof.maximum()
-        else:
-            raise ValueError("Invalid eval type {}. Expected one of: {}" .format(eval_type, eval_types))
+        return X, n_samples, n_features        
 
 class SemiSupervisedDecisionTreeClassifier(DecisionTreeClassifier):
     r"""A tree for semi-supervised classification.
     
-    The tree takes a mix of labelled and un-labelled training samples,
-    ultimately assign class labels to the un-labelled data.
+    The tree takes a mix of labelled and unlabelled training samples,
+    ultimately assigning class labels to the unlabelled data.
+    
+    Using induction to transduction, a classification tree is trained
+    representing the findings of the whole training set, labelled as
+    well as unlabelled.
     
     Parameters
     ----------
@@ -526,12 +547,17 @@ class SemiSupervisedDecisionTreeClassifier(DecisionTreeClassifier):
         valid partition of the node samples is found, even if it requires to
         effectively inspect more than ``max_features`` features.
         
-        
     supervised_weight: float, optional (default=0.5)
         Factor balancing the supervised against the un-supervised measures of
         split quality. A value of `1.0` would mean to consider only the
-        labelled samples, a value of `0.0` would equal a density tree. 
+        labelled samples, a value of `0.0` would equal a density tree.
+        Note that a clean value of `1.0` is not allowed, at it would lead
+        to non max-margin splits. Please use the original `sklearn`
+        `DecisionTreeClassifier` for that effect.
         
+    !TODO: Assert that this is only applied to the non-supervised part of the data.
+           Maybe by initializing the Splitter later of something? Is this at all possible?
+           
     unsupervised_transformation: string, object or None, optional (default='scale')
         Transformation method for the un-supervised samples (their split
         quality measure requires features of equal scale). Choices are:
@@ -574,8 +600,7 @@ class SemiSupervisedDecisionTreeClassifier(DecisionTreeClassifier):
     tree_ : Tree object
         The underlying Tree object.
 
-    !TODO: This does not seem to get set. Why?
-    max_features_ : int,
+    max_features_ : int
         The inferred value of max_features.
 
     feature_importances_ : array of shape = [n_features]
@@ -583,10 +608,33 @@ class SemiSupervisedDecisionTreeClassifier(DecisionTreeClassifier):
         feature. The importance of a feature is computed as the (normalized)
         total reduction of the criterion brought by that feature.  It is also
         known as the Gini importance [4]_.
+        
+    n_outputs_ : int
+        For internal use only. Value does not convey any meaning for
+        `SemiSupervisedDecisionTreeClassifier`s.
+    
+    n_classes_ : array of shape = [n_outputs]
+        For internal use only. Value does not convey the same meaning for
+        `SemiSupervisedDecisionTreeClassifier`s. First entry holds the count
+        of unique class labels of the tree plus one (for the un-labelled class).
+        All other entries are the same.
+        
+    classes_ : array of shape = [n_outputs, n_classes]
+        For internal use only. Value does not convey the same meaning for
+        `SemiSupervisedDecisionTreeClassifier`s: First entry holds the unique
+        class labels of the tree, with the first being the un-labelled class
+        label, which is not used for classification. All other entries are the
+        same.
+
+    Notes
+    -----
+    A third party fortran library uses its own random number generator, hence the
+    results of two consecutive training with the same data and same random seed
+    can differ slightly.
 
     See also
     --------
-    UnSupervisedDecisionTreeClassifier
+    DensityTree, sklearn.DecisionTreeClassifier
 
     References
     ----------
@@ -599,15 +647,14 @@ class SemiSupervisedDecisionTreeClassifier(DecisionTreeClassifier):
 
     Examples
     --------
-    !TODO: Adapt to semi-supervised.
     >>> from sklearn.datasets import load_iris
-    >>> from sklearnef.tree import UnSupervisedDecisionTreeClassifier
-    >>> clf = UnSupervisedDecisionTreeClassifier(random_state=0)
+    >>> from sklearnef.tree import SemiSupervisedDecisionTreeClassifier
+    >>> clf = SemiSupervisedDecisionTreeClassifier(random_state=0)
     >>> iris = load_iris()
-    >>> clf.fit(iris.data)
+    >>> clf.fit(iris.data, iris.target)
     >>> clf.predict_proba(iris.data)
-    array([  4.82956378e-01,   4.62110584e-01,   6.80794444e-01,
-         4.96085162e-01,   3.06794415e-01,   1.87555200e-01,
+    array([[ 0.99405824,  0.        ],
+           [ 0.99405824,  0.        ],
          ...    
     """
     
@@ -637,6 +684,12 @@ class SemiSupervisedDecisionTreeClassifier(DecisionTreeClassifier):
             class_weight=class_weight,
             random_state=random_state)
         
+        if 1.0 == supervised_weight:
+            raise ValueError("A supervised_weight of 1.0 is not allowed, as it"\
+                             "would results in non max-margin splits. Please "\
+                             "use the sklearn.DecisionTreeClassifier for the same"\
+                             "effect.")
+        
         self.supervised_weight = supervised_weight
         if 'scale' == unsupervised_transformation:
             unsupervised_transformation = StandardScaler()
@@ -650,7 +703,7 @@ class SemiSupervisedDecisionTreeClassifier(DecisionTreeClassifier):
                              "is supported for density estimation.")
 
     def fit(self, X, y, sample_weight=None, check_input=True):
-        """Build a decision tree from the training set (X, y).
+        r"""Build a decision tree from the training set (X, y).
 
         Parameters
         ----------
@@ -663,6 +716,7 @@ class SemiSupervisedDecisionTreeClassifier(DecisionTreeClassifier):
             label is always taken as marker for the un-labelled samples
             (usually -1).
 
+        !TODO: Check if the split algorithms (both) real honors the sample_weight passed.
         sample_weight : array-like, shape = [n_samples] or None
             Sample weights. If None, then samples are equally weighted. Splits
             that would create child nodes with net zero or negative weight are
@@ -720,7 +774,7 @@ class SemiSupervisedDecisionTreeClassifier(DecisionTreeClassifier):
         # Expand y by tiling. This will cause the Tree to allocate sufficient
         # memory for storing the gaussian distributions per leaf.
         # !TODO: Can I find a better approach than this?
-        s = X.shape[1]**2 + X.shape[1] + 1
+        s = X.shape[1]**2 + X.shape[1] + 1 # memory requirement (in double)
         y = np.tile(y, (1, s))
             
         # initialise criterion here, since it requires another syntax than the default ones
@@ -733,25 +787,18 @@ class SemiSupervisedDecisionTreeClassifier(DecisionTreeClassifier):
                                         1, #self.n_outputs_ always 1
                                         n_classes_)
         DecisionTreeClassifier.fit(self, X, y, sample_weight, False)
-        
-        # fix faulty member vars caused by using articifically increased n_output
-        # for memory reservation
-        #!TODO: This does not work, as the underlying cdef Tree object still sees more n_outputs_ and hence screws up the predict computation
-        #self.n_outputs_ = 2
-        #self.n_classes_ = self.n_classes_[0:2]
-        #self.classes_ = self.classes_[0:2] #[1:] # remove unlabelled class
 
         # parse the tree once and create the MVND objects associated with each leaf
         self.mvnds = self.parse_tree_leaves()
 
+        # use transduction to classifiy the un-labelled training samples
         yu = self.transduction(X[mask_unlabelled], X[~mask_unlabelled],
                                y[~mask_unlabelled][:,0])
         
         Xa = np.concatenate((X[mask_unlabelled], X[~mask_unlabelled]), 0)
-        print np.squeeze(yu).shape
-        print np.squeeze(y[~mask_unlabelled][:,0]).shape
         ya = np.concatenate((yu, np.squeeze(y[~mask_unlabelled][:,0])), 0) # Note: y will not contain the unsupervised class
         
+        # use induction/label counting to finalize decision tree
         self.__induction(Xa, ya)
 
         return self
@@ -775,45 +822,14 @@ class SemiSupervisedDecisionTreeClassifier(DecisionTreeClassifier):
     def predict_log_proba(self, X):
         return np.log(self.predict_proba(X))
         
-    def __induction(self, X, y):
-        """
-        Re-writes the trees memory, changing the Gaussian distributin based
-        nodes into the default class posteriors.
-        
-        Essentially, simply counts the class occurences per leaf and computes
-        the class posteriori for each.
-        """
-        # prepare
-        y = np.squeeze(y)
-
-        # get leaf indices
-        leaf_indices = self.tree_.apply(X)
-        
-        # convert to a zero-based class membership array
-        class_k, y = np.unique(y, return_inverse=True)
-        n_classes = len(class_k)
-        
-        # count class occurence per leaf and edit tree accordingly
-        for lidx in np.unique(leaf_indices):
-            mask = lidx == leaf_indices
-            label_count = np.bincount(y[mask])
-            label_count = np.pad(label_count, (0, n_classes - len(label_count)), 'constant')
-            #!TODO: Is the unlabelled data really the last dimension?
-            self.tree_.value[lidx][0][:-1] = label_count
-        
-#     def predict(self, X, check_input=True):
-#         proba = self.tree_.predict(X.astype(np.float32))
-#         print proba.shape
-#         print proba[:,0:2,:]
-#         print np.argmax(proba, axis=1).shape
-#         return DecisionTreeClassifier.predict(self, X, check_input)
-        
     def transduction(self, Xu, Xl, yl):
-        """
+        r"""
         Compute the class-memberships of the unlabelled `Xu` samples using
         geodisic distances on a surface formed by the trees piecewise
         Gaussians to the `yl` labelled set `Xl`. This is similar to label
         propagation.
+        
+        !TODO: Speed up this method.
         
         Parameters
         ----------
@@ -833,13 +849,12 @@ class SemiSupervisedDecisionTreeClassifier(DecisionTreeClassifier):
         -------
         This method requires the Gaussian distribution to be saved in the
         tree leaves. This holds only true directly after fitting, while a
-        call to __induction_from_transduction() will remove that information.
-         
+        call to __induction() will remove that information.
+        !TODO: Keep the info and hence this transduction method valid! 
         """
         # prepare
         X = np.vstack((Xu, Xl))
         n = X.shape[0]
-        nl = Xl.shape[0]
         nu = Xu.shape[0]
 
         # get leaves and other info
@@ -893,6 +908,7 @@ class SemiSupervisedDecisionTreeClassifier(DecisionTreeClassifier):
         return self.__parse_tree_leaves_rec(self.tree_)
         
     def __parse_tree_leaves_rec(self, tree, pos = 0, rang = None):
+        """!TODO: Pack this and other shared methods in a common parent tree class?"""
         # init
         if rang is None:
             rang = [(-np.inf, np.inf)] * tree.n_features
@@ -921,13 +937,39 @@ class SemiSupervisedDecisionTreeClassifier(DecisionTreeClassifier):
         # if leaf node, return information
         else:
             return [MVND(tree, rang, pos)]        
+       
+    def __induction(self, X, y):
+        r"""
+        Re-writes the trees memory, changing the Gaussian distributin based
+        nodes into the default class posteriors.
+        
+        Essentially, simply counts the class occurences per leaf and computes
+        the class posteriori for each.
+        """
+        # prepare
+        y = np.squeeze(y)
+
+        # get leaf indices
+        leaf_indices = self.tree_.apply(X)
+        
+        # convert to a zero-based class membership array
+        class_k, y = np.unique(y, return_inverse=True)
+        n_classes = len(class_k)
+        
+        # count class occurence per leaf and edit tree accordingly
+        for lidx in np.unique(leaf_indices):
+            mask = lidx == leaf_indices
+            label_count = np.bincount(y[mask])
+            label_count = np.pad(label_count, (0, n_classes - len(label_count)), 'constant')
+            #!TODO: Is the unlabelled data really the last dimension?
+            self.tree_.value[lidx][0][:-1] = label_count       
         
 def smahalanobis(x, y, icovx, icovy):
-    """The symmetric, cov-dependent Mahalanobis distance"""
+    r"""The symmetric, cov-dependent Mahalanobis distance"""
     return 0.5 * (mahalanobis(x, y, icovx) + mahalanobis(y, x, icovy))
 
 def memoize(f):
-    """ Memoization decorator for a function taking a single argument """
+    r""" Memoization decorator for a function taking a single argument """
     class memodict(dict):
         def __missing__(self, key):
             ret = self[key] = f(key)

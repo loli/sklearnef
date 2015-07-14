@@ -4,9 +4,9 @@ un-supervised and semi-supervised classification.
 """
 
 from .tree import SemiSupervisedDecisionTreeClassifier
-from .tree import UnSupervisedDecisionTreeClassifier
+from .tree import DensityTree
 from .tree import GoodnessOfFit, MECDF
 
-__all__ = ["UnSupervisedDecisionTreeClassifier",
+__all__ = ["DensityTree",
            "SemiSupervisedDecisionTreeClassifier",
            "GoodnessOfFit", "MECDF"]

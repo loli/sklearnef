@@ -28,7 +28,7 @@ from sklearn.ensemble.forest import ForestClassifier
 from sklearn.tree._tree import DTYPE
 
 from ..tree import (SemiSupervisedDecisionTreeClassifier,
-                    UnSupervisedDecisionTreeClassifier)
+                    DensityTree)
 
 __all__ = ["UnSupervisedRandomForestClassifier",
            #"SemiSupervisedRandomForestClassifier",
@@ -137,7 +137,7 @@ class UnSupervisedRandomForestClassifier(ForestClassifier):
 
     See also
     --------
-    UnSupervisedDecisionTreeClassifier
+    DensityTree
     """    
     def __init__(self,
                  n_estimators=10,
@@ -157,7 +157,7 @@ class UnSupervisedRandomForestClassifier(ForestClassifier):
                  warm_start=False,
                  class_weight=None):
         super(UnSupervisedRandomForestClassifier, self).__init__(
-            base_estimator=UnSupervisedDecisionTreeClassifier(),
+            base_estimator=DensityTree(),
             n_estimators=n_estimators,
             estimator_params=("criterion", "max_depth", "min_samples_split",
                               "min_samples_leaf", "min_weight_fraction_leaf",

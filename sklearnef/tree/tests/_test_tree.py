@@ -25,7 +25,7 @@ from sklearn.utils.validation import check_random_state
 
 from sklearn.tree import DecisionTreeClassifier
 
-from sklearnef.tree import UnSupervisedDecisionTreeClassifier
+from sklearnef.tree import DensityTree
 from sklearnef.tree import SemiSupervisedDecisionTreeClassifier
 
 from sklearn import tree
@@ -43,7 +43,7 @@ SEMISCLF_TREES = {
 }
 
 UNSCLF_TREES = {
-    "UnSupervisedDecisionTreeClassifier": UnSupervisedDecisionTreeClassifier
+    "DensityTree": DensityTree
 }
 
 ALL_TREES = dict()

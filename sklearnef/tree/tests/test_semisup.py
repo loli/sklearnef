@@ -20,7 +20,7 @@ from sklearn import datasets
 
 from sklearn import tree
 from sklearn.utils.validation import NotFittedError
-from sklearnef.tree import UnSupervisedDecisionTreeClassifier
+from sklearnef.tree import DensityTree
 from sklearnef.tree import SemiSupervisedDecisionTreeClassifier
 from nose.tools.nontrivial import with_setup
 import pickle
@@ -43,7 +43,7 @@ SEMISCLF_TREES = {
 }
 
 UNSCLF_TREES = {
-    "UnSupervisedDecisionTreeClassifier": UnSupervisedDecisionTreeClassifier
+    "DensityTree": DensityTree
 }
 
 ALL_TREES = dict()

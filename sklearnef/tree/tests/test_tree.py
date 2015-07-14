@@ -20,7 +20,7 @@ from sklearn import datasets
 
 from sklearn import tree
 from sklearn.utils.validation import NotFittedError
-from sklearnef.tree import UnSupervisedDecisionTreeClassifier
+from sklearnef.tree import DensityTree
 from sklearnef.tree import SemiSupervisedDecisionTreeClassifier
 from nose.tools.nontrivial import with_setup
 import pickle
@@ -43,7 +43,7 @@ SEMISCLF_TREES = {
 }
 
 UNSCLF_TREES = {
-    "UnSupervisedDecisionTreeClassifier": UnSupervisedDecisionTreeClassifier
+    "DensityTree": DensityTree
 }
 
 ALL_TREES = dict()
@@ -95,6 +95,35 @@ def test_labeled_only():
         prob = clf.predict_proba(iris.data)
         assert_array_equal(baseline_pred, pred)
         assert_array_equal(baseline_prob, prob)
+
+def test_density_tree_errors():
+    """Check class argument errors for density trees."""
+    with assert_raises(ValueError):
+        DensityTree(criterion='gini')
+    with assert_raises(ValueError):
+        DensityTree(splitter='best')
+    with assert_raises(ValueError):
+        DensityTree(min_samples_leaf=1).fit(iris.data)
+    with assert_raises(NotImplementedError):
+        DensityTree().fit(iris.data).predict(iris.data)
+    with assert_raises(ValueError):
+        DensityTree().fit(iris.data).goodness_of_fit(iris.data, eval_type='invalid')
+    with assert_raises(ValueError):
+        DensityTree().goodness_of_fit(iris.data)
+    
+def test_semisupervised_tree_errors():
+    """Check class argument errors for semi-supervised trees."""
+    with assert_raises(ValueError):
+        SemiSupervisedDecisionTreeClassifier(criterion='gini')
+    with assert_raises(ValueError):
+        SemiSupervisedDecisionTreeClassifier(splitter='best')
+    with assert_raises(ValueError):
+        SemiSupervisedDecisionTreeClassifier(supervised_weight=1.0)
+    with assert_raises(ValueError):
+        SemiSupervisedDecisionTreeClassifier(min_samples_leaf=1).fit(iris.data, iris.target)
+    with assert_raises(ValueError):
+        SemiSupervisedDecisionTreeClassifier().fit(iris.data,
+                                                   np.squeeze(np.dstack((iris.target, iris.target))))
 
 def test_unsupervised_density():
     """Check learned class density of multiple, distributed multi-variate gaussians."""
