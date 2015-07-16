@@ -1,27 +1,10 @@
 """
-==========================================================
-Forests for direct public use (:mod: `sklearnef.ensemble`)
-==========================================================
-.. currentmodule:: sklearnef.ensemble
-
-This package contains the `DensityForest` and the
-`SemiSupervisedRandomForestClassifier` ensemble methods.
-
-Forest ensemble classes :mod:`sklearnef.ensemble.forest`
-========================================================
-Short description string.
-
-.. module:: sklearnef.ensemble.forest
-.. autosummary::
-    :toctree: generated/
-    
-    DensityForest
-    SemiSupervisedRandomForestClassifier
-
+The :mod:`sklearnef.ensemble` module includes ensemble-based methods for
+density learning and semi-supervised classification.
 """
 
-#from .forest import SemiSupervisedRandomForestClassifier
 from .forest import DensityForest
+from .forest import SemiSupervisedRandomForestClassifier
 
-__all__ = ["SemiSupervisedRandomForestClassifier",
-           "DensityForest"]
+__all__ = ["DensityForest",
+           "SemiSupervisedRandomForestClassifier"]

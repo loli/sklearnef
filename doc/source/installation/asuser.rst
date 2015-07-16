@@ -1,6 +1,6 @@
-========================
-Installing MedPy as user
-========================
+============================
+Installing sklearnef as user
+============================
 .. note::
 
     All installation instructions are for Ubuntu, but they will work similar for other distributions.

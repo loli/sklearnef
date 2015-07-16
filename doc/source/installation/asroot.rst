@@ -1,11 +1,19 @@
-========================
-Installing MedPy as root
-========================
+============================
+Installing sklearnef as root
+============================
+
+**Note: Not valid yet!**
+
+    * Requirements? Which numpy version? Which scipy version? Whicht sklearn version?
+    * buntu provides: http://packages.ubuntu.com/python-sklearn sklearn version.
+    * I require maybe already the 0.16? Maybe a little bit older would also be possible?
+    * What about the build-essential? Required?
+
 .. note::
 
     All installation instructions are for Ubuntu, but they should be simmilar for other distributions.
     
-When installed with root privileges, **MedPy** will be available for all uses of your machine.
+When installed with root privileges, **sklearnef** will be available for all uses of your machine.
 
 To install Python packages from `PyPi <https://pypi.python.org>`_, we recommend `PIP <https://pypi.python.org/pypi/pip>`_
 

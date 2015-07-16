@@ -1,13 +1,14 @@
+=========
 sklearnef
 =========
 
 :Release: |release|
 :Date: |today|
 
-sklearnef is an extension library for sklearn providing density and semi-supervised forest written in Python.
+**sklearnef** is an extension library for `sklearn <http://scikit-learn.org>`_,  providing density and semi-supervised forest written in Python.
 
 Installation
-------------
+============
 
 .. toctree::
     :maxdepth: 1
@@ -17,41 +18,67 @@ Installation
     installation/developmentmode
     installation/uninstall   
 
+..
+    Information
+    ===========
 
-Information
------------
+    .. toctree::
+        :glob:
+        :maxdepth: 1
+        
+        information/*
 
-.. toctree::
-    :glob:
-    :maxdepth: 1
-    
-    information/*
+..
+    Tutorials
+    =========
 
-Tutorials
----------
+    .. toctree::
+        :glob:
+        :maxdepth: 1
+        
+        tutorial/*
 
-.. toctree::
-    :glob:
-    :maxdepth: 1
-    
-    tutorial/*
+..
+    Receipts
+    ========
 
-Receipts
---------
-
-.. toctree::
-    :glob:
-    :maxdepth: 1
-    
-    receipts/*
+    .. toctree::
+        :glob:
+        :maxdepth: 1
+        
+        receipts/*
 
 Reference
----------
+=========
 
-.. toctree::
-    :maxdepth: 1
+:mod:`sklearn.ensemble`: Ensemble methods (decision forests)
+------------------------------------------------------------
 
-    ensemble
-    tree
+.. automodule:: sklearnef.ensemble
+
+.. currentmodule:: sklearnef
+
+.. autosummary::
+   :toctree: generated/
+
+   ensemble.DensityForest
+   ensemble.SemiSupervisedRandomForestClassifier
+   
+:mod:`sklearn.tree`: Decision trees
+-----------------------------------
+
+.. automodule:: sklearnef.tree
+
+.. currentmodule:: sklearnef
+
+.. autosummary::
+   :toctree: generated/
+
+   tree.DensityTree
+   tree.SemiSupervisedDecisionTreeClassifier   
+   tree.GoodnessOfFit
+   tree.MECDF
+
+
 
 

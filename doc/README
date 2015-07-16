@@ -26,6 +26,13 @@ beneath each ".. autosummary::" command.
 Finally rerun the build
     
     sphinx-build -aE -b html source/ build/
+    
+Module members do not show up (sphinx 1.3.x)
+############################################
+Since sphinx 1.3.0, the dedault option for autodoc is to not show IMPORTED members.
+Can this be fixed? Only I see right now is using: pip install sphinx==1.2.3
+
+@see: https://github.com/sphinx-doc/sphinx/pull/1892
 
 
 Enabling the search box

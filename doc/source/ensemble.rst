@@ -1,1 +1,0 @@
-.. automodule:: sklearnef.ensemble

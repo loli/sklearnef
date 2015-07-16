@@ -78,14 +78,15 @@ class DensityTree(DecisionTreeClassifier):
 
     max_features : int, float, string or None, optional (default=None)
         The number of features to consider when looking for the best split:
-          - If int, then consider `max_features` features at each split.
-          - If float, then `max_features` is a percentage and
-            `int(max_features * n_features)` features are considered at each
-            split.
-          - If "auto", then `max_features=sqrt(n_features)`.
-          - If "sqrt", then `max_features=sqrt(n_features)`.
-          - If "log2", then `max_features=log2(n_features)`.
-          - If None, then `max_features=n_features`.
+        
+        - If int, then consider `max_features` features at each split.
+        - If float, then `max_features` is a percentage and
+          `int(max_features * n_features)` features are considered at each
+          split.
+        - If "auto", then `max_features=sqrt(n_features)`.
+        - If "sqrt", then `max_features=sqrt(n_features)`.
+        - If "log2", then `max_features=log2(n_features)`.
+        - If None, then `max_features=n_features`.
 
         Note: the search for a split does not stop until at least one
         valid partition of the node samples is found, even if it requires to
@@ -128,25 +129,25 @@ class DensityTree(DecisionTreeClassifier):
 
     Attributes
     ----------
-    tree_ : Tree object
+    tree\_ : Tree object
         The underlying Tree object.
 
-    max_features_ : int
+    max_features\_ : int
         The inferred value of max_features.
 
-    feature_importances_ : array of shape = [n_features]
+    feature_importances\_ : array of shape = [n_features]
         The feature importances. The higher, the more important the
         feature. The importance of a feature is computed as the (normalized)
         total reduction of the criterion brought by that feature.  It is also
-        known as the Gini importance [4]_.
+        known as the Gini importance [2]_.
         
-    n_outputs_ : int
+    n_outputs\_ : int
         For internal use only. Value does not convey any meaning for `DensityTree`s.
     
-    n_classes_ : array of shape = [n_outputs]
+    n_classes\_ : array of shape = [n_outputs]
         For internal use only. Value does not convey any meaning for `DensityTree`s.
         
-    classes_ : array of shape = [n_outputs, n_classes]
+    classes\_ : array of shape = [n_outputs, n_classes]
         For internal use only. Value does not convey any meaning for `DensityTree`s.
 
     Notes
@@ -161,12 +162,13 @@ class DensityTree(DecisionTreeClassifier):
 
     References
     ----------
-
     .. [1] A. Criminisi, J. Shotton and E. Konukoglu, "Decision Forests: A 
            Unified Framework for Classification, Regression, Density
            Estimation, Manifold Learning and Semi-Supervised Learning",
            Foundations and Trends(r) in Computer Graphics and Vision, Vol. 7,
            No. 2-3, pp 81-227, 2012.
+    .. [2] L. Breiman, and A. Cutler, "Random Forests",
+           http://www.stat.berkeley.edu/~breiman/RandomForests/cc_home.htm
 
     Examples
     --------
@@ -411,13 +413,15 @@ class DensityTree(DecisionTreeClassifier):
         Compares the learned distribution function with an empirical CDF constructed
         from the data-points in `X` i.e. roughly \f[error(CDF(X)-ECDF_X(X)\f].
         
-        Provided measures
-        -----------------
+        **Provided measures**
+
         `mean_squared_error`
             The mean squared error over all data-points of X.
+            
         `mean_squared_error_weighted`
             The mean squared error over all data-points of X,
             weighted by the PDF.
+            
         `maximum`
             Maximum error over all data-points of X.
         
@@ -598,29 +602,29 @@ class SemiSupervisedDecisionTreeClassifier(DecisionTreeClassifier):
 
     Attributes
     ----------
-    tree_ : Tree object
+    tree\_ : Tree object
         The underlying Tree object.
 
-    max_features_ : int
+    max_features\_ : int
         The inferred value of max_features.
 
-    feature_importances_ : array of shape = [n_features]
+    feature_importances\_ : array of shape = [n_features]
         The feature importances. The higher, the more important the
         feature. The importance of a feature is computed as the (normalized)
         total reduction of the criterion brought by that feature.  It is also
-        known as the Gini importance [4]_.
+        known as the Gini importance [2]_.
         
-    n_outputs_ : int
+    n_outputs\_ : int
         For internal use only. Value does not convey any meaning for
         `SemiSupervisedDecisionTreeClassifier`s.
     
-    n_classes_ : array of shape = [n_outputs]
+    n_classes\_ : array of shape = [n_outputs]
         For internal use only. Value does not convey the same meaning for
         `SemiSupervisedDecisionTreeClassifier`s. First entry holds the count
         of unique class labels of the tree plus one (for the un-labelled class).
         All other entries are the same.
         
-    classes_ : array of shape = [n_outputs, n_classes]
+    classes\_ : array of shape = [n_outputs, n_classes]
         For internal use only. Value does not convey the same meaning for
         `SemiSupervisedDecisionTreeClassifier`s: First entry holds the unique
         class labels of the tree, with the first being the un-labelled class
@@ -639,12 +643,13 @@ class SemiSupervisedDecisionTreeClassifier(DecisionTreeClassifier):
 
     References
     ----------
-
     .. [1] A. Criminisi, J. Shotton and E. Konukoglu, "Decision Forests: A 
            Unified Framework for Classification, Regression, Density
            Estimation, Manifold Learning and Semi-Supervised Learning",
            Foundations and Trends(r) in Computer Graphics and Vision, Vol. 7,
            No. 2-3, pp 81-227, 2012.
+    .. [2] L. Breiman, and A. Cutler, "Random Forests",
+           http://www.stat.berkeley.edu/~breiman/RandomForests/cc_home.htm
 
     Examples
     --------
