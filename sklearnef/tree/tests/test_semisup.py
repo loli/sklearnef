@@ -13,7 +13,7 @@ from sklearn.utils.testing import assert_raises
 from sklearn.utils.testing import assert_greater
 from sklearn.utils.testing import assert_greater_equal
 from sklearn.utils.testing import assert_less
-from sklearn.utils.testing import assert_true
+from sklearn.utils.testing import assert_true, assert_false
 from sklearn.utils.testing import raises
 
 from sklearn import datasets
@@ -83,6 +83,21 @@ def test_semisupervised():
     clf.fit(iris.data, iris.target)
     clf.predict_proba(iris.data)
     
+def test_semisupervised_probas():
+    """Test probability results to sum to one."""
+    clf = SemiSupervisedDecisionTreeClassifier(random_state=2)
+    clf.fit(iris.data, iris.target)
+    proba = clf.predict_proba(iris.data)
+    assert_true(np.all(1 == proba.sum(1)))
+    
+def test_semisupervised_classes():
+    """Test that lowest class never appears in results."""
+    lowest_class_label = iris.target.min()
+    clf = SemiSupervisedDecisionTreeClassifier(random_state=2)
+    clf.fit(iris.data, iris.target)
+    labels = clf.predict(iris.data)
+    assert_false(lowest_class_label in labels)
+    
 def test_semisupervised_as_supervised():
     """Test the semi-supervised tree as supervised tree."""
     ssy = iris.target.copy()
@@ -90,76 +105,17 @@ def test_semisupervised_as_supervised():
     
     ssclf = SemiSupervisedDecisionTreeClassifier(random_state=0,
                                                min_samples_leaf=iris.data.shape[-1],
-                                               supervised_weight=1.,
+                                               supervised_weight=.9999999999, # near 1, 1 is not allowed
                                                unsupervised_transformation=None)
     ssclf.fit(iris.data, ssy)
-    ssprob = ssclf.predict_proba(iris.data) # remove last (empty) class !TODO; Shouldn't that be the first? Anyway, add to predict method.
-    sspredict = ssclf.predict(iris.data) + 1 # correct class indices # !TODO: should finally be added to rpredict method
+    ssprob = ssclf.predict_proba(iris.data)
+    sspredict = ssclf.predict(iris.data)
     
     sclf = tree.DecisionTreeClassifier(random_state=0,
                                        min_samples_leaf=iris.data.shape[-1])
-    #sclf.fit(iris.data[:-1], iris.target[:-1])
-    sclf.fit(iris.data, iris.target) #!TODO: Should actually be the one above, at it is the only reliable
+    sclf.fit(iris.data[:-1], iris.target[:-1])
     sprob = sclf.predict_proba(iris.data)
     spredict = sclf.predict(iris.data)
-
-    print np.abs(ssprob - sprob).max()
-    
-    #f1 = ssclf.tree_.feature == -2
-    #f2 = sclf.tree_.feature == -2
-    
-    #print np.all(f1 == f2)
-    
-    #for i, t in enumerate(f1):
-    #    if t:
-    #        print ssclf.tree_.value[i][0][:-1], sclf.tree_.value[i][0]
-    
-#     #print np.all(ssclf.tree_.capacity == sclf.tree_.capacity)
-#     #print np.all(ssclf.tree_.children_left == sclf.tree_.children_left)
-#     #print np.all(ssclf.tree_.children_right == sclf.tree_.children_right)
-#     #print np.all(ssclf.tree_.feature == sclf.tree_.feature)
-#     print np.all(ssclf.tree_.impurity == sclf.tree_.impurity)
-#     #print np.all(ssclf.tree_.max_depth == sclf.tree_.max_depth)
-#     print np.all(ssclf.tree_.max_n_classes == sclf.tree_.max_n_classes)
-#     print np.all(ssclf.tree_.n_classes == sclf.tree_.n_classes)
-#     #print np.all(ssclf.tree_.n_features == sclf.tree_.n_features)
-#     print np.all(ssclf.tree_.n_node_samples == sclf.tree_.n_node_samples)
-#     print np.all(ssclf.tree_.n_outputs == sclf.tree_.n_outputs)
-#     #print np.all(ssclf.tree_.node_count == sclf.tree_.node_count)
-#     #print np.all(ssclf.tree_.threshold == sclf.tree_.threshold)
-#     print np.all(ssclf.tree_.value == sclf.tree_.value)
-#     print np.all(ssclf.tree_.weighted_n_node_samples == sclf.tree_.weighted_n_node_samples)
-# 
-#     print "impurity"
-#     print ssclf.tree_.impurity
-#     print sclf.tree_.impurity
-#     
-#     print "tree_.max_n_classes"
-#     print ssclf.tree_.max_n_classes
-#     print sclf.tree_.max_n_classes
-#     
-#     print "tree_.n_node_samples"
-#     print ssclf.tree_.n_node_samples
-#     print sclf.tree_.n_node_samples
-#         
-#     print "tree_.value"
-#     print ssclf.tree_.value[0][:3]
-#     print sclf.tree_.value[0][:3]
-#     
-#     print "weighted_n_node_samples"
-#     print ssclf.tree_.weighted_n_node_samples
-#     print sclf.tree_.weighted_n_node_samples
-    
-    print "clf.classes_"
-    print ssclf.classes_
-    
-    #print "clf.criterion"
-    #print ssclf.criterion # passed
-    
-    #print "clf.max_depth"
-    #print ssclf.max_depth # passed
-    
-    print "clf.n_outputs_", ssclf.n_outputs_
     
     assert_array_equal(ssprob, sprob)
     assert_array_equal(sspredict, spredict)

@@ -410,7 +410,10 @@ cdef class SemiSupervisedClassificationCriterion(UnSupervisedClassificationCrite
         is a temporary solution, as directly afterwards the main tree class
         manipulates the memory to allow for simple induction from transduction.
         """
-        UnSupervisedClassificationCriterion.node_value(self, dest)
+        cdef SIZE_t* n_classes = self.criterion_supervised.n_classes
+        # offset to reserve space for class posteriori probability
+        # (corresponds to first line (i.e. output=0) or clf.tree_.value)
+        UnSupervisedClassificationCriterion.node_value(self, dest + n_classes[0])
         #self.criterion_supervised.node_value(dest)
     
 cdef class LabeledOnlyEntropy(Entropy):

@@ -53,10 +53,217 @@ DENSE_SPLITTERS['semisupervised'] = _treeef.SemiSupervisedBestSplitter
 
 
 # =============================================================================
-# Base decision tree
+# Base density tree
 # =============================================================================
 
-class DensityTree(DecisionTreeClassifier):
+class DensityBaseTree(DecisionTreeClassifier):
+    r"""Base class for density trees.
+    
+    Warning: This class should not be used directly.
+    Use derived classes instead.
+    """
+        
+    def predict_log_proba(self, X):
+        return np.log(self.predict_proba(X)) # only handles single output problems    
+        
+    def pdf(self, X, check_input=True):
+        r"""Probability density function of the learned distribution.
+
+        Parameters
+        ----------
+        X : array-like of shape = [n_samples, n_features]
+            The input samples. Internally, it will be converted to
+            ``dtype=np.float32``. No sparse matrixes allowed.
+        check_input : boolean, (default=True)
+            Allow to bypass several input checking.
+            Don't use this parameter unless you know what you do.
+
+        Returns
+        -------
+        p : array of length n_samples
+            The responses of the PDF for all input samples.
+        """
+        self._is_fitted()
+        X, n_samples, _ = self._check_X(X, check_input)
+        
+        # compute the distribution function integral value
+        pfi = sum([mvnd.frac * mvnd.cmnd for mvnd in self.mvnds if mvnd is not None])
+        
+        # returns the indices of the node (all leaves) each sample dropped into
+        leaf_indices = self.tree_.apply(X)
+
+        # construct the the associated multivariate Gaussian distribution for each unique
+        # leaf and pass the associated samples through its pdf to obtain their density
+        # values
+        out = np.zeros(n_samples, np.float)
+        in_singluar_samples = np.zeros(n_samples, np.bool)
+        for lidx in np.unique(leaf_indices):
+            mask = lidx == leaf_indices
+            try:
+                out[mask] = self.mvnds[lidx].frac / pfi * self.mvnds[lidx].pdf(X[mask])
+            except LinAlgError:
+                warnings.warn("Singular co-variance matrix(ces) detected. Associated samples will be set to global maximum.")
+                in_singluar_samples |= mask
+        
+        # set samples that would have fallen in a singular matrix to the sample-wide maximum value
+        out[in_singluar_samples] = out.max()
+        
+        # return
+        return out        
+        
+    def cdf(self, X, check_input=True):
+        r"""Cumulative density function of the learned distribution.
+        
+        \f[
+            F(x_1, x_2, ...) = P(X_1\leq x_1, X_2\lew x_2, ...)
+        \f]
+        
+        Parameters
+        ----------
+        X : array-like of shape = [n_samples, n_features]
+            The input samples. Internally, it will be converted to
+            ``dtype=np.float32``. No sparse matrixes allowed.
+        check_input : boolean, (default=True)
+            Allow to bypass several input checking.
+            Don't use this parameter unless you know what you do.
+
+        Returns
+        -------
+        p : array of length n_samples
+            The responses of the CDF for all input samples.
+        """
+        self._is_fitted()
+        X, n_samples, _ = self._check_X(X, check_input)
+
+        cdf = np.zeros(n_samples, dtype=np.float)
+        
+        for i, x in enumerate(X):
+            for mvnd in self.mvnds:
+                if mvnd is None:
+                    continue
+                if np.all(x > np.asarray(mvnd.upper)): # complete cell covered
+                    cdf[i] += mvnd.cmnd * mvnd.frac
+                elif np.any(x > np.asarray(mvnd.lower)): # partially contained
+                    _x = np.minimum(x, mvnd.upper)
+                    cdf[i] += mvnd.cdf(_x) * mvnd.frac
+        return cdf
+    
+    def goodness_of_fit(self, X, eval_type = 'mean_squared_error', check_input = True):
+        r"""Goodness of fit of the learned density distribution.
+        
+        Compares the learned distribution function with an empirical CDF constructed
+        from the data-points in `X` i.e. roughly \f[error(CDF(X)-ECDF_X(X)\f].
+        
+        **Provided measures**
+
+        `mean_squared_error`
+            The mean squared error over all data-points of X.
+            
+        `mean_squared_error_weighted`
+            The mean squared error over all data-points of X,
+            weighted by the PDF.
+            
+        `maximum`
+            Maximum error over all data-points of X.
+        
+        Notes
+        -----
+        The provided measures are better described as fit error, than as goodness of fit
+        criteria in a statistical sense. Therefore, it is only suitable to compare
+        different learned distributions against each other under the condition, that the
+        same samples (`X`) are used. Higher values denote a stronger error. 
+        
+        Parameters
+        ----------
+        X : array_like
+            Samples form the original distribution. Must be distinct from the ones used
+            to train the tree to obtain meaningful results.
+        eval_type : string
+            The type of goodness measure. One of `mean_squared_error`,
+            `mean_squared_error_weighted` and `kolmogorov_smirnov`.
+        """
+        self._is_fitted()
+        X, _, _ = self._check_X(X, check_input)
+        
+        # initialize goodness of fit object
+        gof = GoodnessOfFit(self.cdf, X)
+        
+        eval_types = ['mean_squared_error', 'mean_squared_error_weighted', 'maximum']
+        if eval_type == 'mean_squared_error':
+            return gof.mean_squared_error()
+        elif eval_type == 'mean_squared_error_weighted':
+            return gof.mean_squared_error_weighted(self.pdf)
+        elif eval_type == 'maximum':
+            return gof.maximum()
+        else:
+            raise ValueError("Invalid eval type {}. Expected one of: {}" .format(eval_type, eval_types))    
+    
+    def parse_tree_leaves(self):
+        r"""
+        Returns the pice-wise multivariate normal distributions of the
+        leaves of this density tree. The returned list contains an entry
+        for each node of the tree, where internal nodes are designated by
+        None.
+            
+        Returns
+        -------
+        mvnds : list of MVND objects
+            List containing MVND objects describing a bounded multivariate
+            normal distribution each.
+        """
+        return self._parse_tree_leaves_rec(self.tree_)
+        
+    def _parse_tree_leaves_rec(self, tree, pos = 0, rang = None, offset = 0):
+        # init
+        if rang is None:
+            rang = [(-np.inf, np.inf)] * tree.n_features
+        
+        # get node info
+        fid = tree.feature[pos]
+        thr = tree.threshold[pos]
+        
+        # if not leaf node...
+        if not -2 == fid:
+            
+            info = [None]
+    
+            # ...update range of cell and ascend to left node
+            lrang = rang[:]
+            lrang[fid] = (lrang[fid][0], min(lrang[fid][1], thr))
+            info.extend(self._parse_tree_leaves_rec(tree, tree.children_left[pos], lrang, offset))
+            
+            # ...update range of cell and ascend to right node
+            rrang = rang[:]
+            rrang[fid] = (max(rrang[fid][0], thr), rrang[fid][1])
+            info.extend(self._parse_tree_leaves_rec(tree, tree.children_right[pos], rrang, offset))
+            
+            return info
+            
+        # if leaf node, return information
+        else:
+            return [MVND(tree, rang, pos, offset=offset)]    
+        
+    def _is_fitted(self):
+        check_is_fitted(self, 'n_outputs_')
+        if self.tree_ is None:
+            raise NotFittedError("Tree not initialized. Perform a fit first.")
+        
+    def _check_X(self, X, check_input):
+        if check_input:
+            X = check_array(X, dtype=DTYPE, accept_sparse=None)
+        n_samples, n_features = X.shape
+        if self.n_features_ != n_features:
+            raise ValueError("Number of features of the model must "
+                             " match the input. Model n_features is %s and "
+                             " input n_features is %s "
+                             % (self.n_features_, n_features))
+        return X, n_samples, n_features         
+
+# =============================================================================
+# Public estimators
+# =============================================================================
+
+class DensityTree(DensityBaseTree):
     r"""A tree for density estimation.
     
     The tree attempts to learn the probability distribution which
@@ -277,65 +484,6 @@ class DensityTree(DecisionTreeClassifier):
 
         return self
 
-    def pdf(self, X, check_input=True):
-        r"""Probability density function of the learned distribution.
-        
-        Parameters
-        ----------
-        X : array-like of shape = [n_samples, n_features]
-            The input samples. Internally, it will be converted to
-            ``dtype=np.float32``. No sparse matrixes allowed.
-        check_input : boolean, (default=True)
-            Allow to bypass several input checking.
-            Don't use this parameter unless you know what you do.
-        
-        Notes
-        -----
-        Alias for predict_proba().
-        
-        See also
-        --------
-        predict_proba()
-        """
-        return self.predict_proba(X, check_input)
-    
-    def cdf(self, X, check_input=True):
-        r"""Cumulative density function of the learned distribution.
-        
-        \f[
-            F(x_1, x_2, ...) = P(X_1\leq x_1, X_2\lew x_2, ...)
-        \f]
-        
-        Parameters
-        ----------
-        X : array-like of shape = [n_samples, n_features]
-            The input samples. Internally, it will be converted to
-            ``dtype=np.float32``. No sparse matrixes allowed.
-        check_input : boolean, (default=True)
-            Allow to bypass several input checking.
-            Don't use this parameter unless you know what you do.
-
-        Returns
-        -------
-        p : array of length n_samples
-            The responses of the CDF for all input samples.
-        """
-        self.__is_fitted()
-        X, n_samples, _ = self.__check_X(X, check_input)
-
-        cdf = np.zeros(n_samples, dtype=np.float)
-        
-        for i, x in enumerate(X):
-            for mvnd in self.mvnds:
-                if mvnd is None:
-                    continue
-                if np.all(x > np.asarray(mvnd.upper)): # complete cell covered
-                    cdf[i] += mvnd.cmnd * mvnd.frac
-                elif np.any(x > np.asarray(mvnd.lower)): # partially contained
-                    _x = np.minimum(x, mvnd.upper)
-                    cdf[i] += mvnd.cdf(_x) * mvnd.frac
-        return cdf
-
     def predict_proba(self, X, check_input=True):
         r"""Probability density function of the learned distribution.
 
@@ -347,58 +495,17 @@ class DensityTree(DecisionTreeClassifier):
         check_input : boolean, (default=True)
             Allow to bypass several input checking.
             Don't use this parameter unless you know what you do.
+            
+        See also
+        --------
+        pdf()
 
         Returns
         -------
         p : array of length n_samples
             The responses of the PDF for all input samples.
         """
-        self.__is_fitted()
-        X, n_samples, _ = self.__check_X(X, check_input)
-        
-        # compute the distribution function integral value
-        pfi = sum([mvnd.frac * mvnd.cmnd for mvnd in self.mvnds if mvnd is not None])
-        
-        # returns the indices of the node (all leaves) each sample dropped into
-        leaf_indices = self.tree_.apply(X)
-
-        # construct the the associated multivariate Gaussian distribution for each unique
-        # leaf and pass the associated samples through its pdf to obtain their density
-        # values
-        out = np.zeros(n_samples, np.float)
-        in_singluar_samples = np.zeros(n_samples, np.bool)
-        for lidx in np.unique(leaf_indices):
-            mask = lidx == leaf_indices
-            try:
-                out[mask] = self.mvnds[lidx].frac / pfi * self.mvnds[lidx].pdf(X[mask])
-            except LinAlgError:
-                warnings.warn("Singular co-variance matrix(ces) detected. Associated samples will be set to global maximum.")
-                in_singluar_samples |= mask
-        
-        # set samples that would have fallen in a singular matrix to the sample-wide maximum value
-        out[in_singluar_samples] = out.max()
-        
-        # return
-        return out
-
-    def predict_log_proba(self, X):
-        r"""Log probability density function of the learned distribution.
-
-        Parameters
-        ----------
-        X : array-like of shape = [n_samples, n_features]
-            The input samples. Internally, it will be converted to
-            ``dtype=np.float32``. No sparse matrixes allowed.
-
-        Notes
-        -----
-        Log version of predict_proba() and pdf().
-        
-        See also
-        --------
-        predict_proba(), pdf()
-        """
-        return np.log(self.predict_proba(X)) # self.n_outputs is set to > 1, even if only one outcome enforced
+        return self.pdf(X, check_input)
     
     def predict(self, X):
         r"""Not supported for density forest.
@@ -406,121 +513,8 @@ class DensityTree(DecisionTreeClassifier):
         Only kept for interface consistency reasons.
         """
         raise NotImplementedError("Density forests do not support the predict() method.")
-    
-    def goodness_of_fit(self, X, eval_type = 'mean_squared_error', check_input = True):
-        r"""Goodness of fit of the learned density distribution.
-        
-        Compares the learned distribution function with an empirical CDF constructed
-        from the data-points in `X` i.e. roughly \f[error(CDF(X)-ECDF_X(X)\f].
-        
-        **Provided measures**
 
-        `mean_squared_error`
-            The mean squared error over all data-points of X.
-            
-        `mean_squared_error_weighted`
-            The mean squared error over all data-points of X,
-            weighted by the PDF.
-            
-        `maximum`
-            Maximum error over all data-points of X.
-        
-        Notes
-        -----
-        The provided measures are better described as fit error, than as goodness of fit
-        criteria in a statistical sense. Therefore, it is only suitable to compare
-        different learned distributions against each other under the condition, that the
-        same samples (`X`) are used. Higher values denote a stronger error. 
-        
-        Parameters
-        ----------
-        X : array_like
-            Samples form the original distribution. Must be distinct from the ones used
-            to train the tree to obtain meaningful results.
-        eval_type : string
-            The type of goodness measure. One of `mean_squared_error`,
-            `mean_squared_error_weighted` and `kolmogorov_smirnov`.
-        """
-        self.__is_fitted()
-        X, _, _ = self.__check_X(X, check_input)
-        
-        # initialize goodness of fit object
-        gof = GoodnessOfFit(self.cdf, X)
-        
-        eval_types = ['mean_squared_error', 'mean_squared_error_weighted', 'maximum']
-        if eval_type == 'mean_squared_error':
-            return gof.mean_squared_error()
-        elif eval_type == 'mean_squared_error_weighted':
-            return gof.mean_squared_error_weighted(self.pdf)
-        elif eval_type == 'maximum':
-            return gof.maximum()
-        else:
-            raise ValueError("Invalid eval type {}. Expected one of: {}" .format(eval_type, eval_types))
-        
-    def parse_tree_leaves(self):
-        r"""
-        Returns the piecewise multivariate normal distributions of the
-        leaves of this density tree. The returned list contains an entry
-        for each node of the tree, where internal nodes are designated by
-        None.
-            
-        Returns
-        -------
-        mvnds : list of MVND objects
-            List containing MVND objects describing a bounded multivariate
-            normal distribution each.
-        """
-        return self.__parse_tree_leaves_rec(self.tree_)
-        
-    def __parse_tree_leaves_rec(self, tree, pos = 0, rang = None):
-        r"""Extract cov, mean and frac of each leaves and creates a MVND
-        object from them."""
-        # init
-        if rang is None:
-            rang = [(-np.inf, np.inf)] * tree.n_features
-        
-        # get node info
-        fid = tree.feature[pos]
-        thr = tree.threshold[pos]
-        
-        # if not leaf node...
-        if not -2 == fid:
-            
-            info = [None]
-    
-            # ...update range of cell and ascend to left node
-            lrang = rang[:]
-            lrang[fid] = (lrang[fid][0], min(lrang[fid][1], thr))
-            info.extend(self.__parse_tree_leaves_rec(tree, tree.children_left[pos], lrang))
-            
-            # ...update range of cell and ascend to right node
-            rrang = rang[:]
-            rrang[fid] = (max(rrang[fid][0], thr), rrang[fid][1])
-            info.extend(self.__parse_tree_leaves_rec(tree, tree.children_right[pos], rrang))
-            
-            return info
-            
-        # if leaf node, return information
-        else:
-            return [MVND(tree, rang, pos)]
-        
-    def __is_fitted(self):
-        check_is_fitted(self, 'n_outputs_')
-        if self.tree_ is None:
-            raise NotFittedError("Tree not initialized. Perform a fit first.")
-        
-    def __check_X(self, X, check_input):
-        if check_input:
-            X = check_array(X, dtype=DTYPE, accept_sparse=None)
-        n_samples, n_features = X.shape
-        if self.n_features_ != n_features:
-            raise ValueError("Number of features of the model must "
-                             " match the input. Model n_features is %s and "
-                             " input n_features is %s "
-                             % (self.n_features_, n_features))
-        return X, n_samples, n_features        
-
-class SemiSupervisedDecisionTreeClassifier(DecisionTreeClassifier):
+class SemiSupervisedDecisionTreeClassifier(DensityBaseTree):
     r"""A tree for semi-supervised classification.
     
     The tree takes a mix of labelled and unlabelled training samples,
@@ -774,14 +768,17 @@ class SemiSupervisedDecisionTreeClassifier(DecisionTreeClassifier):
         # n_outputs_ and n_classes_ must be pre-computed to init the
         # classification criterion (note: always classification)
         # !TODO: This creates redundancy, as the same process will be
-        # repeated int the parent classes fit() method
+        # repeated in the parent classes fit() method
         n_classes_ = np.array([np.unique(y[:,0]).shape[0]], dtype=np.intp)
             
         # Expand y by tiling. This will cause the Tree to allocate sufficient
         # memory for storing the gaussian distributions per leaf.
         # !TODO: Can I find a better approach than this?
+        # !TODO: Something is wrong in this calculation!
         s = X.shape[1]**2 + X.shape[1] + 1 # memory requirement (in double)
-        y = np.tile(y, (1, s))
+        t = s // n_classes_[0] + (1 if s % n_classes_[0] else 0) # get tiles by dividing through n_classes
+        t += 1 # add one to reserve memory for final class posteriori probability
+        y = np.tile(y, (1, t))
             
         # initialise criterion here, since it requires another syntax than the default ones
         if 'semisupervised' == self.criterion:
@@ -805,28 +802,27 @@ class SemiSupervisedDecisionTreeClassifier(DecisionTreeClassifier):
         ya = np.concatenate((yu, np.squeeze(y[~mask_unlabelled][:,0])), 0) # Note: y will not contain the unsupervised class
         
         # use induction/label counting to finalize decision tree
-        self.__induction(Xa, ya)
+        self._induction(Xa, ya)
 
         return self
 
     def predict(self, X, check_input=True):
-        if check_input:
-            X = check_array(X, dtype=DTYPE, accept_sparse=None)
+        X, _, _ = self._check_X(X, check_input)
         # apply transformation to data
         if self.unsupervised_transformation is not None:
             X = self.unsupervised_transformation.transform(X)
-        return DecisionTreeClassifier.predict(self, X, False)[:,0] # only first of all outputs
+        return DensityBaseTree.predict(self, X, False)[:,0] # only first of all outputs
 
     def predict_proba(self, X, check_input=True):
-        if check_input:
-            X = check_array(X, dtype=DTYPE, accept_sparse=None)
+        X, _, _ = self._check_X(X, check_input)
         # apply transformation to data
         if self.unsupervised_transformation is not None:
             X = self.unsupervised_transformation.transform(X)
-        return DecisionTreeClassifier.predict_proba(self, X, False)[0][:,:-1] # only first of all outputs; remove last probability (is for unlabelled class)
+        # list with one entry for all outputs; each element is array of shape [n_samples, n_classes], where n_classes includes unlabelled class as first entry
+        return DensityBaseTree.predict_proba(self, X, False)[0][:,1:] # only first of all outputs; remove first probability (is for unlabelled class)
     
-    def predict_log_proba(self, X):
-        return np.log(self.predict_proba(X))
+    def parse_tree_leaves(self):
+        return self._parse_tree_leaves_rec(self.tree_, offset=self.n_classes_[0]) # requires offset to find pdf definitions
         
     def transduction(self, Xu, Xl, yl):
         r"""
@@ -855,7 +851,7 @@ class SemiSupervisedDecisionTreeClassifier(DecisionTreeClassifier):
         -------
         This method requires the Gaussian distribution to be saved in the
         tree leaves. This holds only true directly after fitting, while a
-        call to __induction() will remove that information.
+        call to _induction() will remove that information.
         !TODO: Keep the info and hence this transduction method valid! 
         """
         # prepare
@@ -896,55 +892,9 @@ class SemiSupervisedDecisionTreeClassifier(DecisionTreeClassifier):
         # transfer labels
         yu = yl[argnearest]
 
-        return yu
-        
-    def parse_tree_leaves(self):
-        r"""
-        Returns the pice-wise multivariate normal distributions of the
-        leaves of this density tree. The returned list contains an entry
-        for each node of the tree, where internal nodes are designated by
-        None.
-            
-        Returns
-        -------
-        mvnds : list of MVND objects
-            List containing MVND objects describing a bounded multivariate
-            normal distribution each.
-        """
-        return self.__parse_tree_leaves_rec(self.tree_)
-        
-    def __parse_tree_leaves_rec(self, tree, pos = 0, rang = None):
-        """!TODO: Pack this and other shared methods in a common parent tree class?"""
-        # init
-        if rang is None:
-            rang = [(-np.inf, np.inf)] * tree.n_features
-        
-        # get node info
-        fid = tree.feature[pos]
-        thr = tree.threshold[pos]
-        
-        # if not leaf node...
-        if not -2 == fid:
-            
-            info = [None]
-    
-            # ...update range of cell and ascend to left node
-            lrang = rang[:]
-            lrang[fid] = (lrang[fid][0], min(lrang[fid][1], thr))
-            info.extend(self.__parse_tree_leaves_rec(tree, tree.children_left[pos], lrang))
-            
-            # ...update range of cell and ascend to right node
-            rrang = rang[:]
-            rrang[fid] = (max(rrang[fid][0], thr), rrang[fid][1])
-            info.extend(self.__parse_tree_leaves_rec(tree, tree.children_right[pos], rrang))
-            
-            return info
-            
-        # if leaf node, return information
-        else:
-            return [MVND(tree, rang, pos)]        
+        return yu     
        
-    def __induction(self, X, y):
+    def _induction(self, X, y):
         r"""
         Re-writes the trees memory, changing the Gaussian distributin based
         nodes into the default class posteriors.
@@ -960,15 +910,18 @@ class SemiSupervisedDecisionTreeClassifier(DecisionTreeClassifier):
         
         # convert to a zero-based class membership array
         class_k, y = np.unique(y, return_inverse=True)
-        n_classes = len(class_k)
+        n_classes = len(class_k) # does not count the unlabelled class
         
         # count class occurence per leaf and edit tree accordingly
         for lidx in np.unique(leaf_indices):
             mask = lidx == leaf_indices
             label_count = np.bincount(y[mask])
             label_count = np.pad(label_count, (0, n_classes - len(label_count)), 'constant')
-            #!TODO: Is the unlabelled data really the last dimension?
-            self.tree_.value[lidx][0][:-1] = label_count       
+            # value is shape [node_count, n_outputs, max_n_classes]; max_n_classes contains label for unlabelled samples
+            # we are only interested in the first output's space
+            # the other ones contain the density information
+            # lidx: select leaf node; 0: select firt output; 1: skip over label for unlabelled samples
+            self.tree_.value[lidx][0][1:] = label_count              
         
 def smahalanobis(x, y, icovx, icovy):
     r"""The symmetric, cov-dependent Mahalanobis distance"""
@@ -983,7 +936,7 @@ def memoize(f):
     return memodict().__getitem__
 
 class MVND():
-    def __init__(self, tree, range, node_id):
+    def __init__(self, tree, range, node_id, offset=0):
         r"""Bounded multivariate normal distribution."""
         if not len(range) == tree.n_features:
             raise ValueError('The length of `range` must equal the \
@@ -994,12 +947,14 @@ class MVND():
         self.__cmnd = None
         self.__n_features = tree.n_features
         self.__tree = tree
+        self.__offset = offset
         
         self.inf_to_large()
         
     @property
     def __node_value(self):
-        return self.__tree.value[self.node_id].flat
+        #return self.__tree.value[self.node_id].flat
+        return self.__tree.value[self.node_id].flat[self.__offset:]
         
     @property
     def node_id(self):
@@ -1253,27 +1208,4 @@ class GoodnessOfFit():
         """
         pdf_x = pdf(self.X)
         return (((self.ecdf_x - self.cdf_x)**2) * pdf_x).mean()
-    
-# def CvM(cdf, pdf, X):
-#     """
-#     Note: cdf can not be determined by X, i.e. X must differ from 
-#     the X_cdf used to create CDF.
-#     
-#     \f[
-#         \omega^2 = \integral_{-\inf}^{+\inf}\left[ECDF(x) - CDF(x)\right]^2 dCDF(x)
-#     \f]
-#     resolving the Stieltjesintegral, we get
-#     \f[
-#         \omega^2 = \integral_{-\inf}^{+\inf}\left[ECDF(x) - CDF(x)\right]^2 * CDF'(X) dx
-#     \f]
-#     now, taking into account that \f$CDF'(x) = PDF(x)\f$, we get
-#     \f[
-#         \omega^2 = \integral_{-\inf}^{+\inf}\left[ECDF(x) - CDF(x)\right]^2 * PDF(X) dx
-#     \f]
-#     """
-#     n, d = X.shape
-#     ecdf = MECDF(X)
-#     omega_square = np.pow(ecdf(X) - cdf(X), 2) * pdf(X)
-#     T = n * omega_square
-#     # cant make multivariate rieman integral of fixed points that easily!
-    
+

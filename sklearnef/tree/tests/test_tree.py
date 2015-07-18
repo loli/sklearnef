@@ -79,22 +79,22 @@ def teardown_sklearn_tests():
 # ---------- Tests ----------
 def test_labeled_only():
     """Test the labeled only entropy."""
-    #!TODO: This test might require injection or another special treatment once the SemiSupervisedForest is done.
+    # Note: labeledonly can not be used directly, but the unsupervised part can
+    # be effectively deactivated through setting the weight very height
+    # Note that this will still affect the probability, but should lead to
+    # the same prediction
     y = iris.target.copy()[:-10]
     y[-1:] = -1
-    clf = SemiSupervisedDecisionTreeClassifier(random_state=0, criterion='labeledonly', max_features=None).fit(iris.data[:-10], y)
+    clf = SemiSupervisedDecisionTreeClassifier(random_state=0, supervised_weight=.9999999999999999, max_features=None).fit(iris.data[:-10], y)
     baseline_pred = clf.predict(iris.data)
-    baseline_prob = clf.predict_proba(iris.data)
     
     # adding new, unlabeled samples should not change the prediction outcome
     for i in range(2, 10):
         y = iris.target.copy()[:-(10 - i + 1)]
         y[-i:] = -1
-        clf = SemiSupervisedDecisionTreeClassifier(random_state=0, criterion='labeledonly', max_features=None).fit(iris.data[:-(10 - i + 1)], y)
+        clf = SemiSupervisedDecisionTreeClassifier(random_state=0, supervised_weight=.9999999999999999, max_features=None).fit(iris.data[:-(10 - i + 1)], y)
         pred = clf.predict(iris.data)
-        prob = clf.predict_proba(iris.data)
         assert_array_equal(baseline_pred, pred)
-        assert_array_equal(baseline_prob, prob)
 
 def test_density_tree_errors():
     """Check class argument errors for density trees."""
