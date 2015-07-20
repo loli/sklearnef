@@ -307,7 +307,7 @@ class SemiSupervisedRandomForestClassifier(ForestClassifier):
                  criterion="semisupervised",
                  max_depth=None,
                  min_samples_split=2,
-                 min_samples_leaf=1,
+                 min_samples_leaf=None, #!TODO: Fix the default in the description
                  min_weight_fraction_leaf=0.,
                  max_features="auto",
                  max_leaf_nodes=None,
@@ -318,14 +318,16 @@ class SemiSupervisedRandomForestClassifier(ForestClassifier):
                  random_state=None,
                  verbose=0,
                  warm_start=False,
-                 class_weight=None):
+                 class_weight=None,
+                 unsupervised_transformation='scale'): #"TODO: Put this in the description
         super(SemiSupervisedRandomForestClassifier, self).__init__(
             base_estimator=SemiSupervisedDecisionTreeClassifier(),
             n_estimators=n_estimators,
             estimator_params=("criterion", "max_depth", "min_samples_split",
                               "min_samples_leaf", "min_weight_fraction_leaf",
                               "max_features", "max_leaf_nodes",
-                              "random_state", "supervised_weight"),
+                              "random_state", "supervised_weight",
+                              "unsupervised_transformation"),
             bootstrap=bootstrap,
             oob_score=oob_score,
             n_jobs=n_jobs,
@@ -342,6 +344,7 @@ class SemiSupervisedRandomForestClassifier(ForestClassifier):
         self.max_features = max_features
         self.max_leaf_nodes = max_leaf_nodes
         self.supervised_weight = supervised_weight
+        self.unsupervised_transformation = unsupervised_transformation
           
     def fit(self, X, y, sample_weight=None):
         """Fit estimator.
@@ -368,7 +371,7 @@ class SemiSupervisedRandomForestClassifier(ForestClassifier):
             Returns self.
 
         """
-        X = check_array(X, accept_sdparse=False, order='C')
+        X = check_array(X, accept_sparse=False, order='C')
         return ForestClassifier.fit(self, X, y, sample_weight=sample_weight)          
           
 #     def _validate_y_class_weight(self, y):

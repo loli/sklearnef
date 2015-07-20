@@ -13,11 +13,11 @@ import matplotlib.pyplot as plt
 # path changes
 
 # own modules
-from sklearnef.tree import SemiSupervisedDecisionTreeClassifier
+from sklearnef.ensemble import SemiSupervisedRandomForestClassifier
 
 # information
 __author__ = "Oskar Maier"
-__version__ = "r0.1.1, 2015-06-08"
+__version__ = "r0.1.0, 2015-06-08"
 __email__ = "oskar.maier@googlemail.com"
 __status__ = "Release"
 __description__ = """
@@ -28,9 +28,6 @@ each other and the co-variance matrices skewed randomly according to
 the supplied sigma multiplier. The center of the clusters receive a
 unique label, all other (unlabelled) samples are randomly drawn from
 the gaussian distributions.
-
-The classifier will be trained with a single tree to better observe the
-trainign effects and max_features will be disabled.
 """
 
 # constants
@@ -74,9 +71,10 @@ def main():
     
     
     # ----- Training -----
-    clf = SemiSupervisedDecisionTreeClassifier(random_state=args.seed,
+    clf = SemiSupervisedRandomForestClassifier(random_state=args.seed,
+                                               n_estimators=args.n_trees,
                                                max_depth=args.max_depth,
-                                               max_features=None,
+                                               max_features=args.max_features,
                                                supervised_weight=args.supervised_weight,
                                                unsupervised_transformation=None)
     clf.fit(X_train, y_train)
@@ -130,8 +128,8 @@ def main():
     plt.ylim(min(y),max(y))
     plt.title('Ground-truth: PDF + samples')
     
-    if not args.no_split_lines:
-        draw_split_lines(clf, x, y)
+    if not args.split_lines:
+        draw_split_lines(clf.estimators_, x, y)
     
     # plot: learned - pdf
     plt.subplot(3, 1, 2)
@@ -146,8 +144,8 @@ def main():
     plt.ylim(min(y),max(y))
     plt.title('Learned: PDF + samples')
     
-    if not args.no_split_lines:
-        draw_split_lines(clf, x, y)
+    if not args.split_lines:
+        draw_split_lines(clf.estimators_, x, y)
     
     # plot: learned - pdf
     plt.subplot(3, 1, 3)
@@ -160,8 +158,8 @@ def main():
     plt.title('Learned: a-posteriori classification')
     
     # add split-lines
-    if not args.no_split_lines:
-        draw_split_lines(clf, x, y)
+    if not args.split_lines:
+        draw_split_lines(clf.estimators_, x, y)
     
     plt.show()
     
@@ -196,12 +194,14 @@ def getArguments(parser):
 def getParser():
     "Creates and returns the argparse parser object."
     parser = argparse.ArgumentParser(description=__description__)
+    parser.add_argument('--n-trees', default=10, type=int, help='The number of trees to train.')
     parser.add_argument('--n-clusters', default=4, type=int, help='The number of gaussian distributions to create.')
     parser.add_argument('--n-samples', default=200, type=int, help='The number of training samples to draw from each gaussian.')
     parser.add_argument('--sigma', default=0.4, type=float, help='The sigma multiplier of the gaussian distributions.')
     parser.add_argument('--max-depth', default=None, type=int, help='The maximum tree depth.')
+    parser.add_argument('--max-features', default='auto', help='The number of features to consider at each split.')
     parser.add_argument('--supervised-weight', default=0.5, type=float, help='The weight of the supervised metric against the un-supervised.')
-    parser.add_argument('--no-split-lines', action='store_true', help='Do not plot the split-lines.')
+    parser.add_argument('--split-lines', action='store_true', help='Plot the split-lines of the first tree in the forest.')
     parser.add_argument('--resolution', default=0.05, type=float, help='The plotting resolution.')
     parser.add_argument('--max-area', default=10, type=int, help='The maximum area over which the gaussians should be distributed.')
     parser.add_argument('--seed', default=None, type=int, help='The random seed to use. Fix to an integer to create reproducible results.')
