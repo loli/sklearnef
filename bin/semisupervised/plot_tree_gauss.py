@@ -14,6 +14,7 @@ import matplotlib.pyplot as plt
 
 # own modules
 from sklearnef.tree import SemiSupervisedDecisionTreeClassifier
+from sklearn.tree import export_graphviz
 
 # information
 __author__ = "Oskar Maier"
@@ -80,6 +81,7 @@ def main():
                                                supervised_weight=args.supervised_weight,
                                                unsupervised_transformation=None)
     clf.fit(X_train, y_train)
+    export_graphviz(clf)
     
     # ----- Learned distribution -----
     X_test_pred = np.rollaxis(grid, 0, 3).reshape((np.product(grid.shape[1:]), grid.shape[0]))

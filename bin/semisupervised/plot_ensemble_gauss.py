@@ -82,6 +82,7 @@ def main():
     # ----- Learned distribution -----
     X_test_pred = np.rollaxis(grid, 0, 3).reshape((np.product(grid.shape[1:]), grid.shape[0]))
     pdf = clf.pdf(X_test_pred)
+    pdf_tree = clf.estimators_[0].pdf(X_test_pred)
     #cdf = clf.cdf(X_test_pred)
     
     # ----- Ground truth distribution -----
@@ -90,7 +91,7 @@ def main():
     prob_gt /= args.n_clusters # normalize
     
     # ----- Trasnduction -----
-    y_train_result = clf.transduction(X_train_unlabelled, X_train_labelled, y_train_labelled)
+    y_train_result = clf.estimators_[0].transduction(X_train_unlabelled, X_train_labelled, y_train_labelled)
     
     # ----- A-posteriori classification -----
     y_train_prediction = clf.predict(X_train_unlabelled)
@@ -112,8 +113,8 @@ def main():
     y = np.unique(y) 
     
     # colour range: pdf
-    pdf_vmin = min(prob_gt.min(), pdf.min())
-    pdf_vmax = min(prob_gt.max(), pdf.max())
+    pdf_vmin = min(prob_gt.min(), pdf.min(), pdf_tree.min())
+    pdf_vmax = min(prob_gt.max(), pdf.max(), pdf_tree.max())
     
     # plot: gt - pdf
     plt.subplot(3, 1, 1)
@@ -128,12 +129,12 @@ def main():
     plt.ylim(min(y),max(y))
     plt.title('Ground-truth: PDF + samples')
     
-    if not args.split_lines:
-        draw_split_lines(clf.estimators_, x, y)
+    if args.split_lines:
+        draw_split_lines(clf.estimators_[0], x, y)
     
     # plot: learned - pdf
     plt.subplot(3, 1, 2)
-    plt.imshow(pdf.reshape((x.size,y.size)).T, extent=[min(x),max(x),min(y),max(y)],
+    plt.imshow(pdf_tree.reshape((x.size,y.size)).T, extent=[min(x),max(x),min(y),max(y)],
                interpolation='none', cmap=plt.cm.afmhot, aspect='auto', origin='lower',
                vmin=pdf_vmin, vmax=pdf_vmax, alpha=.5) #'auto'
     plt.scatter(X_train_unlabelled[:,0], X_train_unlabelled[:,1], c=y_train_result, s=20, alpha=.6)
@@ -142,24 +143,27 @@ def main():
     
     plt.xlim(min(x),max(x))
     plt.ylim(min(y),max(y))
-    plt.title('Learned: PDF + samples')
+    plt.title('Learned 1st tree: PDF + samples labelled through transduction')
     
-    if not args.split_lines:
-        draw_split_lines(clf.estimators_, x, y)
+    if args.split_lines:
+        draw_split_lines(clf.estimators_[0], x, y)
     
     # plot: learned - pdf
     plt.subplot(3, 1, 3)
+    plt.imshow(pdf.reshape((x.size,y.size)).T, extent=[min(x),max(x),min(y),max(y)],
+               interpolation='none', cmap=plt.cm.afmhot, aspect='auto', origin='lower',
+               vmin=pdf_vmin, vmax=pdf_vmax, alpha=.5) #'auto'
     plt.scatter(X_train_unlabelled[:,0], X_train_unlabelled[:,1], c=y_train_prediction + 1, s=20, alpha=.6)
     plt.scatter(X_train_labelled[:,0], X_train_labelled[:,1], c=y_train_labelled, s=100)
     plt.colorbar()
     
     plt.xlim(min(x),max(x))
     plt.ylim(min(y),max(y))
-    plt.title('Learned: a-posteriori classification')
+    plt.title('Learned forest: PDF + a-posteriori classification')
     
     # add split-lines
-    if not args.split_lines:
-        draw_split_lines(clf.estimators_, x, y)
+    if args.split_lines:
+        draw_split_lines(clf.estimators_[0], x, y)
     
     plt.show()
     

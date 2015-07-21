@@ -576,7 +576,7 @@ class SemiSupervisedDecisionTreeClassifier(DensityBaseTree):
     min_samples_leaf : int or None, optional (default=None)
         The minimum number of samples required to be at a leaf node. Must be
         at least as high as the number of features in the training set. If None,
-        set to the number of features at trainign time.
+        set to the number of features at training time.
 
     min_weight_fraction_leaf : float, optional (default=0.)
         The minimum weighted fraction of the input samples required to be at a
@@ -684,15 +684,7 @@ class SemiSupervisedDecisionTreeClassifier(DensityBaseTree):
             class_weight=class_weight,
             random_state=random_state)
         
-        if 1.0 == supervised_weight:
-            raise ValueError("A supervised_weight of 1.0 is not allowed, as it"\
-                             "would results in non max-margin splits. Please "\
-                             "use the sklearn.DecisionTreeClassifier for the same"\
-                             "effect.")
-        
         self.supervised_weight = supervised_weight
-        if 'scale' == unsupervised_transformation:
-            unsupervised_transformation = StandardScaler()
         self.unsupervised_transformation = unsupervised_transformation
 
         if not 'semisupervised' == criterion:
@@ -701,6 +693,32 @@ class SemiSupervisedDecisionTreeClassifier(DensityBaseTree):
         if not 'semisupervised' == splitter:
             raise ValueError("Currently only the \"semisupervised\" splitter "
                              "is supported for density estimation.")
+
+    @property
+    def supervised_weight(self):
+        """The supervised weight."""
+        return self._supervised_weight
+    
+    @supervised_weight.setter
+    def supervised_weight(self, value):
+        if 1.0 == value:
+            raise ValueError("A supervised_weight of 1.0 is not allowed, as it "\
+                             "would results in non max-margin splits. Please "\
+                             "use the sklearn.DecisionTreeClassifier for a labelled "\
+                             "only classification.")
+        
+        self._supervised_weight = value
+        
+    @property
+    def unsupervised_transformation(self):
+        """The transformation for the un-supervised data."""
+        return self._unsupervised_transformation
+    
+    @unsupervised_transformation.setter
+    def unsupervised_transformation(self, value):
+        if 'scale' == value:
+            value = StandardScaler()
+        self._unsupervised_transformation = value
 
     def fit(self, X, y, sample_weight=None, check_input=True):
         r"""Build a decision tree from the training set (X, y).

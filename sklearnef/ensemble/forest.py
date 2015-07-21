@@ -9,9 +9,17 @@ and semi-supervised trees. Only single output problems are handled.
 
 from __future__ import division
 
-from sklearn.utils import check_array
+from warnings import warn
+
+import numpy as np
+
+from sklearn.utils import check_array, compute_sample_weight
+from sklearn.utils.validation import check_is_fitted
 from sklearn.ensemble.forest import ForestClassifier
+from sklearn.externals import six
+from sklearn.externals.joblib import Parallel, delayed
 from sklearn.tree._tree import DTYPE
+from sklearn.ensemble.base import _partition_estimators
 
 from ..tree import (SemiSupervisedDecisionTreeClassifier,
                     DensityTree)
@@ -19,7 +27,124 @@ from ..tree import (SemiSupervisedDecisionTreeClassifier,
 __all__ = ["DensityForest",
            "SemiSupervisedRandomForestClassifier"]
 
-class DensityForest(ForestClassifier):
+def _parallel_helper(obj, methodname, *args, **kwargs):
+    """Private helper to workaround Python 2 pickle limitations"""
+    return getattr(obj, methodname)(*args, **kwargs)
+
+class BaseDensityForest(ForestClassifier):
+    r"""Base class for density forests.
+    
+    Main difference to ForestClassifier is that methods
+    such as pdf() and cdf() are supported and always a
+    single output assumed.
+    
+    Warning: This class should not be used directly.
+    Use derived classes instead.
+    """
+    def fit(self, X, y, sample_weight=None):
+        """Fit estimator.
+
+        Parameters
+        ----------
+        X : array-like, shape = [n_samples, n_features]
+            The training input samples whose density distribution to estimate.
+            Internally, it will be converted to ``dtype=np.float32``.
+            
+        y : array-like, shape = [n_samples]
+            The target values (class labels in classification).
+
+        sample_weight : array-like, shape = [n_samples] or None
+            Sample weights. If None, then samples are equally weighted. Splits
+            that would create child nodes with net zero or negative weight are
+            ignored while searching for a split in each node. In the case of
+            classification, splits are also ignored if they would result in any
+            single class carrying a negative weight in either child node.
+
+        Returns
+        -------
+        self : object
+            Returns self.
+
+        """
+        X = check_array(X, accept_sparse=False, order='C')
+        return ForestClassifier.fit(self, X, y, sample_weight=sample_weight)
+    
+    def predict(self, X):
+        X = check_array(X, accept_sparse=False, order='C')
+        return ForestClassifier.predict(self, X)
+    
+    def predict_proba(self, X):
+        X = check_array(X, accept_sparse=False, order='C')
+        return ForestClassifier.predict_proba(self, X)
+    
+    def pdf(self, X):
+        r"""Probability density function of the learned distributions.
+
+        The learned probability density function (PDF) of an input sample is computed
+        as the mean PDF-response of all trees in the forests.
+
+        Parameters
+        ----------
+        X : array-like of shape = [n_samples, n_features]
+            The input samples. Internally, it will be converted to
+            ``dtype=np.float32``. No sparse matrixes allowed.
+
+        Returns
+        -------
+        p : array of length n_samples
+            The responses of the PDF for all input samples.
+        """
+        return self._condense_parallel(X, 'pdf')
+    
+    def cdf(self, X):
+        r"""Cumulative density function of the learned distributions.
+
+        The learned cumulative density function (CDF) of an input sample is computed
+        as the mean CDF-response of all trees in the forests.
+
+        Parameters
+        ----------
+        X : array-like of shape = [n_samples, n_features]
+            The input samples. Internally, it will be converted to
+            ``dtype=np.float32``. No sparse matrixes allowed.
+
+        Returns
+        -------
+        p : array of length n_samples
+            The responses of the CDF for all input samples.
+        """
+        return self._condense_parallel(X, 'cdf')
+    
+    
+    
+    def _condense_parallel(self, X, function):
+        r"""Runs a function of the trees in parallel and condenses the results."""
+        check_is_fitted(self, 'n_outputs_')
+
+        # Check data
+        X = check_array(X, dtype=DTYPE, accept_sparse=False, order='C')
+        
+        # Assign chunk of trees to jobs
+        n_jobs, n_trees, starts = _partition_estimators(self.n_estimators,
+                                                        self.n_jobs)
+        
+        # Parallel loop
+        all_res = Parallel(n_jobs=n_jobs, verbose=self.verbose,
+                           backend="threading")(
+            delayed(_parallel_helper)(e, function, X, check_input=False)
+            for e in self.estimators_)
+        # Reduce
+        res = all_res[0]
+        
+        # Single output assumed
+        for j in range(1, len(all_res)):
+            res += all_res[j]
+        
+        res /= len(self.estimators_)
+        
+        return res
+
+class DensityForest(BaseDensityForest):
     """A forest based density estimator.
 
     A random forest is a meta estimator that fits a number of density trees
@@ -190,10 +315,9 @@ class DensityForest(ForestClassifier):
             Returns self.
 
         """
-        X = check_array(X, accept_sdparse=False, order='C')
-        return ForestClassifier.fit(self, X, y, sample_weight=sample_weight)
+        return BaseDensityForest.fit(self, X, y, sample_weight=sample_weight)
 
-class SemiSupervisedRandomForestClassifier(ForestClassifier):
+class SemiSupervisedRandomForestClassifier(BaseDensityForest):
     """A forest based semi-supervised classifier.
 
     A random forest is a meta estimator that fits a number of semi-supervised
@@ -230,6 +354,16 @@ class SemiSupervisedRandomForestClassifier(ForestClassifier):
         to non max-margin splits. Please use the original `sklearn`
         `RandomForestClassifier` for that effect.
         Note: this parameter is tree-specific.
+        
+    !TODO: Implement this to be applied during the forest only, to avoid costly re-
+    computation?
+        
+    unsupervised_transformation: string, object or None, optional (default='scale')
+        Transformation method for the un-supervised samples (their split
+        quality measure requires features of equal scale). Choices are:
+            - 'scale', in which case the `StandardScaler` is employed.
+            - Any object which implements the fit() and transform() methods.
+            - None, in which the user is responsible for data normalization.
 
     max_depth : integer or None, optional (default=None)
         The maximum depth of the tree. If None, then nodes are expanded until
@@ -242,10 +376,10 @@ class SemiSupervisedRandomForestClassifier(ForestClassifier):
         The minimum number of samples required to split an internal node.
         Note: this parameter is tree-specific.
 
-    min_samples_leaf : integer, optional (default=1)
-        The minimum number of samples in newly created leaves.  A split is
-        discarded if after the split, one of the leaves would contain less then
-        ``min_samples_leaf`` samples.
+    min_samples_leaf : int or None, optional (default=None)
+        The minimum number of samples required to be at a leaf node. Must be
+        at least as high as the number of features in the training set. If None,
+        set to the number of features at training time.
         Note: this parameter is tree-specific.
 
     min_weight_fraction_leaf : float, optional (default=0.)
@@ -307,7 +441,7 @@ class SemiSupervisedRandomForestClassifier(ForestClassifier):
                  criterion="semisupervised",
                  max_depth=None,
                  min_samples_split=2,
-                 min_samples_leaf=None, #!TODO: Fix the default in the description
+                 min_samples_leaf=None,
                  min_weight_fraction_leaf=0.,
                  max_features="auto",
                  max_leaf_nodes=None,
@@ -319,7 +453,7 @@ class SemiSupervisedRandomForestClassifier(ForestClassifier):
                  verbose=0,
                  warm_start=False,
                  class_weight=None,
-                 unsupervised_transformation='scale'): #"TODO: Put this in the description
+                 unsupervised_transformation='scale'):
         super(SemiSupervisedRandomForestClassifier, self).__init__(
             base_estimator=SemiSupervisedDecisionTreeClassifier(),
             n_estimators=n_estimators,
@@ -346,75 +480,47 @@ class SemiSupervisedRandomForestClassifier(ForestClassifier):
         self.supervised_weight = supervised_weight
         self.unsupervised_transformation = unsupervised_transformation
           
-    def fit(self, X, y, sample_weight=None):
-        """Fit estimator.
-
-        Parameters
-        ----------
-        X : array-like, shape = [n_samples, n_features]
-            The training input samples whose density distribution to estimate.
-            Internally, it will be converted to ``dtype=np.float32``.
-            
-        y : array-like, shape = [n_samples]
-            The target values (class labels in classification).
-            
-        sample_weight : array-like, shape = [n_samples] or None
-            Sample weights. If None, then samples are equally weighted. Splits
-            that would create child nodes with net zero or negative weight are
-            ignored while searching for a split in each node. In the case of
-            classification, splits are also ignored if they would result in any
-            single class carrying a negative weight in either child node.
-
-        Returns
-        -------
-        self : object
-            Returns self.
-
-        """
-        X = check_array(X, accept_sparse=False, order='C')
-        return ForestClassifier.fit(self, X, y, sample_weight=sample_weight)          
-          
-#     def _validate_y_class_weight(self, y):
-#         y = np.copy(y)
-#         expanded_class_weight = None
-#   
-#         if self.class_weight is not None:
-#             y_original = np.copy(y)
-#   
-#         self.classes_ = []
-#         self.n_classes_ = []
-#   
-#         for k in range(self.n_outputs_):
-#             classes_k, y[:, k] = np.unique(y[:, k], return_inverse=True)
-#             # remove smallest label (assuming that always same (i.e. smallest) over all n_outputs and consistent)
-#             self.classes_.append(classes_k[1:])
-#             self.n_classes_.append(classes_k.shape[0] - 1)
-#   
-#         if self.class_weight is not None:
-#             valid_presets = ('auto', 'subsample')
-#             if isinstance(self.class_weight, six.string_types):
-#                 if self.class_weight not in valid_presets:
-#                     raise ValueError('Valid presets for class_weight include '
-#                                      '"auto" and "subsample". Given "%s".'
-#                                      % self.class_weight)
-#                 if self.warm_start:
-#                     warn('class_weight presets "auto" or "subsample" are '
-#                          'not recommended for warm_start if the fitted data '
-#                          'differs from the full dataset. In order to use '
-#                          '"auto" weights, use compute_class_weight("auto", '
-#                          'classes, y). In place of y you can use a large '
-#                          'enough sample of the full training set target to '
-#                          'properly estimate the class frequency '
-#                          'distributions. Pass the resulting weights as the '
-#                          'class_weight parameter.')
-#   
-#             if self.class_weight != 'subsample' or not self.bootstrap:
-#                 if self.class_weight == 'subsample':
-#                     class_weight = 'auto'
-#                 else:
-#                     class_weight = self.class_weight
-#                 expanded_class_weight = compute_sample_weight(class_weight,
-#                                                               y_original)
-#   
-#         return y, expanded_class_weight        
+    def _validate_y_class_weight(self, y):
+        y = np.copy(y)
+        expanded_class_weight = None
+   
+        if self.class_weight is not None:
+            y_original = np.copy(y)
+   
+        self.classes_ = []
+        self.n_classes_ = []
+   
+        for k in range(self.n_outputs_):
+            classes_k, y[:, k] = np.unique(y[:, k], return_inverse=True)
+            # remove smallest label (assuming that always same (i.e. smallest) over all n_outputs and consistent)
+            self.classes_.append(classes_k[1:])
+            self.n_classes_.append(classes_k.shape[0] - 1)
+   
+        if self.class_weight is not None:
+            valid_presets = ('auto', 'subsample')
+            if isinstance(self.class_weight, six.string_types):
+                if self.class_weight not in valid_presets:
+                    raise ValueError('Valid presets for class_weight include '
+                                     '"auto" and "subsample". Given "%s".'
+                                     % self.class_weight)
+                if self.warm_start:
+                    warn('class_weight presets "auto" or "subsample" are '
+                         'not recommended for warm_start if the fitted data '
+                         'differs from the full dataset. In order to use '
+                         '"auto" weights, use compute_class_weight("auto", '
+                         'classes, y). In place of y you can use a large '
+                         'enough sample of the full training set target to '
+                         'properly estimate the class frequency '
+                         'distributions. Pass the resulting weights as the '
+                         'class_weight parameter.')
+   
+            if self.class_weight != 'subsample' or not self.bootstrap:
+                if self.class_weight == 'subsample':
+                    class_weight = 'auto'
+                else:
+                    class_weight = self.class_weight
+                expanded_class_weight = compute_sample_weight(class_weight,
+                                                              y_original)
+   
+        return y, expanded_class_weight
 
