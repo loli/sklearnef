@@ -9,6 +9,7 @@ import argparse
 import scipy.stats
 import numpy as np
 import matplotlib.pyplot as plt
+from sklearn.metrics import accuracy_score
 
 # path changes
 
@@ -55,9 +56,13 @@ def main():
     # ----- Sample train set -----
     X_train_unlabelled = np.concatenate([scipy.stats.multivariate_normal.rvs(mean, cov, args.n_samples) for mean, cov in zip(means, covs)]).astype(np.float32)
     y_train_unlabelled = np.full(X_train_unlabelled.shape[0], -1)
+    y_train_unlabelled_gt = np.repeat(np.arange(len(means)), args.n_samples)
     y_train_gt = np.concatenate([[c] * args.n_samples for c in np.arange(len(means))], 0)
     X_train_labelled = np.asarray(means).astype(np.float32)
     y_train_labelled = np.arange(len(means))
+    
+    #X_train_labelled = np.concatenate([scipy.stats.multivariate_normal.rvs(mean, cov, 5) for mean, cov in zip(means, covs)]).astype(np.float32)
+    #y_train_labelled = np.repeat(np.arange(len(means)), 5)
 
     X_train = np.concatenate((X_train_unlabelled, X_train_labelled), 0)
     y_train = np.concatenate((y_train_unlabelled, y_train_labelled), 0)
@@ -90,22 +95,16 @@ def main():
     prob_gt = np.sum([scipy.stats.multivariate_normal.pdf(X_test_gt, mean, cov) for mean, cov in zip(means, covs)], 0)
     prob_gt /= args.n_clusters # normalize
     
-    # ----- Trasnduction -----
+    # ----- Transduction -----
     y_train_result = clf.estimators_[0].transduction(X_train_unlabelled, X_train_labelled, y_train_labelled)
     
     # ----- A-posteriori classification -----
     y_train_prediction = clf.predict(X_train_unlabelled)
-
-    # ----- Goodness of fit measure -----
-    #X_eval = np.concatenate([scipy.stats.multivariate_normal.rvs(mean, cov, args.n_samples) for mean, cov in zip(means, covs)])
-    #gof = GoodnessOfFit(clf.cdf, X_eval, resolution=200)
-    #print 'Goodness of fit evaluation over {}^{} grid-points:'.format(200, X_eval.shape[1])
-    #print '\tkolmogorov_smirnov:', gof.kolmogorov_smirnov()
-    #print '\tmean_squared_error:', gof.mean_squared_error()
-    #print '\tmean_squared_error_weighted:', gof.mean_squared_error_weighted(clf.pdf)
     
-    # ----- E(M)CDF -----
-    #emcdf = gof.ecdf(X_test_pred)
+    # ----- Scoring -----
+    print 'SCORES:'
+    print '\t', accuracy_score(y_train_unlabelled_gt, y_train_result), 'Labeling throught transduction'
+    print '\t', accuracy_score(y_train_unlabelled_gt, y_train_prediction), 'Labeling throught classification'
     
     # ----- Plotting -----
     x, y = grid

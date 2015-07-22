@@ -26,7 +26,8 @@ from sklearnef.tree import _tree as _treeef
 from sklearnef.tree import _diffentropy
 
 from scipy.stats import mvn # Fortran implementation for multivariate normal CDF estimation
-from scipy.spatial.distance import mahalanobis
+import scipy.linalg
+from scipy.spatial.distance import mahalanobis, pdist, cdist
 from scipy.sparse.csgraph import shortest_path, csgraph_from_dense
 
 try:
@@ -841,15 +842,28 @@ class SemiSupervisedDecisionTreeClassifier(DensityBaseTree):
     
     def parse_tree_leaves(self):
         return self._parse_tree_leaves_rec(self.tree_, offset=self.n_classes_[0]) # requires offset to find pdf definitions
-        
+
     def transduction(self, Xu, Xl, yl):
         r"""
         Compute the class-memberships of the unlabelled `Xu` samples using
-        geodisic distances on a surface formed by the trees piecewise
-        Gaussians to the `yl` labelled set `Xl`. This is similar to label
-        propagation.
+        geodisic distances between all unlabelled and labelled samples.
+        This is similar to label propagation.
         
-        !TODO: Speed up this method.
+        Notes
+        -----
+        This method varies from the original implementation by
+        Criminisi et al. 2012 [1] and might be less accurate in some cases.
+        On the other hand, this implementation is fast enough for practical
+        usage. 
+        
+        References
+        ----------
+    
+        .. [1] A. Criminisi, J. Shotton and E. Konukoglu, "Decision Forests: A 
+               Unified Framework for Classification, Regression, Density
+               Estimation, Manifold Learning and Semi-Supervised Learning",
+               Foundations and Trends(r) in Computer Graphics and Vision, Vol. 7,
+               No. 2-3, pp 81-227, 2012.            
         
         Parameters
         ----------
@@ -863,14 +877,87 @@ class SemiSupervisedDecisionTreeClassifier(DensityBaseTree):
         Returns
         -------
         xu : ndarray
-            Labels of the unlabelled samples.
+            Labels of the unlabelled samples.        
+        """
+        # prepare
+        X = np.vstack((Xu, Xl))
+        nu = Xu.shape[0]
+        nl = Xl.shape[0]
+
+        # get leaves and other info
+        leaf_indices = self.tree_.apply(X)
         
-        Warning
+        # allocate memory for pairwise distances
+        pdists = np.zeros((nu, nl))
+        
+        # transform all samples // iterate over leaves involved // only from unlabelled to labelled
+        for lidx in np.unique(leaf_indices):
+            m = (lidx == leaf_indices)
+            mu = m[:nu]
+            ml = m[nu:]
+            try:
+                icov = np.linalg.inv(self.mvnds[lidx].cov)
+            except LinAlgError:
+                v = [SINGULARITY_REGULARIZATION_TERM] * self.mvnds[lidx].cov.shape[0]
+                icov = np.linalg.inv(self.mvnds[lidx].cov + np.diag(v))
+            icov_sqrtm = scipy.linalg.sqrtm(icov)     
+            
+            # split labelled and unlabelled & transform them
+            Xut = X[:nu].dot(icov_sqrtm)
+            Xlt = X[nu:].dot(icov_sqrtm)
+            
+            # u => l
+            pdists[mu] += cdist(Xut[mu], Xlt, 'euclidean')
+            
+            # l => u
+            pdists.T[ml] += cdist(Xlt[ml], Xut, 'euclidean')
+         
+        # compute average of directed distances
+        pdists *= 0.5
+
+        # find nearest labelled samples of each unlabelled sample
+        argnearest = np.argmin(pdists, axis=1)
+        
+        # transfer labels
+        yu = yl[argnearest]
+
+        return yu
+        
+    def transduction_alternative(self, Xu, Xl, yl):
+        r"""
+        Compute the class-memberships of the unlabelled `Xu` samples using
+        geodisic distances on a surface formed by the trees piecewise
+        Gaussians to the `yl` labelled set `Xl`. This is similar to label
+        propagation.
+        
+        Notes
+        -----
+        This is the original method as described in Criminisi et al. 2012 [1],
+        which is more correct and does in some cases give better results than
+        the method used by this tree. But it is by magnitudes slower. 
+        
+        References
+        ----------
+    
+        .. [1] A. Criminisi, J. Shotton and E. Konukoglu, "Decision Forests: A 
+               Unified Framework for Classification, Regression, Density
+               Estimation, Manifold Learning and Semi-Supervised Learning",
+               Foundations and Trends(r) in Computer Graphics and Vision, Vol. 7,
+               No. 2-3, pp 81-227, 2012.            
+        
+        Parameters
+        ----------
+        Xu : array_like
+            Unlabelled samples.
+        Xl : array_like
+            Labelled samples.
+        yl : array_like
+            Labels of the labelled samples.
+            
+        Returns
         -------
-        This method requires the Gaussian distribution to be saved in the
-        tree leaves. This holds only true directly after fitting, while a
-        call to _induction() will remove that information.
-        !TODO: Keep the info and hence this transduction method valid! 
+        xu : ndarray
+            Labels of the unlabelled samples.        
         """
         # prepare
         X = np.vstack((Xu, Xl))
@@ -899,6 +986,15 @@ class SemiSupervisedDecisionTreeClassifier(DensityBaseTree):
                 j += i + 1
                 #!TODO: Won't i need the mean here, too?
                 pdists[i,j] = smahalanobis(si, sj, icov, get_icov(j))
+                        
+        # remove all edges lower than the shortest direct edge between each unlabelled and any labeled sample
+        #!Warning: This idea will remove edges that are required for other samples!
+        #min_u_ls = np.min(pdists[:nu,nu:], 1)
+        #m_lower = pdists[:nu] > min_u_ls[:,np.newaxis]
+        #pdists[:nu][m_lower] = 0
+        
+        # remove all edges between labelled data points
+        pdists[nu:,nu:] = 0
                 
         # search shortest path between all
         pdists_sparse = csgraph_from_dense(pdists, null_value=0)
