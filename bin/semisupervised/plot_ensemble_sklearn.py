@@ -173,7 +173,7 @@ def main():
     if args.split_lines:
         draw_split_lines(clf.estimators_[0], x, y)
     
-    #plt.show()
+    plt.show()
     
 def draw_split_lines(clf, x, y):
     """Draw the trees split lines into the current image."""
