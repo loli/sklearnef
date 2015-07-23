@@ -28,7 +28,7 @@ from sklearnef.tree import _diffentropy
 from scipy.stats import mvn # Fortran implementation for multivariate normal CDF estimation
 import scipy.linalg
 from scipy.spatial.distance import mahalanobis, pdist, cdist
-from scipy.sparse.csgraph import shortest_path, csgraph_from_dense
+from scipy.sparse.csgraph import shortest_path, csgraph_from_dense, dijkstra
 
 try:
     from scipy.stats import multivariate_normal
@@ -555,6 +555,10 @@ class SemiSupervisedDecisionTreeClassifier(DensityBaseTree):
         to non max-margin splits. Please use the original `sklearn`
         `DecisionTreeClassifier` for that effect.
         
+    transduction_method: string, optional (default='fast')
+        Allows to selected between a 'best' performing, but slower and a
+        'fast' transduction method.
+        
     !TODO: Assert that this is only applied to the non-supervised part of the data.
            Maybe by initializing the Splitter later of something? Is this at all possible?
            
@@ -625,6 +629,10 @@ class SemiSupervisedDecisionTreeClassifier(DensityBaseTree):
         class labels of the tree, with the first being the un-labelled class
         label, which is not used for classification. All other entries are the
         same.
+        
+    transduced_labels\_ : array of shape [n_unlabelled_samples]
+        The transduced labels for the unlabelled portion of the training set.
+        Only available after fitting the classifier.
 
     Notes
     -----
@@ -671,6 +679,7 @@ class SemiSupervisedDecisionTreeClassifier(DensityBaseTree):
                  max_leaf_nodes=None,
                  #min_improvement=0,
                  supervised_weight=0.5,
+                 transduction_method='fast',
                  unsupervised_transformation='scale',
                  class_weight=None):
         super(SemiSupervisedDecisionTreeClassifier, self).__init__(
@@ -687,6 +696,9 @@ class SemiSupervisedDecisionTreeClassifier(DensityBaseTree):
         
         self.supervised_weight = supervised_weight
         self.unsupervised_transformation = unsupervised_transformation
+        self.transduction_method = transduction_method
+        self.transduced_labels_ = None
+        
 
         if not 'semisupervised' == criterion:
             raise ValueError("Currently only the \"semisupervised\" criterion "
@@ -814,11 +826,19 @@ class SemiSupervisedDecisionTreeClassifier(DensityBaseTree):
         self.mvnds = self.parse_tree_leaves()
 
         # use transduction to classifiy the un-labelled training samples
-        yu = self.transduction(X[mask_unlabelled], X[~mask_unlabelled],
-                               y[~mask_unlabelled][:,0])
+        if self.transduction_method == 'best':
+            yu = self.transduction_best(X[mask_unlabelled], X[~mask_unlabelled],
+                                        y[~mask_unlabelled][:,0])
+        else:
+            yu = self.transduction_fast(X[mask_unlabelled], X[~mask_unlabelled],
+                                        y[~mask_unlabelled][:,0])
+        
+        self.transduced_labels_ = yu
         
         Xa = np.concatenate((X[mask_unlabelled], X[~mask_unlabelled]), 0)
-        ya = np.concatenate((yu, np.squeeze(y[~mask_unlabelled][:,0])), 0) # Note: y will not contain the unsupervised class
+        #!TODO: If only one single labelled element, the array is "squeezed" away. If not "squeezed", would it still work?
+        #ya = np.concatenate((yu, np.squeeze(y[~mask_unlabelled][:,0])), 0) # Note: y will not contain the unsupervised class
+        ya = np.concatenate((yu, y[~mask_unlabelled][:,0]), 0) # Note: y will not contain the unsupervised class
         
         # use induction/label counting to finalize decision tree
         self._induction(Xa, ya)
@@ -843,11 +863,14 @@ class SemiSupervisedDecisionTreeClassifier(DensityBaseTree):
     def parse_tree_leaves(self):
         return self._parse_tree_leaves_rec(self.tree_, offset=self.n_classes_[0]) # requires offset to find pdf definitions
 
-    def transduction(self, Xu, Xl, yl):
+    def transduction_fast(self, Xu, Xl, yl):
         r"""
         Compute the class-memberships of the unlabelled `Xu` samples using
         geodisic distances between all unlabelled and labelled samples.
         This is similar to label propagation.
+        
+        !TODO: Should include test for X valid (i.e. C, float32, not sparse, etc.)
+        When used inside forest, this can be disabled.
         
         Notes
         -----
@@ -922,8 +945,8 @@ class SemiSupervisedDecisionTreeClassifier(DensityBaseTree):
         yu = yl[argnearest]
 
         return yu
-        
-    def transduction_alternative(self, Xu, Xl, yl):
+       
+    def transduction_best(self, Xu, Xl, yl):
         r"""
         Compute the class-memberships of the unlabelled `Xu` samples using
         geodisic distances on a surface formed by the trees piecewise
@@ -958,7 +981,7 @@ class SemiSupervisedDecisionTreeClassifier(DensityBaseTree):
         -------
         xu : ndarray
             Labels of the unlabelled samples.        
-        """
+        """        
         # prepare
         X = np.vstack((Xu, Xl))
         n = X.shape[0]
@@ -967,47 +990,58 @@ class SemiSupervisedDecisionTreeClassifier(DensityBaseTree):
         # get leaves and other info
         leaf_indices = self.tree_.apply(X)
         
-        # inline, memoization function to get icov
-        @memoize
-        def get_icov(nidx):
-            """Get cov and compute its inverse with conditional regularization."""
-            lidx = leaf_indices[nidx]
+        # allocate memory for pairwise distances
+        pdists = np.zeros((nu, n))
+        
+        # transform all samples // iterate over leaves involved // only from unlabelled to labelled
+        for lidx in np.unique(leaf_indices):
+            m = (lidx == leaf_indices)
+            mu = m[:nu]
+            ml = m[nu:]
             try:
-                return np.linalg.inv(self.mvnds[lidx].cov)
+                icov = np.linalg.inv(self.mvnds[lidx].cov)
             except LinAlgError:
                 v = [SINGULARITY_REGULARIZATION_TERM] * self.mvnds[lidx].cov.shape[0]
-                return np.linalg.inv(self.mvnds[lidx].cov + np.diag(v))
+                icov = np.linalg.inv(self.mvnds[lidx].cov + np.diag(v))
+            icov_sqrtm = scipy.linalg.sqrtm(icov)
+            
+            # transfrom datapoints
+            Xt = X.dot(icov_sqrtm)
+            
+            # u to all
+            pdists[mu] += cdist(Xt[:nu][mu], Xt, 'euclidean')
+            
+            # l to all u
+            pdists.T[ml] += cdist(Xt[nu:][ml], Xt[:nu], 'euclidean')
         
-        # compute pair-wise symmetric Mahalanobis distances
-        pdists = np.zeros((n, n), np.float32)
-        for i, si in enumerate(X):
-            icov = get_icov(i)
-            for j, sj in enumerate(X[i+1:]):
-                j += i + 1
-                #!TODO: Won't i need the mean here, too?
-                pdists[i,j] = smahalanobis(si, sj, icov, get_icov(j))
-                        
-        # remove all edges lower than the shortest direct edge between each unlabelled and any labeled sample
-        #!Warning: This idea will remove edges that are required for other samples!
-        #min_u_ls = np.min(pdists[:nu,nu:], 1)
-        #m_lower = pdists[:nu] > min_u_ls[:,np.newaxis]
-        #pdists[:nu][m_lower] = 0
+        # combine undirected weight and average
+        pdists[:nu][np.triu_indices(nu, 1)] += pdists[:nu].T[np.triu_indices(nu, 1)]
+        pdists *= 0.5
+        pdists[:nu][np.tril_indices(nu)] = 0
         
-        # remove all edges between labelled data points
-        pdists[nu:,nu:] = 0
+        # remove possible nans and infs
+        pdists = np.nan_to_num(pdists)
+        
+        # padd to add edges between labelled data points (for graph generation)
+        pdists = np.pad(pdists, [(0, n - nu), (0, 0)], mode='constant')
+        
+        # remove all edges with a distance higher than the largest distance between
+        # any unlabelled samples u_i and any labelled samples l_i
+        #print pdists[:nu, nu:].min(axis=1).max()
+        #pdists[pdists > pdists[:nu, nu:].min(axis=1).max()] = 0
                 
-        # search shortest path between all
+        # search shortest path between all labelled points and the unlabelled
         pdists_sparse = csgraph_from_dense(pdists, null_value=0)
-        spaths = shortest_path(pdists_sparse, 'auto', directed=False)
+        spaths = dijkstra(pdists_sparse, directed=False, indices=range(nu, n))
 
         # find nearest labelled samples of each unlabelled sample
-        argnearest = np.argmin(spaths[:nu,nu:], axis=1)
+        argnearest = np.argmin(spaths, axis=0)[:nu]
         
         # transfer labels
         yu = yl[argnearest]
 
-        return yu     
-       
+        return yu       
+        
     def _induction(self, X, y):
         r"""
         Re-writes the trees memory, changing the Gaussian distributin based

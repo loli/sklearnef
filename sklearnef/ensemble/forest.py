@@ -12,6 +12,7 @@ from __future__ import division
 from warnings import warn
 
 import numpy as np
+from scipy.stats import itemfreq
 
 from sklearn.utils import check_array, compute_sample_weight
 from sklearn.utils.validation import check_is_fitted
@@ -357,6 +358,7 @@ class SemiSupervisedRandomForestClassifier(BaseDensityForest):
         
     !TODO: Implement this to be applied during the forest only, to avoid costly re-
     computation?
+    !TODO: At least one labelled samples must be provided.
         
     unsupervised_transformation: string, object or None, optional (default='scale')
         Transformation method for the un-supervised samples (their split
@@ -480,6 +482,45 @@ class SemiSupervisedRandomForestClassifier(BaseDensityForest):
         self.supervised_weight = supervised_weight
         self.unsupervised_transformation = unsupervised_transformation
           
+    @property
+    def transduced_labels_(self):
+        """Return the transduced labels for the unlabelled portion of the
+        training set.
+
+        Returns
+        -------
+        transduced_labels_ : array, shape = [n_unlabelled_samples]
+        """
+        proba = self.transduced_prob_
+        return self.classes_.take(np.argmax(proba, axis=1), axis=0)
+        
+    @property
+    def transduced_prob_(self):
+        """Return the transduced label probabilities for the unlabelled
+        portion of the training set.
+
+        Returns
+        -------
+        transduced_prob_ : array, shape = [n_unlabelled_samples, n_classes]
+        """
+        if self.estimators_ is None or len(self.estimators_) == 0:
+            raise ValueError("Estimator not fitted, "
+                             "call `fit` before `transduced_prob_`.")
+        
+        _, classes_zero_based = np.unique(self.classes_, return_inverse=True)
+        
+        transduced_labels = np.dstack([est.transduced_labels_ for est in self.estimators_])[0]
+        for cid, czidx in zip(self.classes_, classes_zero_based): # convert to a zero-based index ordering
+            transduced_labels[cid == transduced_labels] = czidx
+        transduced_labels = transduced_labels.astype(np.int)
+            
+        frequencies = [np.bincount(tl) for tl in transduced_labels] # zero-based label count
+        frequencies = np.asarray([np.pad(fr[1:], (0, self.n_classes_ - fr.shape[0] + 1), mode='constant') for fr in frequencies]) # padd to equal length, removing first (unsupervised) class
+        
+        proba = frequencies / float(self.n_estimators)
+        
+        return proba[:,classes_zero_based] # re-order to original class order
+              
     def _validate_y_class_weight(self, y):
         y = np.copy(y)
         expanded_class_weight = None
