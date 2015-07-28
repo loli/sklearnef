@@ -356,6 +356,10 @@ class SemiSupervisedRandomForestClassifier(BaseDensityForest):
         `RandomForestClassifier` for that effect.
         Note: this parameter is tree-specific.
         
+    transduction_method: string, optional (default='fast')
+        Allows to selected between a 'best' performing, but slower and a
+        'fast' transduction method.
+        
     !TODO: Implement this to be applied during the forest only, to avoid costly re-
     computation?
     !TODO: At least one labelled samples must be provided.
@@ -424,6 +428,14 @@ class SemiSupervisedRandomForestClassifier(BaseDensityForest):
 
     feature_importances\_ : array of shape = [n_features]
         The feature importances (the higher, the more important the feature).
+        
+    transduced_proba\_ : array of shape = [n_unlabelled_samples, n_classes]
+        Transduced label probabilities for the unlabelled
+        portion of the training set.
+        
+    transduced_labels\_ : array of shape = [n_features]
+        Transduced labels for the unlabelled portion of the
+        training set.
 
     References
     ----------
@@ -448,6 +460,7 @@ class SemiSupervisedRandomForestClassifier(BaseDensityForest):
                  max_features="auto",
                  max_leaf_nodes=None,
                  supervised_weight=.5,
+                 transduction_method='fast',
                  bootstrap=True,
                  oob_score=False,
                  n_jobs=1,
@@ -463,7 +476,8 @@ class SemiSupervisedRandomForestClassifier(BaseDensityForest):
                               "min_samples_leaf", "min_weight_fraction_leaf",
                               "max_features", "max_leaf_nodes",
                               "random_state", "supervised_weight",
-                              "unsupervised_transformation"),
+                              "unsupervised_transformation",
+                              "transduction_method"),
             bootstrap=bootstrap,
             oob_score=oob_score,
             n_jobs=n_jobs,
@@ -481,6 +495,7 @@ class SemiSupervisedRandomForestClassifier(BaseDensityForest):
         self.max_leaf_nodes = max_leaf_nodes
         self.supervised_weight = supervised_weight
         self.unsupervised_transformation = unsupervised_transformation
+        self.transduction_method = transduction_method
           
     @property
     def transduced_labels_(self):

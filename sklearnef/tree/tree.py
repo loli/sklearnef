@@ -561,6 +561,8 @@ class SemiSupervisedDecisionTreeClassifier(DensityBaseTree):
         
     !TODO: Assert that this is only applied to the non-supervised part of the data.
            Maybe by initializing the Splitter later of something? Is this at all possible?
+    !TODO: Very difficult to achieve such a behaviour. First test with overall PCA and/or
+           scaling. Might be a more sensible approach.
            
     unsupervised_transformation: string, object or None, optional (default='scale')
         Transformation method for the un-supervised samples (their split
