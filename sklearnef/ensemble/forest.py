@@ -506,11 +506,11 @@ class SemiSupervisedRandomForestClassifier(BaseDensityForest):
         -------
         transduced_labels_ : array, shape = [n_unlabelled_samples]
         """
-        proba = self.transduced_prob_
+        proba = self.transduced_proba_
         return self.classes_.take(np.argmax(proba, axis=1), axis=0)
         
     @property
-    def transduced_prob_(self):
+    def transduced_proba_(self):
         """Return the transduced label probabilities for the unlabelled
         portion of the training set.
 
@@ -525,12 +525,14 @@ class SemiSupervisedRandomForestClassifier(BaseDensityForest):
         _, classes_zero_based = np.unique(self.classes_, return_inverse=True)
         
         transduced_labels = np.dstack([est.transduced_labels_ for est in self.estimators_])[0]
+    
         for cid, czidx in zip(self.classes_, classes_zero_based): # convert to a zero-based index ordering
             transduced_labels[cid == transduced_labels] = czidx
         transduced_labels = transduced_labels.astype(np.int)
             
         frequencies = [np.bincount(tl) for tl in transduced_labels] # zero-based label count
-        frequencies = np.asarray([np.pad(fr[1:], (0, self.n_classes_ - fr.shape[0] + 1), mode='constant') for fr in frequencies]) # padd to equal length, removing first (unsupervised) class
+        #frequencies = np.asarray([np.pad(fr[1:], (0, self.n_classes_ - fr.shape[0] + 1), mode='constant') for fr in frequencies]) # padd to equal length, removing first (unsupervised) class
+        frequencies = np.asarray([np.pad(fr, (0, self.n_classes_ - fr.shape[0]), mode='constant') for fr in frequencies]) # padd to equal length
         
         proba = frequencies / float(self.n_estimators)
         

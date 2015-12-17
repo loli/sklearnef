@@ -27,7 +27,7 @@ from sklearnef.tree import _diffentropy
 
 from scipy.stats import mvn # Fortran implementation for multivariate normal CDF estimation
 import scipy.linalg
-from scipy.spatial.distance import mahalanobis, pdist, cdist
+from scipy.spatial.distance import mahalanobis, cdist
 from scipy.sparse.csgraph import shortest_path, csgraph_from_dense, dijkstra
 
 try:
@@ -89,7 +89,6 @@ class DensityBaseTree(DecisionTreeClassifier):
         
         # compute the distribution function integral value
         pfi = sum([mvnd.frac * mvnd.cmnd for mvnd in self.mvnds if mvnd is not None])
-        
         # returns the indices of the node (all leaves) each sample dropped into
         leaf_indices = self.tree_.apply(X)
 
@@ -831,6 +830,9 @@ class SemiSupervisedDecisionTreeClassifier(DensityBaseTree):
         if self.transduction_method == 'best':
             yu = self.transduction_best(X[mask_unlabelled], X[~mask_unlabelled],
                                         y[~mask_unlabelled][:,0])
+        if self.transduction_method == 'optimized':
+            yu = self.transduction_optimized(X[mask_unlabelled], X[~mask_unlabelled],
+                                             y[~mask_unlabelled][:,0])
         else:
             yu = self.transduction_fast(X[mask_unlabelled], X[~mask_unlabelled],
                                         y[~mask_unlabelled][:,0])
@@ -864,6 +866,68 @@ class SemiSupervisedDecisionTreeClassifier(DensityBaseTree):
     
     def parse_tree_leaves(self):
         return self._parse_tree_leaves_rec(self.tree_, offset=self.n_classes_[0]) # requires offset to find pdf definitions
+
+    def transduction_optimized(self, Xu, Xl, yl, nns=5):
+        r"""
+        Optimized version of transduction.
+        """
+        from sklearn.neighbors import NearestNeighbors
+        from scipy.sparse import csc_matrix
+        
+        # prepare
+        X = np.vstack((Xu, Xl))
+        nu = Xu.shape[0]
+        nl = Xl.shape[0]
+        
+        # get leaves and other info
+        leaf_indices = self.tree_.apply(X)
+        
+        # compute inverase cov matrices
+        icovs = dict()
+        for lidx in np.unique(leaf_indices): # assumes to be continuous and zero-based
+            try:
+                icov = np.linalg.inv(self.mvnds[lidx].cov)
+            except LinAlgError:
+                v = [SINGULARITY_REGULARIZATION_TERM] * self.mvnds[lidx].cov.shape[0]
+                icov = np.linalg.inv(self.mvnds[lidx].cov + np.diag(v))
+            icovs[lidx] = icov
+        
+        # compute nearest neighbour graph
+        #!TODO: Could be run on Xu only, then nearest neighbours to Xl points found later
+        #!TODO: Does not necessarily result in a connected graph... i.e. some points might not be connected to a labelled sample!
+        #!TODO: Do overcome this, I could calculate the Mahalanbois distance from all labelled points to all unlabelled... but not sure, if this would be a good idea
+        nbrs = NearestNeighbors(algorithm='kd_tree', metric='euclidean', n_neighbors=nns+1).fit(X) # +1 since self included
+        nnbrs = nbrs.kneighbors(X, return_distance=False)[:,1:] # remove the point itself as nearest neighbour
+        
+        # create sparse nearest neighbours graph with mahalanobis distances
+        dists = np.zeros(nnbrs.size)
+        for xid, (x, yids) in enumerate(zip(X, nnbrs)):
+            # forward
+            icov = icovs[leaf_indices[xid]]
+            _y = X.take(yids, axis=0)
+            dists[xid * nns: (xid + 1) * nns] = cdist(x.reshape(1, -1), _y, 'mahalanobis', VI=icov)
+            # backward
+            for ypos, yid in enumerate(yids):
+                icov = icovs[leaf_indices[yid]]
+                y = X[yid]
+                dists[xid * nns + ypos] += mahalanobis(y, x, icov)
+
+        #dists /= 2. #obsolete
+        sparsedists = csc_matrix((dists, (np.repeat(np.arange(0, nnbrs.shape[0]), nnbrs.shape[1]), nnbrs.flatten())))
+        
+        # compute shortest paths
+        #spaths = shortest_path(sparsedists, directed=False)
+        spaths = dijkstra(sparsedists, directed=False, indices=range(nu, nu+nl)) # faster version, as only from labelled points
+        
+        # find nearest labelled samples of each unlabelled sample
+        #argnearest = np.argmin(spaths, axis=0)[:nu]
+        argnearest = np.argmin(spaths[-nl:], axis=0)[:nu]
+        
+        # transfer labels
+        yu = yl[argnearest]
+
+        return yu       
+        
 
     def transduction_fast(self, Xu, Xl, yl):
         r"""
@@ -925,7 +989,7 @@ class SemiSupervisedDecisionTreeClassifier(DensityBaseTree):
             except LinAlgError:
                 v = [SINGULARITY_REGULARIZATION_TERM] * self.mvnds[lidx].cov.shape[0]
                 icov = np.linalg.inv(self.mvnds[lidx].cov + np.diag(v))
-            icov_sqrtm = scipy.linalg.sqrtm(icov)     
+            icov_sqrtm = scipy.linalg.sqrtm(icov)
             
             # split labelled and unlabelled & transform them
             Xut = X[:nu].dot(icov_sqrtm)
@@ -988,6 +1052,7 @@ class SemiSupervisedDecisionTreeClassifier(DensityBaseTree):
         X = np.vstack((Xu, Xl))
         n = X.shape[0]
         nu = Xu.shape[0]
+        nl = Xl.shape[0]
 
         # get leaves and other info
         leaf_indices = self.tree_.apply(X)
@@ -1037,7 +1102,7 @@ class SemiSupervisedDecisionTreeClassifier(DensityBaseTree):
         spaths = dijkstra(pdists_sparse, directed=False, indices=range(nu, n))
 
         # find nearest labelled samples of each unlabelled sample
-        argnearest = np.argmin(spaths, axis=0)[:nu]
+        argnearest = np.argmin(spaths[-nl:], axis=0)[:nu] #!TODO: This doe snot seem to make sende, see _optimized version
         
         # transfer labels
         yu = yl[argnearest]
@@ -1046,7 +1111,7 @@ class SemiSupervisedDecisionTreeClassifier(DensityBaseTree):
         
     def _induction(self, X, y):
         r"""
-        Re-writes the trees memory, changing the Gaussian distributin based
+        Re-writes the trees memory, changing the Gaussian distribution based
         nodes into the default class posteriors.
         
         Essentially, simply counts the class occurences per leaf and computes
@@ -1084,7 +1149,6 @@ def memoize(f):
             ret = self[key] = f(key)
             return ret 
     return memodict().__getitem__
-
 class MVND():
     def __init__(self, tree, range, node_id, offset=0):
         r"""Bounded multivariate normal distribution."""
