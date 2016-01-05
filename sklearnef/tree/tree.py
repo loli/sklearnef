@@ -28,7 +28,9 @@ from sklearnef.tree import _diffentropy
 from scipy.stats import mvn # Fortran implementation for multivariate normal CDF estimation
 import scipy.linalg
 from scipy.spatial.distance import mahalanobis, cdist
-from scipy.sparse.csgraph import shortest_path, csgraph_from_dense, dijkstra
+from scipy.sparse.csgraph import csgraph_from_dense, dijkstra
+from sklearn.neighbors import NearestNeighbors
+from scipy.sparse import csc_matrix
 
 try:
     from scipy.stats import multivariate_normal
@@ -869,22 +871,65 @@ class SemiSupervisedDecisionTreeClassifier(DensityBaseTree):
 
     def transduction_optimized(self, Xu, Xl, yl, nns=5):
         r"""
-        Optimized version of transduction.
-        """
-        from sklearn.neighbors import NearestNeighbors
-        from scipy.sparse import csc_matrix
+        Compute the class-memberships of the unlabelled `Xu` samples using
+        geodisic distances on a surface formed by the tree's piecewise
+        Gaussians to the `yl` labelled set `Xl`. This is similar to label
+        propagation.
         
+        !TODO: Should include test for X valid (i.e. C, float32, not sparse, etc.)
+        When used inside forest, this can be disabled.
+        
+        Notes
+        -----
+        This is a version of the original method as described in
+        Criminisi et al. 2012 [1] optimized for speed. Instead of building the
+        complete geodisic surface, the samples are clustered in a pre-processing
+        step and the surface spun only over the euclidean nearest neighbours,
+        which results in a faster shortest path search. In terms of speed and
+        accuracy, this version lies between the accurate and the fast
+        implementations.
+        
+        See also
+        --------
+        transduction_fast
+        transduction_best
+        
+        References
+        ----------
+        .. [1] A. Criminisi, J. Shotton and E. Konukoglu, "Decision Forests: A 
+               Unified Framework for Classification, Regression, Density
+               Estimation, Manifold Learning and Semi-Supervised Learning",
+               Foundations and Trends(r) in Computer Graphics and Vision, Vol. 7,
+               No. 2-3, pp 81-227, 2012.            
+        
+        Parameters
+        ----------
+        Xu : array_like
+            Unlabelled samples.
+        Xl : array_like
+            Labelled samples.
+        yl : array_like
+            Labels of the labelled samples.
+        nns : int
+            Number of nearest neighbours to consider.
+            
+            
+        Returns
+        -------
+        xu : ndarray
+            Labels of the unlabelled samples.        
+        """        
         # prepare
         X = np.vstack((Xu, Xl))
         nu = Xu.shape[0]
         nl = Xl.shape[0]
         
-        # get leaves and other info
+        # get leaves the samples fall into
         leaf_indices = self.tree_.apply(X)
         
-        # compute inverase cov matrices
+        # compute inverse cov matrices
         icovs = dict()
-        for lidx in np.unique(leaf_indices): # assumes to be continuous and zero-based
+        for lidx in np.unique(leaf_indices):
             try:
                 icov = np.linalg.inv(self.mvnds[lidx].cov)
             except LinAlgError:
@@ -902,17 +947,17 @@ class SemiSupervisedDecisionTreeClassifier(DensityBaseTree):
         # create sparse nearest neighbours graph with mahalanobis distances
         dists = np.zeros(nnbrs.size)
         for xid, (x, yids) in enumerate(zip(X, nnbrs)):
-            # forward
+            # forward distance
             icov = icovs[leaf_indices[xid]]
             _y = X.take(yids, axis=0)
             dists[xid * nns: (xid + 1) * nns] = cdist(x.reshape(1, -1), _y, 'mahalanobis', VI=icov)
-            # backward
+            # backward distance
             for ypos, yid in enumerate(yids):
                 icov = icovs[leaf_indices[yid]]
                 y = X[yid]
                 dists[xid * nns + ypos] += mahalanobis(y, x, icov)
 
-        #dists /= 2. #obsolete
+        # convert to a sparse kNN graph with Mahalanobis distances
         sparsedists = csc_matrix((dists, (np.repeat(np.arange(0, nnbrs.shape[0]), nnbrs.shape[1]), nnbrs.flatten())))
         
         # compute shortest paths
@@ -932,7 +977,7 @@ class SemiSupervisedDecisionTreeClassifier(DensityBaseTree):
     def transduction_fast(self, Xu, Xl, yl):
         r"""
         Compute the class-memberships of the unlabelled `Xu` samples using
-        geodisic distances between all unlabelled and labelled samples.
+        Mahalanobis distances between all unlabelled and labelled samples.
         This is similar to label propagation.
         
         !TODO: Should include test for X valid (i.e. C, float32, not sparse, etc.)
@@ -941,13 +986,19 @@ class SemiSupervisedDecisionTreeClassifier(DensityBaseTree):
         Notes
         -----
         This method varies from the original implementation by
-        Criminisi et al. 2012 [1] and might be less accurate in some cases.
-        On the other hand, this implementation is fast enough for practical
-        usage. 
+        Criminisi et al. 2012 [1] in the sense that the path does not follow a
+        geodisic surface. Instead, only the pair-wise Mahlanobis distances
+        between the labelled and unlabelled samples is considered to transfer
+        the labels. This version is much faster but also less accurate than the
+        original.
+        
+        See also
+        --------
+        transduction_best
+        transduction_optimized        
         
         References
         ----------
-    
         .. [1] A. Criminisi, J. Shotton and E. Konukoglu, "Decision Forests: A 
                Unified Framework for Classification, Regression, Density
                Estimation, Manifold Learning and Semi-Supervised Learning",
@@ -1015,19 +1066,26 @@ class SemiSupervisedDecisionTreeClassifier(DensityBaseTree):
     def transduction_best(self, Xu, Xl, yl):
         r"""
         Compute the class-memberships of the unlabelled `Xu` samples using
-        geodisic distances on a surface formed by the trees piecewise
+        geodisic distances on a surface formed by the tree's piecewise
         Gaussians to the `yl` labelled set `Xl`. This is similar to label
         propagation.
+        
+        !TODO: Should include test for X valid (i.e. C, float32, not sparse, etc.)
+        When used inside forest, this can be disabled.
         
         Notes
         -----
         This is the original method as described in Criminisi et al. 2012 [1],
-        which is more correct and does in some cases give better results than
-        the method used by this tree. But it is by magnitudes slower. 
+        i.e. the exact implementation providing the tehoretically optimal results.
+        The drawback is a by magnitudes slower execution speed.
+        
+        See also
+        --------
+        transduction_fast
+        transduction_optimized
         
         References
         ----------
-    
         .. [1] A. Criminisi, J. Shotton and E. Konukoglu, "Decision Forests: A 
                Unified Framework for Classification, Regression, Density
                Estimation, Manifold Learning and Semi-Supervised Learning",
@@ -1047,7 +1105,7 @@ class SemiSupervisedDecisionTreeClassifier(DensityBaseTree):
         -------
         xu : ndarray
             Labels of the unlabelled samples.        
-        """        
+        """
         # prepare
         X = np.vstack((Xu, Xl))
         n = X.shape[0]
