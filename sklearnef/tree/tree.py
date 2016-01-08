@@ -28,9 +28,9 @@ from sklearnef.tree import _diffentropy
 from scipy.stats import mvn # Fortran implementation for multivariate normal CDF estimation
 import scipy.linalg
 from scipy.spatial.distance import mahalanobis, cdist
-from scipy.sparse.csgraph import csgraph_from_dense, dijkstra
+from scipy.sparse.csgraph import csgraph_from_dense, dijkstra, connected_components
 from sklearn.neighbors import NearestNeighbors
-from scipy.sparse import csc_matrix
+from scipy.sparse import csc_matrix, csr_matrix
 
 try:
     from scipy.stats import multivariate_normal
@@ -938,13 +938,19 @@ class SemiSupervisedDecisionTreeClassifier(DensityBaseTree):
             icovs[lidx] = icov
         
         # compute nearest neighbour graph
-        #!TODO: Could be run on Xu only, then nearest neighbours to Xl points found later
-        #!TODO: Does not necessarily result in a connected graph... i.e. some points might not be connected to a labelled sample!
-        #!TODO: Do overcome this, I could calculate the Mahalanbois distance from all labelled points to all unlabelled... but not sure, if this would be a good idea
         nbrs = NearestNeighbors(algorithm='kd_tree', metric='euclidean', n_neighbors=nns+1).fit(X) # +1 since self included
         nnbrs = nbrs.kneighbors(X, return_distance=False)[:,1:] # remove the point itself as nearest neighbour
         
+        # check for number of connected components
+        #sparseconnectivity = csr_matrix((np.ones(nnbrs.size, np.bool),
+        #                                 nnbrs.flatten(),
+        #                                 np.arange(0, nns*(nnbrs.shape[0]+1), nns, dtype=np.uint)),
+        #                                shape=(nnbrs.shape[0], nnbrs.shape[0]))
+        #ncc, _ = connected_components(sparseconnectivity + sparseconnectivity.transpose(), directed=False)
+        #print ncc
+        
         # create sparse nearest neighbours graph with mahalanobis distances
+        # !TODO: Can I remove redunancy from this? Since now, if a connects to b and b to a, the distance is computed two times.
         dists = np.zeros(nnbrs.size)
         for xid, (x, yids) in enumerate(zip(X, nnbrs)):
             # forward distance
@@ -956,16 +962,25 @@ class SemiSupervisedDecisionTreeClassifier(DensityBaseTree):
                 icov = icovs[leaf_indices[yid]]
                 y = X[yid]
                 dists[xid * nns + ypos] += mahalanobis(y, x, icov)
+                
+        # replace possible nans with very small float
+        dists[np.isnan(dists)] = np.finfo(np.float32).tiny
 
         # convert to a sparse kNN graph with Mahalanobis distances
         sparsedists = csc_matrix((dists, (np.repeat(np.arange(0, nnbrs.shape[0]), nnbrs.shape[1]), nnbrs.flatten())))
         
+        # make symmetric
+        sparsedists = sparsedists.maximum(sparsedists.transpose())
+        
         # compute shortest paths
-        #spaths = shortest_path(sparsedists, directed=False)
         spaths = dijkstra(sparsedists, directed=False, indices=range(nu, nu+nl)) # faster version, as only from labelled points
         
+        # check for components not connected with any label
+        if np.any(np.isinf(np.min(spaths[-nl:], axis=0)[:nu])):
+            warnings.warn("Some unlabelled samples are not connected to any labelled samples and will be assigned a random label."\
+                          " Increase the number of neighbours to avoid this.")
+        
         # find nearest labelled samples of each unlabelled sample
-        #argnearest = np.argmin(spaths, axis=0)[:nu]
         argnearest = np.argmin(spaths[-nl:], axis=0)[:nu]
         
         # transfer labels
