@@ -388,19 +388,19 @@ cdef class SemiSupervisedClassificationCriterion(UnSupervisedClassificationCrite
         impurity_left[0] = (1. - supervised_weight) * uimp_impurity_left + supervised_weight * simp_impurity_left
         impurity_right[0] = (1. - supervised_weight) * uimp_impurity_right + supervised_weight * simp_impurity_right 
         
-    cdef double impurity_improvement(self, double impurity) nogil:
-        """!TODO: Delete!"""
-        cdef double impurity_left
-        cdef double impurity_right
-
-        self.children_impurity(&impurity_left, &impurity_right)
-
-        cdef double imp
-        imp = ((self.weighted_n_node_samples / self.weighted_n_samples) *
-                (impurity - self.weighted_n_right / self.weighted_n_node_samples * impurity_right
-                          - self.weighted_n_left / self.weighted_n_node_samples * impurity_left))
-
-        return imp
+#     cdef double impurity_improvement(self, double impurity) nogil:
+#         """!TODO: Delete!"""
+#         cdef double impurity_left
+#         cdef double impurity_right
+# 
+#         self.children_impurity(&impurity_left, &impurity_right)
+# 
+#         cdef double imp
+#         imp = ((self.weighted_n_node_samples / self.weighted_n_samples) *
+#                 (impurity - self.weighted_n_right / self.weighted_n_node_samples * impurity_right
+#                           - self.weighted_n_left / self.weighted_n_node_samples * impurity_left))
+# 
+#         return imp
         
     cdef void node_value(self, double* dest) nogil:
         """

@@ -356,6 +356,11 @@ class SemiSupervisedRandomForestClassifier(BaseDensityForest):
         `RandomForestClassifier` for that effect.
         Note: this parameter is tree-specific.
         
+    min_improvement : float (default=0)
+        The minimum improvement a split must exhibit to be considered adequate.
+        One of the strongest parameters for controlling over-fitting in density
+        trees.
+        
     transduction_method: string, optional (default='fast')
         Allows to selected between a 'best' performing, but slower and a
         'fast' transduction method.
@@ -460,6 +465,7 @@ class SemiSupervisedRandomForestClassifier(BaseDensityForest):
                  max_features="auto",
                  max_leaf_nodes=None,
                  supervised_weight=.5,
+                 min_improvement=0,
                  transduction_method='fast',
                  bootstrap=True,
                  oob_score=False,
@@ -476,6 +482,7 @@ class SemiSupervisedRandomForestClassifier(BaseDensityForest):
                               "min_samples_leaf", "min_weight_fraction_leaf",
                               "max_features", "max_leaf_nodes",
                               "random_state", "supervised_weight",
+                              "min_improvement", 
                               "unsupervised_transformation",
                               "transduction_method"),
             bootstrap=bootstrap,
@@ -494,6 +501,7 @@ class SemiSupervisedRandomForestClassifier(BaseDensityForest):
         self.max_features = max_features
         self.max_leaf_nodes = max_leaf_nodes
         self.supervised_weight = supervised_weight
+        self.min_improvement = min_improvement
         self.unsupervised_transformation = unsupervised_transformation
         self.transduction_method = transduction_method
           

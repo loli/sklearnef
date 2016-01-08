@@ -98,6 +98,7 @@ def main():
                                                max_features=args.max_features,
                                                supervised_weight=args.supervised_weight,
                                                transduction_method=args.transduction_method,
+                                               min_improvement=args.min_improvement,
                                                unsupervised_transformation=None)
     clf.fit(X_train, y_train)
     
@@ -215,6 +216,7 @@ def getParser():
     parser.add_argument('--max-features', default='auto', help='The number of features to consider at each split.')
     parser.add_argument('--transduction-method', default='fast', choices=['fast', 'best', 'optimized'], help='The transduction method to employ.')
     parser.add_argument('--supervised-weight', default=0.5, type=float, help='The weight of the supervised metric against the un-supervised.')
+    parser.add_argument('--min-improvement', default=0, type=float, help='The minimum improvement require to consider a split valid.')
     parser.add_argument('--split-lines', action='store_true', help='Plot the split-lines of the first tree in the forest.')
     parser.add_argument('--resolution', default=0.05, type=float, help='The plotting resolution.')
     parser.add_argument('--seed', default=None, type=int, help='The random seed to use. Fix to an integer to create reproducible results.')

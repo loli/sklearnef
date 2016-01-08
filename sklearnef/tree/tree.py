@@ -555,6 +555,11 @@ class SemiSupervisedDecisionTreeClassifier(DensityBaseTree):
         Note that a clean value of `1.0` is not allowed, at it would lead
         to non max-margin splits. Please use the original `sklearn`
         `DecisionTreeClassifier` for that effect.
+    
+    min_improvement : float (default=0.)
+        The minimum improvement a split must exhibit to be considered adequate.
+        One of the strongest parameters for controlling over-fitting in density
+        trees.
         
     transduction_method: string, optional (default='fast')
         Select between the theoretically ideal 'best', the 'fast' and dirty or the
@@ -680,7 +685,7 @@ class SemiSupervisedDecisionTreeClassifier(DensityBaseTree):
                  max_features=None,
                  random_state=None,
                  max_leaf_nodes=None,
-                 #min_improvement=0,
+                 min_improvement=0,
                  supervised_weight=0.5,
                  transduction_method='fast',
                  unsupervised_transformation='scale',
@@ -700,6 +705,7 @@ class SemiSupervisedDecisionTreeClassifier(DensityBaseTree):
         self.supervised_weight = supervised_weight
         self.unsupervised_transformation = unsupervised_transformation
         self.transduction_method = transduction_method
+        self.min_improvement = min_improvement
         self.transduced_labels_ = None
         
 
@@ -819,7 +825,7 @@ class SemiSupervisedDecisionTreeClassifier(DensityBaseTree):
             self.criterion =  _treeef.SemiSupervisedClassificationCriterion(
                                         X.shape[0],
                                         X.shape[1],
-                                        0, # disable min_improvement stop criteria
+                                        self.min_improvement,
                                         self.supervised_weight,
                                         1, #self.n_outputs_ always 1
                                         n_classes_)
