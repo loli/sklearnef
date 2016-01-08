@@ -557,8 +557,8 @@ class SemiSupervisedDecisionTreeClassifier(DensityBaseTree):
         `DecisionTreeClassifier` for that effect.
         
     transduction_method: string, optional (default='fast')
-        Allows to selected between a 'best' performing, but slower and a
-        'fast' transduction method.
+        Select between the theoretically ideal 'best', the 'fast' and dirty or the
+        'optimized' balanced method.
         
     !TODO: Assert that this is only applied to the non-supervised part of the data.
            Maybe by initializing the Splitter later of something? Is this at all possible?
@@ -1040,7 +1040,7 @@ class SemiSupervisedDecisionTreeClassifier(DensityBaseTree):
             except LinAlgError:
                 v = [SINGULARITY_REGULARIZATION_TERM] * self.mvnds[lidx].cov.shape[0]
                 icov = np.linalg.inv(self.mvnds[lidx].cov + np.diag(v))
-            icov_sqrtm = scipy.linalg.sqrtm(icov)
+            icov_sqrtm = scipy.linalg.sqrtm(icov).real # complex array can ensue, but we don't care about it
             
             # split labelled and unlabelled & transform them
             Xut = X[:nu].dot(icov_sqrtm)
@@ -1128,7 +1128,7 @@ class SemiSupervisedDecisionTreeClassifier(DensityBaseTree):
             except LinAlgError:
                 v = [SINGULARITY_REGULARIZATION_TERM] * self.mvnds[lidx].cov.shape[0]
                 icov = np.linalg.inv(self.mvnds[lidx].cov + np.diag(v))
-            icov_sqrtm = scipy.linalg.sqrtm(icov)
+            icov_sqrtm = scipy.linalg.sqrtm(icov).real # complex array can ensue, but we don't care about it
             
             # transfrom datapoints
             Xt = X.dot(icov_sqrtm)
