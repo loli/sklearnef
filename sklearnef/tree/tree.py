@@ -808,11 +808,11 @@ class SemiSupervisedDecisionTreeClassifier(DensityBaseTree):
         # Expand y by tiling. This will cause the Tree to allocate sufficient
         # memory for storing the gaussian distributions per leaf.
         # !TODO: Can I find a better approach than this?
-        # !TODO: Something is wrong in this calculation!
+        # !TODO: Something is wrong in this calculation?
         s = X.shape[1]**2 + X.shape[1] + 1 # memory requirement (in double)
         t = s // n_classes_[0] + (1 if s % n_classes_[0] else 0) # get tiles by dividing through n_classes
         t += 1 # add one to reserve memory for final class posteriori probability
-        y = np.tile(y, (1, t))
+        y = np.tile(y, (1, t))        
             
         # initialise criterion here, since it requires another syntax than the default ones
         if 'semisupervised' == self.criterion:
@@ -838,7 +838,7 @@ class SemiSupervisedDecisionTreeClassifier(DensityBaseTree):
         else:
             yu = self.transduction_fast(X[mask_unlabelled], X[~mask_unlabelled],
                                         y[~mask_unlabelled][:,0])
-        
+
         self.transduced_labels_ = yu
         
         Xa = np.concatenate((X[mask_unlabelled], X[~mask_unlabelled]), 0)

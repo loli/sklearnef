@@ -32,9 +32,12 @@ rng = np.random.RandomState(1)
 perm = rng.permutation(iris.target.size)
 iris.data = iris.data[perm]
 iris.target = iris.target[perm]
+iris.target_semisup = np.copy(iris.target)
+iris.target_semisup[np.random.randint(0, 2, iris.target_semisup.shape[0]) == 0] = -1
 
 DATASETS = {
     "iris": {"X": iris.data, "y": iris.target},
+    "iris_semisup": {"X": iris.data, "y": iris.target_semisup},
 }
 
 # ---------- Definitions ----------
@@ -120,5 +123,35 @@ def test_semisupervised_as_supervised():
     assert_array_equal(ssprob, sprob)
     assert_array_equal(sspredict, spredict)
     
+def test_class_labels():
+    """Test if the correct class labels are returned."""
+    X = DATASETS["iris_semisup"]["X"]
+    y = np.copy(DATASETS["iris_semisup"]["y"])
     
+    # default labels
+    labels = np.unique(y)[1:]
+    clf = SemiSupervisedDecisionTreeClassifier(random_state=2)
+    clf.fit(X, y)
+    
+    _confirm_only_a_in_b(labels, clf.predict(X), "Predicted continuous labels are wrong.")
+    _confirm_only_a_in_b(labels, clf.transduced_labels_, "Transduced continuous labels are wrong.")
+    
+    # far apart labels
+    for l in labels:
+        y[l == y] += l*100
+    labels = np.unique(y)[1:]
+    clf = SemiSupervisedDecisionTreeClassifier(random_state=2)
+    clf.fit(X, y)
+
+    _confirm_only_a_in_b(labels, clf.predict(X), "Predicted apart labels are wrong.")
+    _confirm_only_a_in_b(labels, clf.transduced_labels_, "Transduced apart labels are wrong.")
+     
+# ---------- Helpers ----------
+def _confirm_only_a_in_b(a, b, msg=None):
+    print a, b
+    occurences = np.zeros(b.shape[0], dtype=np.bool)
+    for l in a:
+        occurences += l == b
+    assert_true(np.all(occurences), msg=msg)
+ 
 
