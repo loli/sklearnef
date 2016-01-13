@@ -531,8 +531,8 @@ class SemiSupervisedRandomForestClassifier(BaseDensityForest):
         transduced_labels = transduced_labels.astype(np.int)
             
         frequencies = [np.bincount(tl) for tl in transduced_labels] # zero-based label count
-        #frequencies = np.asarray([np.pad(fr[1:], (0, self.n_classes_ - fr.shape[0] + 1), mode='constant') for fr in frequencies]) # padd to equal length, removing first (unsupervised) class
-        frequencies = np.asarray([np.pad(fr, (0, self.n_classes_ - fr.shape[0]), mode='constant') for fr in frequencies]) # padd to equal length
+        frequencies = np.asarray([np.pad(fr[1:], (0, self.n_classes_ - fr.shape[0] + 1), mode='constant') for fr in frequencies]) # padd to equal length, removing first (unsupervised) class
+        #frequencies = np.asarray([np.pad(fr, (0, self.n_classes_ - fr.shape[0]), mode='constant') for fr in frequencies]) # padd to equal length
         
         proba = frequencies / float(self.n_estimators)
         

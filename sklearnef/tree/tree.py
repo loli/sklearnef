@@ -938,9 +938,6 @@ class SemiSupervisedDecisionTreeClassifier(DensityBaseTree):
             icovs[lidx] = icov
         
         # compute nearest neighbour graph
-        #!TODO: Could be run on Xu only, then nearest neighbours to Xl points found later
-        #!TODO: Does not necessarily result in a connected graph... i.e. some points might not be connected to a labelled sample!
-        #!TODO: Do overcome this, I could calculate the Mahalanbois distance from all labelled points to all unlabelled... but not sure, if this would be a good idea
         nbrs = NearestNeighbors(algorithm='kd_tree', metric='euclidean', n_neighbors=nns+1).fit(X) # +1 since self included
         nnbrs = nbrs.kneighbors(X, return_distance=False)[:,1:] # remove the point itself as nearest neighbour
         
@@ -967,6 +964,12 @@ class SemiSupervisedDecisionTreeClassifier(DensityBaseTree):
         # find nearest labelled samples of each unlabelled sample
         #argnearest = np.argmin(spaths, axis=0)[:nu]
         argnearest = np.argmin(spaths[-nl:], axis=0)[:nu]
+        # Note on connectedness:
+        #  If a unlabelled sample happens to be not connected to any labelled sample, this version simply picks a random label for it.
+        
+        #!TODO: To avoid this, I could find them out (inf entries in np.min(spaths[-nl:], axis=0)[:nu]) and then simply compute the
+        # euclidean distance to the nearest labelled sample for them... but ths might not be the ideal solution, I think.
+        #!TODO: Find a better appraoch! But not the one taken for (transduction_optimized_alt)
         
         # transfer labels
         yu = yl[argnearest]
@@ -1158,7 +1161,7 @@ class SemiSupervisedDecisionTreeClassifier(DensityBaseTree):
                 icov = np.linalg.inv(self.mvnds[lidx].cov + np.diag(v))
             icov_sqrtm = scipy.linalg.sqrtm(icov)
             
-            # split labelled and unlabelled & transform them
+            # split labelled and unlabelled & transform them (Note: this approach results in a Mahalanobis distance)
             Xut = X[:nu].dot(icov_sqrtm)
             Xlt = X[nu:].dot(icov_sqrtm)
             
@@ -1168,8 +1171,8 @@ class SemiSupervisedDecisionTreeClassifier(DensityBaseTree):
             # l => u
             pdists.T[ml] += cdist(Xlt[ml], Xut, 'euclidean')
          
-        # compute average of directed distances
-        pdists *= 0.5
+        # compute average of directed distances (not required, min is the same)
+        # pdists *= 0.5
 
         # find nearest labelled samples of each unlabelled sample
         argnearest = np.argmin(pdists, axis=1)
@@ -1234,7 +1237,7 @@ class SemiSupervisedDecisionTreeClassifier(DensityBaseTree):
         # allocate memory for pairwise distances
         pdists = np.zeros((nu, n))
         
-        # transform all samples // iterate over leaves involved // only from unlabelled to labelled
+        # transform all samples // iterate over leaves involved // from unlabelled to all
         for lidx in np.unique(leaf_indices):
             m = (lidx == leaf_indices)
             mu = m[:nu]
@@ -1255,9 +1258,8 @@ class SemiSupervisedDecisionTreeClassifier(DensityBaseTree):
             # l to all u
             pdists.T[ml] += cdist(Xt[nu:][ml], Xt[:nu], 'euclidean')
         
-        # combine undirected weight and average
+        # combine undirected weights and set lower triangular part to zero
         pdists[:nu][np.triu_indices(nu, 1)] += pdists[:nu].T[np.triu_indices(nu, 1)]
-        pdists *= 0.5
         pdists[:nu][np.tril_indices(nu)] = 0
         
         # remove possible nans and infs
@@ -1276,7 +1278,7 @@ class SemiSupervisedDecisionTreeClassifier(DensityBaseTree):
         spaths = dijkstra(pdists_sparse, directed=False, indices=range(nu, n))
 
         # find nearest labelled samples of each unlabelled sample
-        argnearest = np.argmin(spaths[-nl:], axis=0)[:nu] #!TODO: This doe snot seem to make sende, see _optimized version
+        argnearest = np.argmin(spaths[-nl:], axis=0)[:nu]
         
         # transfer labels
         yu = yl[argnearest]
