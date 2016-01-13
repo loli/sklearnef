@@ -356,6 +356,11 @@ class SemiSupervisedRandomForestClassifier(BaseDensityForest):
         `RandomForestClassifier` for that effect.
         Note: this parameter is tree-specific.
         
+    min_improvement : float (default=0)
+        The minimum improvement a split must exhibit to be considered adequate.
+        One of the strongest parameters for controlling over-fitting in density
+        trees.
+        
     transduction_method: string, optional (default='fast')
         Allows to selected between a 'best' performing, but slower and a
         'fast' transduction method.
@@ -460,6 +465,7 @@ class SemiSupervisedRandomForestClassifier(BaseDensityForest):
                  max_features="auto",
                  max_leaf_nodes=None,
                  supervised_weight=.5,
+                 min_improvement=0,
                  transduction_method='fast',
                  bootstrap=True,
                  oob_score=False,
@@ -476,6 +482,7 @@ class SemiSupervisedRandomForestClassifier(BaseDensityForest):
                               "min_samples_leaf", "min_weight_fraction_leaf",
                               "max_features", "max_leaf_nodes",
                               "random_state", "supervised_weight",
+                              "min_improvement", 
                               "unsupervised_transformation",
                               "transduction_method"),
             bootstrap=bootstrap,
@@ -494,6 +501,7 @@ class SemiSupervisedRandomForestClassifier(BaseDensityForest):
         self.max_features = max_features
         self.max_leaf_nodes = max_leaf_nodes
         self.supervised_weight = supervised_weight
+        self.min_improvement = min_improvement
         self.unsupervised_transformation = unsupervised_transformation
         self.transduction_method = transduction_method
           
@@ -516,27 +524,22 @@ class SemiSupervisedRandomForestClassifier(BaseDensityForest):
 
         Returns
         -------
-        transduced_prob_ : array, shape = [n_unlabelled_samples, n_classes]
+        transduced_proba_ : array, shape = [n_unlabelled_samples, n_classes]
         """
         if self.estimators_ is None or len(self.estimators_) == 0:
             raise ValueError("Estimator not fitted, "
-                             "call `fit` before `transduced_prob_`.")
+                             "call `fit` before `transduced_proba_`.")
         
-        _, classes_zero_based = np.unique(self.classes_, return_inverse=True)
-        
+        # get transduced labels (1 based)
         transduced_labels = np.dstack([est.transduced_labels_ for est in self.estimators_])[0]
-    
-        for cid, czidx in zip(self.classes_, classes_zero_based): # convert to a zero-based index ordering
-            transduced_labels[cid == transduced_labels] = czidx
-        transduced_labels = transduced_labels.astype(np.int)
-            
-        frequencies = [np.bincount(tl) for tl in transduced_labels] # zero-based label count
-        frequencies = np.asarray([np.pad(fr[1:], (0, self.n_classes_ - fr.shape[0] + 1), mode='constant') for fr in frequencies]) # padd to equal length, removing first (unsupervised) class
-        #frequencies = np.asarray([np.pad(fr, (0, self.n_classes_ - fr.shape[0]), mode='constant') for fr in frequencies]) # padd to equal length
-        
+        # convert to 0 based
+        transduced_labels -= 1
+        # count occurrences
+        frequencies = np.asarray([np.bincount(tl, minlength=self.n_classes_) for tl in transduced_labels.astype(np.int)])
+        # convert to probabilities
         proba = frequencies / float(self.n_estimators)
         
-        return proba[:,classes_zero_based] # re-order to original class order
+        return proba
               
     def _validate_y_class_weight(self, y):
         y = np.copy(y)

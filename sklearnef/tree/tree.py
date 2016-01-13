@@ -28,9 +28,9 @@ from sklearnef.tree import _diffentropy
 from scipy.stats import mvn # Fortran implementation for multivariate normal CDF estimation
 import scipy.linalg
 from scipy.spatial.distance import mahalanobis, cdist
-from scipy.sparse.csgraph import csgraph_from_dense, dijkstra
+from scipy.sparse.csgraph import csgraph_from_dense, dijkstra, connected_components
 from sklearn.neighbors import NearestNeighbors
-from scipy.sparse import csc_matrix
+from scipy.sparse import csc_matrix, csr_matrix
 
 try:
     from scipy.stats import multivariate_normal
@@ -555,10 +555,15 @@ class SemiSupervisedDecisionTreeClassifier(DensityBaseTree):
         Note that a clean value of `1.0` is not allowed, at it would lead
         to non max-margin splits. Please use the original `sklearn`
         `DecisionTreeClassifier` for that effect.
+    
+    min_improvement : float (default=0.)
+        The minimum improvement a split must exhibit to be considered adequate.
+        One of the strongest parameters for controlling over-fitting in density
+        trees.
         
     transduction_method: string, optional (default='fast')
-        Allows to selected between a 'best' performing, but slower and a
-        'fast' transduction method.
+        Select between the theoretically ideal 'best', the 'fast' and dirty or the
+        'optimized' balanced method.
         
     !TODO: Assert that this is only applied to the non-supervised part of the data.
            Maybe by initializing the Splitter later of something? Is this at all possible?
@@ -680,7 +685,7 @@ class SemiSupervisedDecisionTreeClassifier(DensityBaseTree):
                  max_features=None,
                  random_state=None,
                  max_leaf_nodes=None,
-                 #min_improvement=0,
+                 min_improvement=0,
                  supervised_weight=0.5,
                  transduction_method='fast',
                  unsupervised_transformation='scale',
@@ -700,6 +705,7 @@ class SemiSupervisedDecisionTreeClassifier(DensityBaseTree):
         self.supervised_weight = supervised_weight
         self.unsupervised_transformation = unsupervised_transformation
         self.transduction_method = transduction_method
+        self.min_improvement = min_improvement
         self.transduced_labels_ = None
         
 
@@ -808,18 +814,18 @@ class SemiSupervisedDecisionTreeClassifier(DensityBaseTree):
         # Expand y by tiling. This will cause the Tree to allocate sufficient
         # memory for storing the gaussian distributions per leaf.
         # !TODO: Can I find a better approach than this?
-        # !TODO: Something is wrong in this calculation!
+        # !TODO: Something is wrong in this calculation?
         s = X.shape[1]**2 + X.shape[1] + 1 # memory requirement (in double)
         t = s // n_classes_[0] + (1 if s % n_classes_[0] else 0) # get tiles by dividing through n_classes
         t += 1 # add one to reserve memory for final class posteriori probability
-        y = np.tile(y, (1, t))
+        y = np.tile(y, (1, t))        
             
         # initialise criterion here, since it requires another syntax than the default ones
         if 'semisupervised' == self.criterion:
             self.criterion =  _treeef.SemiSupervisedClassificationCriterion(
                                         X.shape[0],
                                         X.shape[1],
-                                        0, # disable min_improvement stop criteria
+                                        self.min_improvement,
                                         self.supervised_weight,
                                         1, #self.n_outputs_ always 1
                                         n_classes_)
@@ -838,7 +844,7 @@ class SemiSupervisedDecisionTreeClassifier(DensityBaseTree):
         else:
             yu = self.transduction_fast(X[mask_unlabelled], X[~mask_unlabelled],
                                         y[~mask_unlabelled][:,0])
-        
+
         self.transduced_labels_ = yu
         
         Xa = np.concatenate((X[mask_unlabelled], X[~mask_unlabelled]), 0)
@@ -941,7 +947,16 @@ class SemiSupervisedDecisionTreeClassifier(DensityBaseTree):
         nbrs = NearestNeighbors(algorithm='kd_tree', metric='euclidean', n_neighbors=nns+1).fit(X) # +1 since self included
         nnbrs = nbrs.kneighbors(X, return_distance=False)[:,1:] # remove the point itself as nearest neighbour
         
+        # check for number of connected components
+        #sparseconnectivity = csr_matrix((np.ones(nnbrs.size, np.bool),
+        #                                 nnbrs.flatten(),
+        #                                 np.arange(0, nns*(nnbrs.shape[0]+1), nns, dtype=np.uint)),
+        #                                shape=(nnbrs.shape[0], nnbrs.shape[0]))
+        #ncc, _ = connected_components(sparseconnectivity + sparseconnectivity.transpose(), directed=False)
+        #print ncc
+        
         # create sparse nearest neighbours graph with mahalanobis distances
+        # !TODO: Can I remove redunancy from this? Since now, if a connects to b and b to a, the distance is computed two times.
         dists = np.zeros(nnbrs.size)
         for xid, (x, yids) in enumerate(zip(X, nnbrs)):
             # forward distance
@@ -953,16 +968,25 @@ class SemiSupervisedDecisionTreeClassifier(DensityBaseTree):
                 icov = icovs[leaf_indices[yid]]
                 y = X[yid]
                 dists[xid * nns + ypos] += mahalanobis(y, x, icov)
+                
+        # replace possible nans with very small float
+        dists[np.isnan(dists)] = np.finfo(np.float32).tiny
 
         # convert to a sparse kNN graph with Mahalanobis distances
         sparsedists = csc_matrix((dists, (np.repeat(np.arange(0, nnbrs.shape[0]), nnbrs.shape[1]), nnbrs.flatten())))
         
+        # make symmetric
+        sparsedists = sparsedists.maximum(sparsedists.transpose())
+        
         # compute shortest paths
-        #spaths = shortest_path(sparsedists, directed=False)
         spaths = dijkstra(sparsedists, directed=False, indices=range(nu, nu+nl)) # faster version, as only from labelled points
         
+        # check for components not connected with any label
+        if np.any(np.isinf(np.min(spaths[-nl:], axis=0)[:nu])):
+            warnings.warn("Some unlabelled samples are not connected to any labelled samples and will be assigned a random label."\
+                          " Increase the number of neighbours to avoid this.")
+        
         # find nearest labelled samples of each unlabelled sample
-        #argnearest = np.argmin(spaths, axis=0)[:nu]
         argnearest = np.argmin(spaths[-nl:], axis=0)[:nu]
         # Note on connectedness:
         #  If a unlabelled sample happens to be not connected to any labelled sample, this version simply picks a random label for it.
@@ -1159,7 +1183,7 @@ class SemiSupervisedDecisionTreeClassifier(DensityBaseTree):
             except LinAlgError:
                 v = [SINGULARITY_REGULARIZATION_TERM] * self.mvnds[lidx].cov.shape[0]
                 icov = np.linalg.inv(self.mvnds[lidx].cov + np.diag(v))
-            icov_sqrtm = scipy.linalg.sqrtm(icov)
+            icov_sqrtm = scipy.linalg.sqrtm(icov).real # complex array can ensue, but we don't care about it
             
             # split labelled and unlabelled & transform them (Note: this approach results in a Mahalanobis distance)
             Xut = X[:nu].dot(icov_sqrtm)
@@ -1247,7 +1271,7 @@ class SemiSupervisedDecisionTreeClassifier(DensityBaseTree):
             except LinAlgError:
                 v = [SINGULARITY_REGULARIZATION_TERM] * self.mvnds[lidx].cov.shape[0]
                 icov = np.linalg.inv(self.mvnds[lidx].cov + np.diag(v))
-            icov_sqrtm = scipy.linalg.sqrtm(icov)
+            icov_sqrtm = scipy.linalg.sqrtm(icov).real # complex array can ensue, but we don't care about it
             
             # transfrom datapoints
             Xt = X.dot(icov_sqrtm)
