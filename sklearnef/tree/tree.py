@@ -995,6 +995,128 @@ class SemiSupervisedDecisionTreeClassifier(DensityBaseTree):
         
         # find nearest labelled samples of each unlabelled sample
         argnearest = np.argmin(spaths[-nl:], axis=0)[:nu]
+        # Note on connectedness:
+        #  If a unlabelled sample happens to be not connected to any labelled sample, this version simply picks a random label for it.
+        
+        #!TODO: To avoid this, I could find them out (inf entries in np.min(spaths[-nl:], axis=0)[:nu]) and then simply compute the
+        # euclidean distance to the nearest labelled sample for them... but ths might not be the ideal solution, I think.
+        #!TODO: Find a better appraoch! But not the one taken for (transduction_optimized_alt)
+        
+        # transfer labels
+        yu = yl[argnearest]
+
+        return yu
+
+    def transduction_optimized_alt(self, Xu, Xl, yl, nns=5):
+        r"""
+        !NOTE: A version that should take care of the possibly unconnected components after the kNN graph construction.
+               While it does this, it at the same time worsens the results manyfold!
+        
+        Compute the class-memberships of the unlabelled `Xu` samples using
+        geodisic distances on a surface formed by the tree's piecewise
+        Gaussians to the `yl` labelled set `Xl`. This is similar to label
+        propagation.
+        
+        !TODO: Should include test for X valid (i.e. C, float32, not sparse, etc.)
+        When used inside forest, this can be disabled.
+        
+        Notes
+        -----
+        This is a version of the original method as described in
+        Criminisi et al. 2012 [1] optimized for speed. Instead of building the
+        complete geodisic surface, the samples are clustered in a pre-processing
+        step and the surface spun only over the euclidean nearest neighbours,
+        which results in a faster shortest path search. In terms of speed and
+        accuracy, this version lies between the accurate and the fast
+        implementations.
+        
+        See also
+        --------
+        transduction_fast
+        transduction_best
+        
+        References
+        ----------
+        .. [1] A. Criminisi, J. Shotton and E. Konukoglu, "Decision Forests: A 
+               Unified Framework for Classification, Regression, Density
+               Estimation, Manifold Learning and Semi-Supervised Learning",
+               Foundations and Trends(r) in Computer Graphics and Vision, Vol. 7,
+               No. 2-3, pp 81-227, 2012.            
+        
+        Parameters
+        ----------
+        Xu : array_like
+            Unlabelled samples.
+        Xl : array_like
+            Labelled samples.
+        yl : array_like
+            Labels of the labelled samples.
+        nns : int
+            Number of nearest neighbours to consider.
+            
+            
+        Returns
+        -------
+        xu : ndarray
+            Labels of the unlabelled samples.        
+        """        
+        # prepare
+        X = np.vstack((Xu, Xl))
+        nu = Xu.shape[0]
+        nl = Xl.shape[0]
+        
+        # get leaves the samples fall into
+        leaf_indices = self.tree_.apply(X)
+        
+        # compute inverse cov matrices
+        icovs = dict()
+        for lidx in np.unique(leaf_indices):
+            try:
+                icov = np.linalg.inv(self.mvnds[lidx].cov)
+            except LinAlgError:
+                v = [SINGULARITY_REGULARIZATION_TERM] * self.mvnds[lidx].cov.shape[0]
+                icov = np.linalg.inv(self.mvnds[lidx].cov + np.diag(v))
+            icovs[lidx] = icov
+        
+        # compute nearest neighbour graph for Xu
+        nbrs = NearestNeighbors(algorithm='kd_tree', metric='euclidean', n_neighbors=nns+1).fit(Xu) # +1 since self included
+        nnbrs = nbrs.kneighbors(Xu, return_distance=False)[:,1:] # remove the point itself as nearest neighbour
+        # Note on NearestNeighbors: 
+        #  This algorithm can return a graph with unconnected components
+        
+        # extend by adding the labelled points as nearest neighbours to each unlabelled point: this approach avoids a graph with unconnected components
+        nnbrs = np.concatenate((nnbrs, np.tile(np.arange(nu, nu+nl), (nnbrs.shape[0], 1))), axis=1)
+        nns_plus_nl = nns + nl
+        
+        # create sparse nearest neighbours graph with mahalanobis distances for
+        dists = np.zeros(nnbrs.size)
+        for xid, (x, yids) in enumerate(zip(Xu, nnbrs)):
+            # forward distance
+            icov = icovs[leaf_indices[xid]]
+            _y = X.take(yids, axis=0)
+            dists[xid * nns_plus_nl: (xid + 1) * nns_plus_nl] = cdist(x.reshape(1, -1), _y, 'mahalanobis', VI=icov)
+            # backward distance
+            for ypos, yid in enumerate(yids):
+                icov = icovs[leaf_indices[yid]]
+                y = X[yid]
+                dists[xid * nns + ypos] += mahalanobis(y, x, icov)
+
+        # convert to a sparse kNN graph with Mahalanobis distances
+        sparsedists = csc_matrix((dists, (np.repeat(np.arange(0, nnbrs.shape[0]), nnbrs.shape[1]), nnbrs.flatten())), shape=(nu+nl, nu+nl))
+        
+        # compute shortest paths
+        #spaths = shortest_path(sparsedists, directed=False)
+        spaths = dijkstra(sparsedists, directed=False, indices=range(nu, nu+nl)) # faster version, as only from labelled points
+        # Note on dijkstra \w directed=False:
+        #   If there's an entry for i->j as well as j-> i, Dijkstra intelligently selects the lower one as cost
+        #   Wether there's an entry for i->j or j->i does not matter
+        #   => i.e. pretty much fail save
+        # Note on dijkstra on graph with unconnected components:
+        #  The algorithm then returns inf distances between the components
+         
+        # find nearest labelled samples of each unlabelled sample
+        #argnearest = np.argmin(spaths, axis=0)[:nu]
+        argnearest = np.argmin(spaths[-nl:], axis=0)[:nu]
         
         # transfer labels
         yu = yl[argnearest]
@@ -1070,7 +1192,7 @@ class SemiSupervisedDecisionTreeClassifier(DensityBaseTree):
                 icov = np.linalg.inv(self.mvnds[lidx].cov + np.diag(v))
             icov_sqrtm = scipy.linalg.sqrtm(icov).real # complex array can ensue, but we don't care about it
             
-            # split labelled and unlabelled & transform them
+            # split labelled and unlabelled & transform them (Note: this approach results in a Mahalanobis distance)
             Xut = X[:nu].dot(icov_sqrtm)
             Xlt = X[nu:].dot(icov_sqrtm)
             
@@ -1080,8 +1202,8 @@ class SemiSupervisedDecisionTreeClassifier(DensityBaseTree):
             # l => u
             pdists.T[ml] += cdist(Xlt[ml], Xut, 'euclidean')
          
-        # compute average of directed distances
-        pdists *= 0.5
+        # compute average of directed distances (not required, min is the same)
+        # pdists *= 0.5
 
         # find nearest labelled samples of each unlabelled sample
         argnearest = np.argmin(pdists, axis=1)
@@ -1146,7 +1268,7 @@ class SemiSupervisedDecisionTreeClassifier(DensityBaseTree):
         # allocate memory for pairwise distances
         pdists = np.zeros((nu, n))
         
-        # transform all samples // iterate over leaves involved // only from unlabelled to labelled
+        # transform all samples // iterate over leaves involved // from unlabelled to all
         for lidx in np.unique(leaf_indices):
             m = (lidx == leaf_indices)
             mu = m[:nu]
@@ -1167,9 +1289,8 @@ class SemiSupervisedDecisionTreeClassifier(DensityBaseTree):
             # l to all u
             pdists.T[ml] += cdist(Xt[nu:][ml], Xt[:nu], 'euclidean')
         
-        # combine undirected weight and average
+        # combine undirected weights and set lower triangular part to zero
         pdists[:nu][np.triu_indices(nu, 1)] += pdists[:nu].T[np.triu_indices(nu, 1)]
-        pdists *= 0.5
         pdists[:nu][np.tril_indices(nu)] = 0
         
         # remove possible nans and infs
@@ -1188,7 +1309,7 @@ class SemiSupervisedDecisionTreeClassifier(DensityBaseTree):
         spaths = dijkstra(pdists_sparse, directed=False, indices=range(nu, n))
 
         # find nearest labelled samples of each unlabelled sample
-        argnearest = np.argmin(spaths[-nl:], axis=0)[:nu] #!TODO: This doe snot seem to make sende, see _optimized version
+        argnearest = np.argmin(spaths[-nl:], axis=0)[:nu]
         
         # transfer labels
         yu = yl[argnearest]
