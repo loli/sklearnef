@@ -365,6 +365,10 @@ class SemiSupervisedRandomForestClassifier(BaseDensityForest):
         Allows to selected between a 'best' performing, but slower and a
         'fast' transduction method.
         
+    transduction_optimized_n_knn: int, optional (default=5)
+        Use this to set the number of k nearest neighbours when having selected
+        'optimized' as transduction_method`.
+        
     !TODO: Implement this to be applied during the forest only, to avoid costly re-
     computation?
     !TODO: At least one labelled samples must be provided.
@@ -467,6 +471,7 @@ class SemiSupervisedRandomForestClassifier(BaseDensityForest):
                  supervised_weight=.5,
                  min_improvement=0,
                  transduction_method='fast',
+                 transduction_optimized_n_knn=5,
                  bootstrap=True,
                  oob_score=False,
                  n_jobs=1,
@@ -482,9 +487,10 @@ class SemiSupervisedRandomForestClassifier(BaseDensityForest):
                               "min_samples_leaf", "min_weight_fraction_leaf",
                               "max_features", "max_leaf_nodes",
                               "random_state", "supervised_weight",
-                              "min_improvement", 
+                              "min_improvement",
                               "unsupervised_transformation",
-                              "transduction_method"),
+                              "transduction_method",
+                              "transduction_optimized_n_knn"),
             bootstrap=bootstrap,
             oob_score=oob_score,
             n_jobs=n_jobs,
@@ -504,6 +510,7 @@ class SemiSupervisedRandomForestClassifier(BaseDensityForest):
         self.min_improvement = min_improvement
         self.unsupervised_transformation = unsupervised_transformation
         self.transduction_method = transduction_method
+        self.transduction_optimized_n_knn = transduction_optimized_n_knn
           
     @property
     def transduced_labels_(self):

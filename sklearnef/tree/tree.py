@@ -565,6 +565,10 @@ class SemiSupervisedDecisionTreeClassifier(DensityBaseTree):
         Select between the theoretically ideal 'best', the 'fast' and dirty or the
         'optimized' balanced method.
         
+    transduction_optimized_n_knn: int, optional (default=5)
+        Use this to set the number of k nearest neighbours when having selected
+        'optimized' as transduction_method`.
+        
     !TODO: Assert that this is only applied to the non-supervised part of the data.
            Maybe by initializing the Splitter later of something? Is this at all possible?
     !TODO: Very difficult to achieve such a behaviour. First test with overall PCA and/or
@@ -688,6 +692,7 @@ class SemiSupervisedDecisionTreeClassifier(DensityBaseTree):
                  min_improvement=0,
                  supervised_weight=0.5,
                  transduction_method='fast',
+                 transduction_optimized_n_knn=5,
                  unsupervised_transformation='scale',
                  class_weight=None):
         super(SemiSupervisedDecisionTreeClassifier, self).__init__(
@@ -707,6 +712,7 @@ class SemiSupervisedDecisionTreeClassifier(DensityBaseTree):
         self.transduction_method = transduction_method
         self.min_improvement = min_improvement
         self.transduced_labels_ = None
+        self.transduction_optimized_n_knn=transduction_optimized_n_knn
         
 
         if not 'semisupervised' == criterion:
@@ -840,7 +846,8 @@ class SemiSupervisedDecisionTreeClassifier(DensityBaseTree):
                                         y[~mask_unlabelled][:,0])
         if self.transduction_method == 'optimized':
             yu = self.transduction_optimized(X[mask_unlabelled], X[~mask_unlabelled],
-                                             y[~mask_unlabelled][:,0])
+                                             y[~mask_unlabelled][:,0],
+                                             nns=self.transduction_optimized_n_knn)
         else:
             yu = self.transduction_fast(X[mask_unlabelled], X[~mask_unlabelled],
                                         y[~mask_unlabelled][:,0])
