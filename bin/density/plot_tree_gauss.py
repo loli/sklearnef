@@ -13,7 +13,7 @@ import matplotlib.pyplot as plt
 # path changes
 
 # own modules
-from sklearnef.tree import UnSupervisedDecisionTreeClassifier
+from sklearnef.tree import DensityTree
 from sklearnef.tree import GoodnessOfFit, MECDF
 
 # information
@@ -66,10 +66,10 @@ def main():
     
     
     # ----- Training -----
-    clf = UnSupervisedDecisionTreeClassifier(random_state=args.seed,
-                                             min_samples_leaf=N_FEATURES,
-                                             max_features=None,
-                                             min_improvement=args.min_improvement)
+    clf = DensityTree(random_state=args.seed,
+                      min_samples_leaf=N_FEATURES,
+                      max_features=None,
+                      min_improvement=args.min_improvement)
     clf.fit(X_train)
     
     # ----- Prediction -----
@@ -84,11 +84,11 @@ def main():
 
     # ----- Goodness of fit measure -----
     X_eval = np.concatenate([scipy.stats.multivariate_normal.rvs(mean, cov, args.n_samples) for mean, cov in zip(means, covs)])
-    gof = GoodnessOfFit(clf.cdf, X_eval, resolution=200)
-    print 'Goodness of fit evaluation over {}^{} grid-points:'.format(200, X_eval.shape[1])
-    print '\tkolmogorov_smirnov:', gof.kolmogorov_smirnov()
-    print '\tmean_squared_error:', gof.mean_squared_error()
-    print '\tmean_squared_error_weighted:', gof.mean_squared_error_weighted(clf.pdf)
+    gof = GoodnessOfFit(clf.cdf, X_eval)
+    print 'Goodness of fit evaluation:'
+    print '\tmaxium error:', gof.maximum()
+    print '\tmean squared error:', gof.mean_squared_error()
+    print '\tmean squared error weighted:', gof.mean_squared_error_weighted(clf.pdf)
     
     # ----- E(M)CDF -----
     emcdf = gof.ecdf(X_test_pred)

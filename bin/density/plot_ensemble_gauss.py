@@ -13,7 +13,7 @@ import matplotlib.pyplot as plt
 # path changes
 
 # own modules
-from sklearnef.ensemble import UnSupervisedRandomForestClassifier
+from sklearnef.ensemble import DensityForest
 
 # information
 __author__ = "Oskar Maier"
@@ -65,12 +65,12 @@ def main():
     
     
     # ----- Training -----
-    clf = UnSupervisedRandomForestClassifier(n_estimators=args.n_trees,
-                                             random_state=args.seed,
-                                             min_samples_leaf=N_FEATURES,
-                                             n_jobs=-1,
-                                             max_features='auto',
-                                             min_improvement=args.min_improvement)
+    clf = DensityForest(n_estimators=args.n_trees,
+                        random_state=args.seed,
+                        min_samples_leaf=N_FEATURES,
+                        n_jobs=-1,
+                        max_features='auto',
+                        min_improvement=args.min_improvement)
     clf.fit(X_train)
     
     # ----- Prediction -----

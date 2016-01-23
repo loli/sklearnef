@@ -18,7 +18,7 @@ from sklearnef.ensemble import DensityForest
 
 # information
 __author__ = "Oskar Maier"
-__version__ = "r0.1.1, 2015-06-08"
+__version__ = "r0.1.2, 2015-06-08"
 __email__ = "oskar.maier@googlemail.com"
 __status__ = "Release"
 __description__ = """
@@ -81,24 +81,39 @@ def main():
     x = np.unique(x)
     y = np.unique(y)
     
-    # first plot: gt
-    plt.subplot(2, 1, 1, axisbg='k')
+    if not args.skipgt:
+        if not args.skipdensity:
+            plt.subplot(2, 1, 1, axisbg='k')
+            plot_gt(X, x, y, args)
+            plt.subplot(2, 1, 2)
+            plot_density(prob_predict, x, y, args)
+        else:
+            plt.subplot(1, 1, 1, axisbg='k')
+            plot_gt(X, x, y, args)
+    else:
+        plt.subplot(1, 1, 2)
+        plot_density(prob_predict, x, y, args)
+    
+    if args.save:
+        plt.savefig(args.save)
+    else:
+        plt.show()
+    
+def plot_gt(X, x, y, args):
     plt.scatter(X[:, 0], X[:, 1], c='w', alpha=.3, edgecolors='none')
     
     plt.xlim(min(x),max(x))
     plt.ylim(min(y),max(y))
     plt.title('GT: {}'.format(args.dataset))
     
-    # second plot: prediction
-    plt.subplot(2, 1, 2)
-    im = plt.imshow(prob_predict.reshape((x.size,y.size)).T, extent=[min(x),max(x),min(y),max(y)], interpolation='none', cmap=plt.cm.afmhot, aspect='auto', origin='lower') #'auto'
+def plot_density(prob_predict, x, y, args):
+    plt.imshow(prob_predict.reshape((x.size,y.size)).T, extent=[min(x),max(x),min(y),max(y)], interpolation='none', cmap=plt.cm.afmhot, aspect='auto', origin='lower') #'auto'
     plt.colorbar()
     
     plt.xlim(min(x),max(x))
     plt.ylim(min(y),max(y))
     plt.title('Learned density: {}'.format(args.dataset))
     
-    plt.show()
     
 def getArguments(parser):
     "Provides additional validation of the arguments collected by argparse."
@@ -113,6 +128,9 @@ def getParser():
     parser.add_argument('--min-improvement', default=0, type=float, help='The minimum improvement require to consider a split valid.')
     parser.add_argument('--resolution', default=0.01, type=float, help='The plotting resolution.')
     parser.add_argument('--seed', default=None, type=int, help='The random seed to use. Fix to an integer to create reproducible results.')
+    parser.add_argument('--save', help='Save the plot into an image file instead of plotting it.')
+    parser.add_argument('--skipgt', action='store_true', help='Do not plot the ground truth image.')
+    parser.add_argument('--skipdensity', action='store_true', help='Do not plot the density image.')
 
     parser.add_argument('-v', dest='verbose', action='store_true', help='Display more information.')
     parser.add_argument('-d', dest='debug', action='store_true', help='Display debug information.')

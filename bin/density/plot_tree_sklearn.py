@@ -14,7 +14,7 @@ from sklearn.preprocessing import StandardScaler
 # path changes
 
 # own modules
-from sklearnef.ensemble import UnSupervisedRandomForestClassifier
+from sklearnef.ensemble import DensityForest
 
 # information
 __author__ = "Oskar Maier"
@@ -64,12 +64,12 @@ def main():
     grid = np.mgrid[x_lower:x_upper:args.resolution,y_lower:y_upper:args.resolution]
     
     # ----- Training -----
-    clf = UnSupervisedRandomForestClassifier(n_estimators=1,
-                                             random_state=args.seed,
-                                             min_samples_leaf=2,
-                                             n_jobs=-1, bootstrap=False,
-                                             max_features=None,
-                                             min_improvement=args.min_improvement)
+    clf = DensityForest(n_estimators=1,
+                        random_state=args.seed,
+                        min_samples_leaf=2,
+                        n_jobs=-1, bootstrap=False,
+                        max_features=None,
+                        min_improvement=args.min_improvement)
     clf.fit(X)
     
     # ----- Prediction -----

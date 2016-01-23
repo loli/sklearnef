@@ -12,7 +12,7 @@ import matplotlib.pyplot as plt
 # path changes
 
 # own modules
-from sklearnef.ensemble import UnSupervisedRandomForestClassifier
+from sklearnef.ensemble import DensityForest
 
 # information
 __author__ = "Oskar Maier"
@@ -35,12 +35,12 @@ def main():
         raise Exception("Can only plot 2D datasets.")
     
     # train forest
-    clf = UnSupervisedRandomForestClassifier(n_estimators=args.n_trees,
-                                             random_state=args.seed,
-                                             min_samples_leaf=2,
-                                             n_jobs=-1,
-                                             max_features='auto',
-                                             min_improvement=args.min_improvement)
+    clf = DensityForest(n_estimators=args.n_trees,
+                        random_state=args.seed,
+                        min_samples_leaf=2,
+                        n_jobs=-1,
+                        max_features='auto',
+                        min_improvement=args.min_improvement)
     clf.fit(data)
     
     # generate plot grid
