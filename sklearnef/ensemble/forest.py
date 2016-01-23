@@ -149,8 +149,12 @@ class DensityForest(BaseDensityForest):
     """A forest based density estimator.
 
     A random forest is a meta estimator that fits a number of density trees
-    on various sub-samples of the dataset and use averaging to improve the
+    on various sub-samples of the dataset and uses averaging to improve the
     smoothness, predictive accuracy and to control over-fitting.
+    
+    The predict_proba() and predict_log_proba() methods should then be treated
+    as probability density functions (PDF) of the learned distributions, while
+    the integral over predict_proba() is exactly one.
 
     Parameters
     ----------
@@ -192,7 +196,7 @@ class DensityForest(BaseDensityForest):
 
     min_samples_leaf : integer, optional (default=1)
         The minimum number of samples in newly created leaves.  A split is
-        discarded if after the split, one of the leaves would contain less then
+        discarded if after the split one of the leaves would contain less then
         ``min_samples_leaf`` samples.
         Note: this parameter is tree-specific.
 
@@ -231,7 +235,7 @@ class DensityForest(BaseDensityForest):
 
     Attributes
     ----------
-    estimators\_ : list of DecisionTreeClassifier
+    estimators\_ : list of DensityTrees
         The collection of fitted sub-estimators.
 
     feature_importances\_ : array of shape = [n_features]
@@ -248,7 +252,7 @@ class DensityForest(BaseDensityForest):
 
     See also
     --------
-    DensityTree
+    sklearnef.tree.DensityTree
     """    
     def __init__(self,
                  n_estimators=10,
@@ -292,7 +296,7 @@ class DensityForest(BaseDensityForest):
         self.min_improvement = min_improvement
 
     def fit(self, X, y=None, sample_weight=None):
-        """Fit estimator.
+        """Build a forest of trees from the training set (X, y).
 
         Parameters
         ----------
@@ -317,12 +321,72 @@ class DensityForest(BaseDensityForest):
 
         """
         return BaseDensityForest.fit(self, X, y, sample_weight=sample_weight)
+    
+    def predict(self, X):
+        r"""Not supported for density forests.
+        
+        Only kept for interface consistency reasons.
+        """
+        raise NotImplementedError("Density forests do not support the predict() method.")
+    
+    def predict_proba(self, X):
+        r"""Probability density function of the learned distribution.
+
+        Parameters
+        ----------
+        X : array-like of shape = [n_samples, n_features]
+            The input samples. Internally, it will be converted to
+            ``dtype=np.float32``. No sparse matrixes allowed.
+        check_input : boolean, (default=True)
+            Allow to bypass several input checking.
+            Don't use this parameter unless you know what you do.
+            
+        See also
+        --------
+        pdf()
+
+        Returns
+        -------
+        p : array of length n_samples
+            The responses of the PDF for all input samples.
+        """
+        return BaseDensityForest.pdf(self, X)
+    
+    def predict_log_proba(self, X):
+        r"""Predict log-pdf for X.
+
+        The predicted log-pdf of an input sample is computed as the log of the
+        mean predicted probability densities of the trees in the forest.
+
+        Parameters
+        ----------
+        X : array-like of shape = [n_samples, n_features]
+            The input samples. Internally, it will be converted to
+            ``dtype=np.float32``. No sparse matrixes allowed.
+            
+        See also
+        --------
+        pdf()
+
+        Returns
+        -------
+        p : array of length n_samples
+            The log-responses of the PDF for all input samples.
+        """
+        return BaseDensityForest.pdf(self, X)
+    
+    def fit_transform(self, X, y=None):
+        r"""Not supported for density forests.
+        
+        Only kept for interface consistency reasons.
+        """
+        raise NotImplementedError("Density forests do not support the predict() method.")
 
 class SemiSupervisedRandomForestClassifier(BaseDensityForest):
     """A forest based semi-supervised classifier.
 
     A random forest is a meta estimator that fits a number of semi-supervised
-    trees on various sub-samples of the dataset and use averaging to improve
+    trees on various sub-samples of the dataset and uses averaging to improve
     the smoothness, predictive accuracy and to control over-fitting.
 
     Parameters
@@ -432,7 +496,7 @@ class SemiSupervisedRandomForestClassifier(BaseDensityForest):
 
     Attributes
     ----------
-    estimators\_ : list of DecisionTreeClassifier
+    estimators\_ : list of SemiSupervisedDecisionTreeClassifiers
         The collection of fitted sub-estimators.
 
     feature_importances\_ : array of shape = [n_features]
@@ -457,7 +521,7 @@ class SemiSupervisedRandomForestClassifier(BaseDensityForest):
 
     See also
     --------
-    SemiSupervisedDecisionTreeClassifier
+    sklearnef.tree.SemiSupervisedDecisionTreeClassifier
     """
     def __init__(self,
                  n_estimators=10,

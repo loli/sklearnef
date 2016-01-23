@@ -5,7 +5,7 @@ sklearnef
 :Release: |release|
 :Date: |today|
 
-**sklearnef** is an extension library for `sklearn <http://scikit-learn.org>`_,  providing density and semi-supervised forest written in Python.
+**sklearnef** is an extension library for `sklearn <http://scikit-learn.org>`_,  providing density and semi-supervised forests written in Python.
 
 Installation
 ============
@@ -16,40 +16,26 @@ Installation
     installation/asroot
     installation/asuser
     installation/developmentmode
-    installation/uninstall   
+    installation/uninstall
+    installation/virtualenvironement
 
-..
-    Information
-    ===========
 
-    .. toctree::
-        :glob:
-        :maxdepth: 1
-        
-        information/*
+Examples
+========
 
-..
-    Tutorials
-    =========
-
-    .. toctree::
-        :glob:
-        :maxdepth: 1
-        
-        tutorial/*
-
-..
-    Receipts
-    ========
-
-    .. toctree::
-        :glob:
-        :maxdepth: 1
-        
-        receipts/*
+.. toctree::
+    :glob:
+    :maxdepth: 1
+    
+    examples/*
 
 Reference
 =========
+
+.. toctree::
+    :maxdepth: 1
+    
+    scripts
 
 :mod:`sklearn.ensemble`: Ensemble methods (decision forests)
 ------------------------------------------------------------

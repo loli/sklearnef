@@ -63,7 +63,7 @@ copyright = u'2016, Oskar Maier'
 # The short X.Y version.
 version = '0.1'
 # The full version, including alpha/beta/rc tags.
-release = '0.1.0'
+release = '0.1.dev'
 
 # Automatically created autosummary entries (thus no need to call sphinx-autogen)
 autosummary_generate = True

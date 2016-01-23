@@ -1,17 +1,15 @@
 Building the HTML documentation
 ###############################
 
+IMPORTANT: Make sure that module is importable i.e. python -c 'import sklearnef'
+
 Run
 
     sphinx-build -aE -b html source/ build/
     
 , then edit .rst files belong to Python classes
 
-source/generated/medpy.graphcut.graph.Graph.rst
-source/generated/medpy.graphcut.graph.GCGraph.rst
-source/generated/medpy.filter.IntensityRangeStandardization.IntensityRangeStandardization.rst
-source/generated/medpy.core.logger.Logger.rst
-source/generated/medpy.iterators.*
+source/generated/*.rst
 
 by removing the line
 
@@ -22,6 +20,8 @@ and adding the line
     :toctree: generated/
     
 beneath each ".. autosummary::" command.
+
+If inherited members should be documented (e.g. cdf() and pdf() methods), add them manually.
 
 Finally rerun the build
     

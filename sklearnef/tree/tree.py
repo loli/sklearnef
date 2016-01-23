@@ -157,7 +157,7 @@ class DensityBaseTree(DecisionTreeClassifier):
         from the data-points in `X` i.e. roughly \f[error(CDF(X)-ECDF_X(X)\f].
         
         **Provided measures**
-
+        
         `mean_squared_error`
             The mean squared error over all data-points of X.
             
@@ -279,7 +279,7 @@ class DensityTree(DensityBaseTree):
 
     Parameters
     ----------
-    !TODO: Implement also a random version of the best-splitter
+    !TODO: Implement also a random version of the best-splitter to provide Extra Tree functionality.
     splitter : string, optional (default="unsupervised")
         The strategy used to choose the split at each node. Currently only
         "unsupervised" is supported, which is a variant of the "best" splitter
@@ -351,13 +351,13 @@ class DensityTree(DensityBaseTree):
         known as the Gini importance [2]_.
         
     n_outputs\_ : int
-        For internal use only. Value does not convey any meaning for `DensityTree`s.
+        For internal use only. Value does not convey any meaning for DensityTrees.
     
     n_classes\_ : array of shape = [n_outputs]
-        For internal use only. Value does not convey any meaning for `DensityTree`s.
+        For internal use only. Value does not convey any meaning for DensityTrees.
         
     classes\_ : array of shape = [n_outputs, n_classes]
-        For internal use only. Value does not convey any meaning for `DensityTree`s.
+        For internal use only. Value does not convey any meaning for DensityTrees.
 
     Notes
     -----
@@ -436,7 +436,7 @@ class DensityTree(DensityBaseTree):
         y : None
             Not used, kept only for interface conformity reasons.
 
-        !TODO: Check if the density split algorithm real honors the sample_weight passed.
+        !TODO: Check if the density split algorithm really honors the sample_weight passed.
         sample_weight : array-like, shape = [n_samples] or None
             Sample weights. If None, then samples are equally weighted. Splits
             that would create child nodes with net zero or negative weight are
@@ -510,11 +510,11 @@ class DensityTree(DensityBaseTree):
         return self.pdf(X, check_input)
     
     def predict(self, X):
-        r"""Not supported for density forest.
+        r"""Not supported for density trees.
         
         Only kept for interface consistency reasons.
         """
-        raise NotImplementedError("Density forests do not support the predict() method.")
+        raise NotImplementedError("Density trees do not support the predict() method.")
 
 class SemiSupervisedDecisionTreeClassifier(DensityBaseTree):
     r"""A tree for semi-supervised classification.
@@ -562,29 +562,29 @@ class SemiSupervisedDecisionTreeClassifier(DensityBaseTree):
         trees.
         
     transduction_method: string, optional (default='fast')
-        Select between the theoretically ideal 'best', the 'fast' and dirty or the
-        'optimized' balanced method.
+        Select between the theoretically ideal "best", the "fast" and dirty or the
+        "optimized" balanced method.
         
     transduction_optimized_n_knn: int, optional (default=5)
         Use this to set the number of k nearest neighbours when having selected
-        'optimized' as transduction_method`.
+        "optimized" as ``transduction_method``.
         
     !TODO: Assert that this is only applied to the non-supervised part of the data.
-           Maybe by initializing the Splitter later of something? Is this at all possible?
+           Maybe by initializing the Splitter later or something? Is this at all possible?
     !TODO: Very difficult to achieve such a behaviour. First test with overall PCA and/or
            scaling. Might be a more sensible approach.
            
     unsupervised_transformation: string, object or None, optional (default='scale')
         Transformation method for the un-supervised samples (their split
         quality measure requires features of equal scale). Choices are:
-            - 'scale', in which case the `StandardScaler` is employed.
+            - "scale", in which case the `StandardScaler` is employed.
             - Any object which implements the fit() and transform() methods.
             - None, in which the user is responsible for data normalization.
 
     max_depth : int or None, optional (default=None)
         The maximum depth of the tree. If None, then nodes are expanded until
         all leaves are pure or until all leaves contain less than
-        min_samples_split samples.
+        ``min_samples_split`` samples.
         Ignored if ``max_leaf_nodes`` is not None.
 
     min_samples_split : int, optional (default=2)
@@ -627,17 +627,17 @@ class SemiSupervisedDecisionTreeClassifier(DensityBaseTree):
         
     n_outputs\_ : int
         For internal use only. Value does not convey any meaning for
-        `SemiSupervisedDecisionTreeClassifier`s.
+        SemiSupervisedDecisionTreeClassifiers.
     
     n_classes\_ : array of shape = [n_outputs]
         For internal use only. Value does not convey the same meaning for
-        `SemiSupervisedDecisionTreeClassifier`s. First entry holds the count
+        SemiSupervisedDecisionTreeClassifiers. First entry holds the count
         of unique class labels of the tree plus one (for the un-labelled class).
         All other entries are the same.
         
     classes\_ : array of shape = [n_outputs, n_classes]
         For internal use only. Value does not convey the same meaning for
-        `SemiSupervisedDecisionTreeClassifier`s: First entry holds the unique
+        SemiSupervisedDecisionTreeClassifiers: First entry holds the unique
         class labels of the tree, with the first being the un-labelled class
         label, which is not used for classification. All other entries are the
         same.
@@ -654,7 +654,7 @@ class SemiSupervisedDecisionTreeClassifier(DensityBaseTree):
 
     See also
     --------
-    DensityTree, sklearn.DecisionTreeClassifier
+    DensityTree, sklearn.tree.DecisionTreeClassifier
 
     References
     ----------
@@ -1605,6 +1605,7 @@ class GoodnessOfFit():
         -----
         While similar to the Kolmogorov-Smirnov test, an implementation of said criterion
         on higher dimensions is unpractical.
+        
         """
         return np.abs(self.ecdf_x - self.cdf_x).max()
     
