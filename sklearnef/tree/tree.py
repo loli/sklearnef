@@ -26,12 +26,10 @@ from sklearnef.tree import _tree as _treeef
 from sklearnef.tree import _diffentropy
 
 from scipy.stats import mvn # Fortran implementation for multivariate normal CDF estimation
-import scipy.linalg
 from scipy.spatial.distance import mahalanobis, cdist
-from scipy.sparse.csgraph import csgraph_from_dense, dijkstra, connected_components
 from sklearn.neighbors import NearestNeighbors
-from scipy.sparse import csc_matrix, csr_matrix, diags
-from scipy.sparse.linalg import spsolve, cg
+from scipy.sparse import csc_matrix, diags
+from scipy.sparse.linalg import minres
 
 try:
     from scipy.stats import multivariate_normal
@@ -562,13 +560,15 @@ class SemiSupervisedDecisionTreeClassifier(DensityBaseTree):
         One of the strongest parameters for controlling over-fitting in density
         trees.
         
-    transduction_method: string, optional (default='fast')
-        Select between the theoretically ideal "best", the "fast" and dirty or the
-        "optimized" balanced method (+ "diffusion").
+    transduction_n_knn: int, optional (default=5)
+        Use this to set the number of k nearest neighbours used to construct the graph
+        for approximate label transduction. Larger values might better the results but
+        increase the runtime.
         
-    transduction_optimized_n_knn: int, optional (default=5)
-        Use this to set the number of k nearest neighbours when having selected
-        "optimized" as ``transduction_method``.
+    transduction_tol: int, optional (default=1e-4)
+        Use this to set the error tolerance for the approximate linear equation solver
+        for approximate label transduction. Smaller values can lead to better results
+        but increase the runtime.    
         
     !TODO: Assert that this is only applied to the non-supervised part of the data.
            Maybe by initializing the Splitter later or something? Is this at all possible?
@@ -692,8 +692,8 @@ class SemiSupervisedDecisionTreeClassifier(DensityBaseTree):
                  max_leaf_nodes=None,
                  min_improvement=0,
                  supervised_weight=0.5,
-                 transduction_method='fast',
-                 transduction_optimized_n_knn=5,
+                 transduction_n_knn=5,
+                 transduction_tol=1e-4,
                  unsupervised_transformation='scale',
                  class_weight=None):
         super(SemiSupervisedDecisionTreeClassifier, self).__init__(
@@ -710,10 +710,10 @@ class SemiSupervisedDecisionTreeClassifier(DensityBaseTree):
         
         self.supervised_weight = supervised_weight
         self.unsupervised_transformation = unsupervised_transformation
-        self.transduction_method = transduction_method
         self.min_improvement = min_improvement
         self.transduced_labels_ = None
-        self.transduction_optimized_n_knn=transduction_optimized_n_knn
+        self.transduction_n_knn = transduction_n_knn
+        self.transduction_tol = transduction_tol
         
 
         if not 'semisupervised' == criterion:
@@ -842,20 +842,10 @@ class SemiSupervisedDecisionTreeClassifier(DensityBaseTree):
         self.mvnds = self.parse_tree_leaves()
 
         # use transduction to classifiy the un-labelled training samples
-        if self.transduction_method == 'best':
-            yu = self.transduction_best(X[mask_unlabelled], X[~mask_unlabelled],
-                                        y[~mask_unlabelled][:,0])
-        if self.transduction_method == 'optimized':
-            yu = self.transduction_optimized(X[mask_unlabelled], X[~mask_unlabelled],
-                                             y[~mask_unlabelled][:,0],
-                                             nns=self.transduction_optimized_n_knn)
-        if self.transduction_method == 'diffusion':
-            yu = self.transduction_diffusion(X[mask_unlabelled], X[~mask_unlabelled],
-                                             y[~mask_unlabelled][:,0],
-                                             nns=self.transduction_optimized_n_knn)            
-        else:
-            yu = self.transduction_fast(X[mask_unlabelled], X[~mask_unlabelled],
-                                        y[~mask_unlabelled][:,0])
+        yu = self.transduction_diffusion(X[mask_unlabelled], X[~mask_unlabelled],
+                                         y[~mask_unlabelled][:,0],
+                                         nns=self.transduction_n_knn,
+                                         tol=self.transduction_tol)
 
         self.transduced_labels_ = yu
         
@@ -886,145 +876,8 @@ class SemiSupervisedDecisionTreeClassifier(DensityBaseTree):
     
     def parse_tree_leaves(self):
         return self._parse_tree_leaves_rec(self.tree_, offset=self.n_classes_[0]) # requires offset to find pdf definitions
-
-    def transduction_optimized(self, Xu, Xl, yl, nns=5):
-        r"""
-        Compute the class-memberships of the unlabelled `Xu` samples using
-        geodisic distances on a surface formed by the tree's piecewise
-        Gaussians to the `yl` labelled set `Xl`. This is similar to label
-        propagation.
-        
-        !TODO: Should include test for X valid (i.e. C, float32, not sparse, etc.)
-        When used inside forest, this can be disabled.
-        
-        Notes
-        -----
-        This is a version of the original method as described in
-        Criminisi et al. 2012 [1] optimized for speed. Instead of building the
-        complete geodisic surface, the samples are clustered in a pre-processing
-        step and the surface spun only over the euclidean nearest neighbours,
-        which results in a faster shortest path search. In terms of speed and
-        accuracy, this version lies between the accurate and the fast
-        implementations.
-        
-        See also
-        --------
-        transduction_fast
-        transduction_best
-        
-        References
-        ----------
-        .. [1] A. Criminisi, J. Shotton and E. Konukoglu, "Decision Forests: A 
-               Unified Framework for Classification, Regression, Density
-               Estimation, Manifold Learning and Semi-Supervised Learning",
-               Foundations and Trends(r) in Computer Graphics and Vision, Vol. 7,
-               No. 2-3, pp 81-227, 2012.            
-        
-        Parameters
-        ----------
-        Xu : array_like
-            Unlabelled samples.
-        Xl : array_like
-            Labelled samples.
-        yl : array_like
-            Labels of the labelled samples.
-        nns : int
-            Number of nearest neighbours to consider.
-            
-            
-        Returns
-        -------
-        xu : ndarray
-            Labels of the unlabelled samples.        
-        """        
-        # prepare
-        X = np.vstack((Xu, Xl))
-        nu = Xu.shape[0]
-        nl = Xl.shape[0]
-        
-        # get leaves the samples fall into
-        leaf_indices = self.tree_.apply(X)
-        
-        # compute inverse cov matrices
-        icovs = dict()
-        for lidx in np.unique(leaf_indices):
-            try:
-                icov = np.linalg.inv(self.mvnds[lidx].cov)
-            except LinAlgError:
-                v = [SINGULARITY_REGULARIZATION_TERM] * self.mvnds[lidx].cov.shape[0]
-                icov = np.linalg.inv(self.mvnds[lidx].cov + np.diag(v))
-            icovs[lidx] = icov
-        
-        # compute nearest neighbour graph
-        import time
-        start = time.time()
-        nbrs = NearestNeighbors(algorithm='kd_tree', metric='euclidean', n_neighbors=nns+1).fit(X) # +1 since self included
-        nnbrs = nbrs.kneighbors(X, return_distance=False)[:,1:] # remove the point itself as nearest neighbour
-        print 'Knn:', time.time() - start
-        
-        # check for number of connected components
-        #sparseconnectivity = csr_matrix((np.ones(nnbrs.size, np.bool),
-        #                                 nnbrs.flatten(),
-        #                                 np.arange(0, nns*(nnbrs.shape[0]+1), nns, dtype=np.uint)),
-        #                                shape=(nnbrs.shape[0], nnbrs.shape[0]))
-        #ncc, _ = connected_components(sparseconnectivity + sparseconnectivity.transpose(), directed=False)
-        #print ncc
-        
-        # create sparse nearest neighbours graph with mahalanobis distances
-        # !TODO: Can I remove redunancy from this? Since now, if a connects to b and b to a, the distance is computed two times.
-        start = time.time()
-        dists = np.zeros(nnbrs.size)
-        for xid, (x, yids) in enumerate(zip(X, nnbrs)):
-            # forward distance
-            icov = icovs[leaf_indices[xid]]
-            _y = X.take(yids, axis=0)
-            dists[xid * nns: (xid + 1) * nns] = cdist(x.reshape(1, -1), _y, 'mahalanobis', VI=icov)
-            # backward distance
-            for ypos, yid in enumerate(yids):
-                icov = icovs[leaf_indices[yid]]
-                y = X[yid]
-                dists[xid * nns + ypos] += mahalanobis(y, x, icov)
-        print 'Dists:', time.time() - start
-                
-        # replace possible nans with very small float
-        dists[np.isnan(dists)] = np.finfo(np.float32).tiny
-
-        # convert to a sparse kNN graph with Mahalanobis distances
-        sparsedists = csc_matrix((dists, (np.repeat(np.arange(0, nnbrs.shape[0]), nnbrs.shape[1]), nnbrs.flatten())), shape=(nu+nl, nu+nl))
-        
-        # make symmetric
-        sparsedists = sparsedists.maximum(sparsedists.transpose())
-        
-        # temporary saving the spardedists matric in matlab format
-        from scipy.io import savemat
-        _coo = sparsedists.tocoo()
-        savemat('sparsedists', {'row': _coo.row, 'col': _coo.col, 'data': _coo.data, 'labels': yl}) 
-        
-        # compute shortest paths
-        start = time.time()
-        spaths = dijkstra(sparsedists, directed=False, indices=range(nu, nu+nl)) # faster version, as only from labelled points
-        print 'Dijkstra:', time.time() - start
-        
-        # check for components not connected with any label
-        if np.any(np.isinf(np.min(spaths[-nl:], axis=0)[:nu])):
-            warnings.warn("Some unlabelled samples are not connected to any labelled samples and will be assigned a random label."\
-                          " Increase the number of neighbours to avoid this.")
-        
-        # find nearest labelled samples of each unlabelled sample
-        argnearest = np.argmin(spaths[-nl:], axis=0)[:nu]
-        # Note on connectedness:
-        #  If a unlabelled sample happens to be not connected to any labelled sample, this version simply picks a random label for it.
-        
-        #!TODO: To avoid this, I could find them out (inf entries in np.min(spaths[-nl:], axis=0)[:nu]) and then simply compute the
-        # euclidean distance to the nearest labelled sample for them... but ths might not be the ideal solution, I think.
-        #!TODO: Find a better appraoch! But not the one taken for (transduction_optimized_alt)
-        
-        # transfer labels
-        yu = yl[argnearest]
-
-        return yu
     
-    def transduction_diffusion(self, Xu, Xl, yl, nns=5):
+    def transduction_diffusion(self, Xu, Xl, yl, nns=5, tol=1e-4):
         r"""
         Compute the class-memberships of the unlabelled `Xu` samples using
         geodisic distances on a surface formed by the tree's piecewise
@@ -1043,11 +896,6 @@ class SemiSupervisedDecisionTreeClassifier(DensityBaseTree):
         which results in a weighted graph. Using the random walk related solution
         to label difusion from Zhu et al. 2003 [2], the label propagation is then
         solved very fast with simple matrix operations.
-        
-        See also
-        --------
-        transduction_fast
-        transduction_best
         
         References
         ----------
@@ -1072,6 +920,8 @@ class SemiSupervisedDecisionTreeClassifier(DensityBaseTree):
             Labels of the labelled samples.
         nns : int
             Number of nearest neighbours to consider.
+        tol : float
+            Approximate solver tolerance.
             
             
         Returns
@@ -1126,7 +976,7 @@ class SemiSupervisedDecisionTreeClassifier(DensityBaseTree):
         # make symmetric
         W = W.maximum(W.transpose())
         
-        # diagnoal matrix containing row or columns sums plus little regularizator
+        # diagnoal matrix containing row or columns sums plus small regularizator
         D = diags((W.sum(0) + 10e-7).flat, 0)
         # the L system to solve
         L = D - W
@@ -1141,322 +991,13 @@ class SemiSupervisedDecisionTreeClassifier(DensityBaseTree):
         probas = np.zeros((nlabels, nu), dtype=np.float)
         for l in range(nlabels):
             x = yl == labels[l]
-            probas[l] = spsolve(uL, -1 * B.dot(x)) # accurate solver, but slower
-            #probas[l] = cg(uL, -1 * B.dot(x), tol=1e-4)[0] # approximate solver, faster
-            
+            #probas[l] = spsolve(uL, -1 * B.dot(x)) # accurate solver, but slower
+            probas[l] = minres(uL, -1 * B.dot(x), tol=1e-4)[0] # approximate solver, faster # note: approximated solution might not sum to 1 over all labels
+        
         # assign labels
         yu = labels.take(np.argmax(probas, 0))
 
-        return yu #!TODO: With this function I additionally have probabilities I could use!
-
-    def transduction_optimized_alt(self, Xu, Xl, yl, nns=5):
-        r"""
-        !NOTE: A version that should take care of the possibly unconnected components after the kNN graph construction.
-               While it does this, it at the same time worsens the results manyfold!
-        
-        Compute the class-memberships of the unlabelled `Xu` samples using
-        geodisic distances on a surface formed by the tree's piecewise
-        Gaussians to the `yl` labelled set `Xl`. This is similar to label
-        propagation.
-        
-        !TODO: Should include test for X valid (i.e. C, float32, not sparse, etc.)
-        When used inside forest, this can be disabled.
-        
-        Notes
-        -----
-        This is a version of the original method as described in
-        Criminisi et al. 2012 [1] optimized for speed. Instead of building the
-        complete geodisic surface, the samples are clustered in a pre-processing
-        step and the surface spun only over the euclidean nearest neighbours,
-        which results in a faster shortest path search. In terms of speed and
-        accuracy, this version lies between the accurate and the fast
-        implementations.
-        
-        See also
-        --------
-        transduction_fast
-        transduction_best
-        
-        References
-        ----------
-        .. [1] A. Criminisi, J. Shotton and E. Konukoglu, "Decision Forests: A 
-               Unified Framework for Classification, Regression, Density
-               Estimation, Manifold Learning and Semi-Supervised Learning",
-               Foundations and Trends(r) in Computer Graphics and Vision, Vol. 7,
-               No. 2-3, pp 81-227, 2012.            
-        
-        Parameters
-        ----------
-        Xu : array_like
-            Unlabelled samples.
-        Xl : array_like
-            Labelled samples.
-        yl : array_like
-            Labels of the labelled samples.
-        nns : int
-            Number of nearest neighbours to consider.
-            
-            
-        Returns
-        -------
-        xu : ndarray
-            Labels of the unlabelled samples.        
-        """        
-        # prepare
-        X = np.vstack((Xu, Xl))
-        nu = Xu.shape[0]
-        nl = Xl.shape[0]
-        
-        # get leaves the samples fall into
-        leaf_indices = self.tree_.apply(X)
-        
-        # compute inverse cov matrices
-        icovs = dict()
-        for lidx in np.unique(leaf_indices):
-            try:
-                icov = np.linalg.inv(self.mvnds[lidx].cov)
-            except LinAlgError:
-                v = [SINGULARITY_REGULARIZATION_TERM] * self.mvnds[lidx].cov.shape[0]
-                icov = np.linalg.inv(self.mvnds[lidx].cov + np.diag(v))
-            icovs[lidx] = icov
-        
-        # compute nearest neighbour graph for Xu
-        nbrs = NearestNeighbors(algorithm='kd_tree', metric='euclidean', n_neighbors=nns+1).fit(Xu) # +1 since self included
-        nnbrs = nbrs.kneighbors(Xu, return_distance=False)[:,1:] # remove the point itself as nearest neighbour
-        # Note on NearestNeighbors: 
-        #  This algorithm can return a graph with unconnected components
-        
-        # extend by adding the labelled points as nearest neighbours to each unlabelled point: this approach avoids a graph with unconnected components
-        nnbrs = np.concatenate((nnbrs, np.tile(np.arange(nu, nu+nl), (nnbrs.shape[0], 1))), axis=1)
-        nns_plus_nl = nns + nl
-        
-        # create sparse nearest neighbours graph with mahalanobis distances for
-        dists = np.zeros(nnbrs.size)
-        for xid, (x, yids) in enumerate(zip(Xu, nnbrs)):
-            # forward distance
-            icov = icovs[leaf_indices[xid]]
-            _y = X.take(yids, axis=0)
-            dists[xid * nns_plus_nl: (xid + 1) * nns_plus_nl] = cdist(x.reshape(1, -1), _y, 'mahalanobis', VI=icov)
-            # backward distance
-            for ypos, yid in enumerate(yids):
-                icov = icovs[leaf_indices[yid]]
-                y = X[yid]
-                dists[xid * nns + ypos] += mahalanobis(y, x, icov)
-
-        # convert to a sparse kNN graph with Mahalanobis distances
-        sparsedists = csc_matrix((dists, (np.repeat(np.arange(0, nnbrs.shape[0]), nnbrs.shape[1]), nnbrs.flatten())), shape=(nu+nl, nu+nl))
-        
-        # compute shortest paths
-        #spaths = shortest_path(sparsedists, directed=False)
-        spaths = dijkstra(sparsedists, directed=False, indices=range(nu, nu+nl)) # faster version, as only from labelled points
-        # Note on dijkstra \w directed=False:
-        #   If there's an entry for i->j as well as j-> i, Dijkstra intelligently selects the lower one as cost
-        #   Wether there's an entry for i->j or j->i does not matter
-        #   => i.e. pretty much fail save
-        # Note on dijkstra on graph with unconnected components:
-        #  The algorithm then returns inf distances between the components
-         
-        # find nearest labelled samples of each unlabelled sample
-        #argnearest = np.argmin(spaths, axis=0)[:nu]
-        argnearest = np.argmin(spaths[-nl:], axis=0)[:nu]
-        
-        # transfer labels
-        yu = yl[argnearest]
-
-        return yu       
-        
-
-    def transduction_fast(self, Xu, Xl, yl):
-        r"""
-        Compute the class-memberships of the unlabelled `Xu` samples using
-        Mahalanobis distances between all unlabelled and labelled samples.
-        This is similar to label propagation.
-        
-        !TODO: Should include test for X valid (i.e. C, float32, not sparse, etc.)
-        When used inside forest, this can be disabled.
-        
-        Notes
-        -----
-        This method varies from the original implementation by
-        Criminisi et al. 2012 [1] in the sense that the path does not follow a
-        geodisic surface. Instead, only the pair-wise Mahlanobis distances
-        between the labelled and unlabelled samples is considered to transfer
-        the labels. This version is much faster but also less accurate than the
-        original.
-        
-        See also
-        --------
-        transduction_best
-        transduction_optimized        
-        
-        References
-        ----------
-        .. [1] A. Criminisi, J. Shotton and E. Konukoglu, "Decision Forests: A 
-               Unified Framework for Classification, Regression, Density
-               Estimation, Manifold Learning and Semi-Supervised Learning",
-               Foundations and Trends(r) in Computer Graphics and Vision, Vol. 7,
-               No. 2-3, pp 81-227, 2012.            
-        
-        Parameters
-        ----------
-        Xu : array_like
-            Unlabelled samples.
-        Xl : array_like
-            Labelled samples.
-        yl : array_like
-            Labels of the labelled samples.
-            
-        Returns
-        -------
-        xu : ndarray
-            Labels of the unlabelled samples.        
-        """
-        # prepare
-        X = np.vstack((Xu, Xl))
-        nu = Xu.shape[0]
-        nl = Xl.shape[0]
-
-        # get leaves and other info
-        leaf_indices = self.tree_.apply(X)
-        
-        # allocate memory for pairwise distances
-        pdists = np.zeros((nu, nl))
-        
-        # transform all samples // iterate over leaves involved // only from unlabelled to labelled
-        for lidx in np.unique(leaf_indices):
-            m = (lidx == leaf_indices)
-            mu = m[:nu]
-            ml = m[nu:]
-            try:
-                icov = np.linalg.inv(self.mvnds[lidx].cov)
-            except LinAlgError:
-                v = [SINGULARITY_REGULARIZATION_TERM] * self.mvnds[lidx].cov.shape[0]
-                icov = np.linalg.inv(self.mvnds[lidx].cov + np.diag(v))
-            icov_sqrtm = scipy.linalg.sqrtm(icov).real # complex array can ensue, but we don't care about it
-            
-            # split labelled and unlabelled & transform them (Note: this approach results in a Mahalanobis distance)
-            Xut = X[:nu].dot(icov_sqrtm)
-            Xlt = X[nu:].dot(icov_sqrtm)
-            
-            # u => l
-            pdists[mu] += cdist(Xut[mu], Xlt, 'euclidean')
-            
-            # l => u
-            pdists.T[ml] += cdist(Xlt[ml], Xut, 'euclidean')
-         
-        # compute average of directed distances (not required, min is the same)
-        # pdists *= 0.5
-
-        # find nearest labelled samples of each unlabelled sample
-        argnearest = np.argmin(pdists, axis=1)
-        
-        # transfer labels
-        yu = yl[argnearest]
-
-        return yu
-       
-    def transduction_best(self, Xu, Xl, yl):
-        r"""
-        Compute the class-memberships of the unlabelled `Xu` samples using
-        geodisic distances on a surface formed by the tree's piecewise
-        Gaussians to the `yl` labelled set `Xl`. This is similar to label
-        propagation.
-        
-        !TODO: Should include test for X valid (i.e. C, float32, not sparse, etc.)
-        When used inside forest, this can be disabled.
-        
-        Notes
-        -----
-        This is the original method as described in Criminisi et al. 2012 [1],
-        i.e. the exact implementation providing the tehoretically optimal results.
-        The drawback is a by magnitudes slower execution speed.
-        
-        See also
-        --------
-        transduction_fast
-        transduction_optimized
-        
-        References
-        ----------
-        .. [1] A. Criminisi, J. Shotton and E. Konukoglu, "Decision Forests: A 
-               Unified Framework for Classification, Regression, Density
-               Estimation, Manifold Learning and Semi-Supervised Learning",
-               Foundations and Trends(r) in Computer Graphics and Vision, Vol. 7,
-               No. 2-3, pp 81-227, 2012.            
-        
-        Parameters
-        ----------
-        Xu : array_like
-            Unlabelled samples.
-        Xl : array_like
-            Labelled samples.
-        yl : array_like
-            Labels of the labelled samples.
-            
-        Returns
-        -------
-        xu : ndarray
-            Labels of the unlabelled samples.        
-        """
-        # prepare
-        X = np.vstack((Xu, Xl))
-        n = X.shape[0]
-        nu = Xu.shape[0]
-        nl = Xl.shape[0]
-
-        # get leaves and other info
-        leaf_indices = self.tree_.apply(X)
-        
-        # allocate memory for pairwise distances
-        pdists = np.zeros((nu, n))
-        
-        # transform all samples // iterate over leaves involved // from unlabelled to all
-        for lidx in np.unique(leaf_indices):
-            m = (lidx == leaf_indices)
-            mu = m[:nu]
-            ml = m[nu:]
-            try:
-                icov = np.linalg.inv(self.mvnds[lidx].cov)
-            except LinAlgError:
-                v = [SINGULARITY_REGULARIZATION_TERM] * self.mvnds[lidx].cov.shape[0]
-                icov = np.linalg.inv(self.mvnds[lidx].cov + np.diag(v))
-            icov_sqrtm = scipy.linalg.sqrtm(icov).real # complex array can ensue, but we don't care about it
-            
-            # transfrom datapoints
-            Xt = X.dot(icov_sqrtm)
-            
-            # u to all
-            pdists[mu] += cdist(Xt[:nu][mu], Xt, 'euclidean')
-            
-            # l to all u
-            pdists.T[ml] += cdist(Xt[nu:][ml], Xt[:nu], 'euclidean')
-        
-        # combine undirected weights and set lower triangular part to zero
-        pdists[:nu][np.triu_indices(nu, 1)] += pdists[:nu].T[np.triu_indices(nu, 1)]
-        pdists[:nu][np.tril_indices(nu)] = 0
-        
-        # remove possible nans and infs
-        pdists = np.nan_to_num(pdists)
-        
-        # padd to add edges between labelled data points (for graph generation)
-        pdists = np.pad(pdists, [(0, n - nu), (0, 0)], mode='constant')
-        
-        # remove all edges with a distance higher than the largest distance between
-        # any unlabelled samples u_i and any labelled samples l_i
-        #print pdists[:nu, nu:].min(axis=1).max()
-        #pdists[pdists > pdists[:nu, nu:].min(axis=1).max()] = 0
-                
-        # search shortest path between all labelled points and the unlabelled
-        pdists_sparse = csgraph_from_dense(pdists, null_value=0)
-        spaths = dijkstra(pdists_sparse, directed=False, indices=range(nu, n))
-
-        # find nearest labelled samples of each unlabelled sample
-        argnearest = np.argmin(spaths[-nl:], axis=0)[:nu]
-        
-        # transfer labels
-        yu = yl[argnearest]
-
-        return yu       
+        return yu     
         
     def _induction(self, X, y):
         r"""

@@ -425,13 +425,15 @@ class SemiSupervisedRandomForestClassifier(BaseDensityForest):
         One of the strongest parameters for controlling over-fitting in density
         trees.
         
-    transduction_method: string, optional (default='fast')
-        Allows to selected between a 'best' performing, but slower and a
-        'fast' transduction method (+ "diffusion").
+    transduction_n_knn: int, optional (default=5)
+        Use this to set the number of k nearest neighbours used to construct the graph
+        for approximate label transduction. Larger values might better the results but
+        increase the runtime.
         
-    transduction_optimized_n_knn: int, optional (default=5)
-        Use this to set the number of k nearest neighbours when having selected
-        'optimized' as transduction_method`.
+    transduction_tol: int, optional (default=1e-4)
+        Use this to set the error tolerance for the approximate linear equation solver
+        for approximate label transduction. Smaller values can lead to better results
+        but increase the runtime.    
         
     !TODO: Implement this to be applied during the forest only, to avoid costly re-
     computation?
@@ -534,8 +536,8 @@ class SemiSupervisedRandomForestClassifier(BaseDensityForest):
                  max_leaf_nodes=None,
                  supervised_weight=.5,
                  min_improvement=0,
-                 transduction_method='fast',
-                 transduction_optimized_n_knn=5,
+                 transduction_n_knn=5,
+                 transduction_tol=1e-4,
                  bootstrap=True,
                  oob_score=False,
                  n_jobs=1,
@@ -553,8 +555,8 @@ class SemiSupervisedRandomForestClassifier(BaseDensityForest):
                               "random_state", "supervised_weight",
                               "min_improvement",
                               "unsupervised_transformation",
-                              "transduction_method",
-                              "transduction_optimized_n_knn"),
+                              "transduction_n_knn",
+                              "transduction_tol"),
             bootstrap=bootstrap,
             oob_score=oob_score,
             n_jobs=n_jobs,
@@ -573,8 +575,8 @@ class SemiSupervisedRandomForestClassifier(BaseDensityForest):
         self.supervised_weight = supervised_weight
         self.min_improvement = min_improvement
         self.unsupervised_transformation = unsupervised_transformation
-        self.transduction_method = transduction_method
-        self.transduction_optimized_n_knn = transduction_optimized_n_knn
+        self.transduction_n_knn = transduction_n_knn
+        self.transduction_tol = transduction_tol
           
     @property
     def transduced_labels_(self):
