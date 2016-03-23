@@ -15,6 +15,11 @@ import numpy as np
 np.import_array()
 
 # =============================================================================
+# COMPILE WITH DEBUG
+# =============================================================================
+DEF FLAG_DEBUG = False
+
+# =============================================================================
 # Types and constants
 # =============================================================================
 # Any differential entropy value nearing this number is considered dense enough
@@ -180,6 +185,10 @@ cdef class UnSupervisedClassificationCriterion(Criterion):
         
         self.covr.compute_covariance_matrix()
         entropy = self.covr.logdet()
+        
+        IF FLAG_DEBUG:
+            with gil:
+                print 'UnSupervisedClassificationCriterion.node_impurity(): entropy={} ({} of this entropy shift)'.format(entropy + ENTROPY_SHIFT, ENTROPY_SHIFT)
 
         return entropy + ENTROPY_SHIFT
 
@@ -189,6 +198,11 @@ cdef class UnSupervisedClassificationCriterion(Criterion):
         impurity_left[0] = self.covl.logdet() + ENTROPY_SHIFT
         self.covr.compute_covariance_matrix()
         impurity_right[0] = self.covr.logdet() + ENTROPY_SHIFT
+        
+        IF FLAG_DEBUG:
+            with gil:
+                print 'UnSupervisedClassificationCriterion.children_impurity(): logdet pure left={} / right={}'.format(self.covl.logdet(), self.covr.logdet())
+                print 'UnSupervisedClassificationCriterion.children_impurity(): entropy left={} / right={} ({} of this entropy shift)'.format(self.covl.logdet() + ENTROPY_SHIFT, self.covr.logdet() + ENTROPY_SHIFT, ENTROPY_SHIFT)
 
     cdef void node_value(self, double* dest) nogil:
         """Compute the node value of samples[start:end] into dest."""
@@ -240,6 +254,11 @@ cdef class UnSupervisedClassificationCriterion(Criterion):
         dest += n_features * n_features
         memcpy(dest, mu, n_features * sizeof(DOUBLE_t))
         
+        #IF FLAG_DEBUG:
+        #    with gil:
+        #        print 'UnSupervisedClassificationCriterion.node_value(): node_sample_frac={}'.format(frac)
+
+        
     cdef double impurity_improvement(self, double impurity) nogil:
         """Weighted impurity improvement, i.e.
 
@@ -257,6 +276,11 @@ cdef class UnSupervisedClassificationCriterion(Criterion):
 
         improvement = Criterion.impurity_improvement(self, impurity)
         min_improvement = self.min_improvement
+        
+        IF FLAG_DEBUG:
+            with gil:
+                print 'UnSupervisedClassificationCriterion.impurity_improvement(): frace left={} / right={}'.format(self.weighted_n_left / self.weighted_n_node_samples, self.weighted_n_right / self.weighted_n_node_samples)
+                print 'UnSupervisedClassificationCriterion.impurity_improvement(): improvement={} (is infinity: {})'.format(improvement if improvement >= min_improvement else -INFINITY, improvement < min_improvement)
 
         return improvement if improvement >= min_improvement else -INFINITY
 
@@ -334,6 +358,10 @@ cdef class SemiSupervisedClassificationCriterion(UnSupervisedClassificationCrite
         UnSupervisedClassificationCriterion.reset(self)
         self.criterion_supervised.reset()
         
+        IF FLAG_DEBUG:
+            with gil:
+                print 'SemiSupervisedClassificationCriterion.reset()'
+        
     cdef void update(self, SIZE_t new_pos) nogil:
         """
         Update the collected statistics by moving samples[pos:new_pos] from
@@ -341,6 +369,10 @@ cdef class SemiSupervisedClassificationCriterion(UnSupervisedClassificationCrite
         """
         UnSupervisedClassificationCriterion.update(self, new_pos)
         self.criterion_supervised.update(new_pos)
+        
+        IF FLAG_DEBUG:
+            with gil:
+                print 'SemiSupervisedClassificationCriterion.update(): new_pos={}'.format(new_pos)
         
     cdef double node_impurity(self) nogil:
         """
@@ -359,6 +391,11 @@ cdef class SemiSupervisedClassificationCriterion(UnSupervisedClassificationCrite
         supervised_weight = self.supervised_weight
         uimp = UnSupervisedClassificationCriterion.node_impurity(self)
         simp = self.criterion_supervised.node_impurity()
+        
+        IF FLAG_DEBUG:
+            with gil:
+                print 'SemiSupervisedClassificationCriterion.node_impurity(): {} = (1-{}) * {}[u] + {} * {}[s]'.format((1. - supervised_weight) * uimp + supervised_weight * simp,
+                                                                                                                       (1. - supervised_weight), uimp, supervised_weight, simp)
         
         return (1. - supervised_weight) * uimp + supervised_weight * simp
     
@@ -386,7 +423,14 @@ cdef class SemiSupervisedClassificationCriterion(UnSupervisedClassificationCrite
         self.criterion_supervised.children_impurity(&simp_impurity_left, &simp_impurity_right)
         
         impurity_left[0] = (1. - supervised_weight) * uimp_impurity_left + supervised_weight * simp_impurity_left
-        impurity_right[0] = (1. - supervised_weight) * uimp_impurity_right + supervised_weight * simp_impurity_right 
+        impurity_right[0] = (1. - supervised_weight) * uimp_impurity_right + supervised_weight * simp_impurity_right
+        
+        IF FLAG_DEBUG:
+            with gil:
+                print 'SemiSupervisedClassificationCriterion.children_impurity(): left: {} = (1-{}) * {}[u] + {} * {}[s]'.format((1. - supervised_weight) * uimp_impurity_left + supervised_weight * simp_impurity_left,
+                                                                                                                                 (1. - supervised_weight), uimp_impurity_left, supervised_weight, simp_impurity_left)
+                print 'SemiSupervisedClassificationCriterion.children_impurity(): right: {} = (1-{}) * {}[u] + {} * {}[s]'.format((1. - supervised_weight) * uimp_impurity_right + supervised_weight * simp_impurity_right,
+                                                                                                                                 (1. - supervised_weight), uimp_impurity_right, supervised_weight, simp_impurity_right)
         
 #     cdef double impurity_improvement(self, double impurity) nogil:
 #         """!TODO: Delete!"""
