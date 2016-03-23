@@ -427,7 +427,7 @@ class SemiSupervisedRandomForestClassifier(BaseDensityForest):
         
     transduction_method: string, optional (default='fast')
         Allows to selected between a 'best' performing, but slower and a
-        'fast' transduction method.
+        'fast' transduction method (+ "diffusion").
         
     transduction_optimized_n_knn: int, optional (default=5)
         Use this to set the number of k nearest neighbours when having selected

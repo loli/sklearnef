@@ -30,7 +30,8 @@ import scipy.linalg
 from scipy.spatial.distance import mahalanobis, cdist
 from scipy.sparse.csgraph import csgraph_from_dense, dijkstra, connected_components
 from sklearn.neighbors import NearestNeighbors
-from scipy.sparse import csc_matrix, csr_matrix
+from scipy.sparse import csc_matrix, csr_matrix, diags
+from scipy.sparse.linalg import spsolve, cg
 
 try:
     from scipy.stats import multivariate_normal
@@ -563,7 +564,7 @@ class SemiSupervisedDecisionTreeClassifier(DensityBaseTree):
         
     transduction_method: string, optional (default='fast')
         Select between the theoretically ideal "best", the "fast" and dirty or the
-        "optimized" balanced method.
+        "optimized" balanced method (+ "diffusion").
         
     transduction_optimized_n_knn: int, optional (default=5)
         Use this to set the number of k nearest neighbours when having selected
@@ -848,6 +849,10 @@ class SemiSupervisedDecisionTreeClassifier(DensityBaseTree):
             yu = self.transduction_optimized(X[mask_unlabelled], X[~mask_unlabelled],
                                              y[~mask_unlabelled][:,0],
                                              nns=self.transduction_optimized_n_knn)
+        if self.transduction_method == 'diffusion':
+            yu = self.transduction_diffusion(X[mask_unlabelled], X[~mask_unlabelled],
+                                             y[~mask_unlabelled][:,0],
+                                             nns=self.transduction_optimized_n_knn)            
         else:
             yu = self.transduction_fast(X[mask_unlabelled], X[~mask_unlabelled],
                                         y[~mask_unlabelled][:,0])
@@ -951,8 +956,11 @@ class SemiSupervisedDecisionTreeClassifier(DensityBaseTree):
             icovs[lidx] = icov
         
         # compute nearest neighbour graph
+        import time
+        start = time.time()
         nbrs = NearestNeighbors(algorithm='kd_tree', metric='euclidean', n_neighbors=nns+1).fit(X) # +1 since self included
         nnbrs = nbrs.kneighbors(X, return_distance=False)[:,1:] # remove the point itself as nearest neighbour
+        print 'Knn:', time.time() - start
         
         # check for number of connected components
         #sparseconnectivity = csr_matrix((np.ones(nnbrs.size, np.bool),
@@ -964,6 +972,7 @@ class SemiSupervisedDecisionTreeClassifier(DensityBaseTree):
         
         # create sparse nearest neighbours graph with mahalanobis distances
         # !TODO: Can I remove redunancy from this? Since now, if a connects to b and b to a, the distance is computed two times.
+        start = time.time()
         dists = np.zeros(nnbrs.size)
         for xid, (x, yids) in enumerate(zip(X, nnbrs)):
             # forward distance
@@ -975,18 +984,26 @@ class SemiSupervisedDecisionTreeClassifier(DensityBaseTree):
                 icov = icovs[leaf_indices[yid]]
                 y = X[yid]
                 dists[xid * nns + ypos] += mahalanobis(y, x, icov)
+        print 'Dists:', time.time() - start
                 
         # replace possible nans with very small float
         dists[np.isnan(dists)] = np.finfo(np.float32).tiny
 
         # convert to a sparse kNN graph with Mahalanobis distances
-        sparsedists = csc_matrix((dists, (np.repeat(np.arange(0, nnbrs.shape[0]), nnbrs.shape[1]), nnbrs.flatten())))
+        sparsedists = csc_matrix((dists, (np.repeat(np.arange(0, nnbrs.shape[0]), nnbrs.shape[1]), nnbrs.flatten())), shape=(nu+nl, nu+nl))
         
         # make symmetric
         sparsedists = sparsedists.maximum(sparsedists.transpose())
         
+        # temporary saving the spardedists matric in matlab format
+        from scipy.io import savemat
+        _coo = sparsedists.tocoo()
+        savemat('sparsedists', {'row': _coo.row, 'col': _coo.col, 'data': _coo.data, 'labels': yl}) 
+        
         # compute shortest paths
+        start = time.time()
         spaths = dijkstra(sparsedists, directed=False, indices=range(nu, nu+nl)) # faster version, as only from labelled points
+        print 'Dijkstra:', time.time() - start
         
         # check for components not connected with any label
         if np.any(np.isinf(np.min(spaths[-nl:], axis=0)[:nu])):
@@ -1006,6 +1023,131 @@ class SemiSupervisedDecisionTreeClassifier(DensityBaseTree):
         yu = yl[argnearest]
 
         return yu
+    
+    def transduction_diffusion(self, Xu, Xl, yl, nns=5):
+        r"""
+        Compute the class-memberships of the unlabelled `Xu` samples using
+        geodisic distances on a surface formed by the tree's piecewise
+        Gaussians to the `yl` labelled set `Xl`. This is similar to label
+        propagation.
+        
+        !TODO: Should include test for X valid (i.e. C, float32, not sparse, etc.)
+        When used inside forest, this can be disabled.
+        
+        Notes
+        -----
+        This version bases on the original method described in
+        Criminisi et al. 2012 [1], but instead of building the
+        complete geodisic surface, the samples are clustered in a pre-processing
+        step and the surface spun only over the euclidean nearest neighbours,
+        which results in a weighted graph. Using the random walk related solution
+        to label difusion from Zhu et al. 2003 [2], the label propagation is then
+        solved very fast with simple matrix operations.
+        
+        See also
+        --------
+        transduction_fast
+        transduction_best
+        
+        References
+        ----------
+        .. [1] A. Criminisi, J. Shotton and E. Konukoglu, "Decision Forests: A 
+               Unified Framework for Classification, Regression, Density
+               Estimation, Manifold Learning and Semi-Supervised Learning",
+               Foundations and Trends(r) in Computer Graphics and Vision, Vol. 7,
+               No. 2-3, pp 81-227, 2012.
+        .. [2] X. Zhu, Z. Ghahramani and J. Lafferty, "Semi-supervised learning
+               using Gaussian fields and harmonic functions" In The 20th
+               International Conference on Machine Learning (ICML), 2003
+               
+        random walk, label diffusion                 
+        
+        Parameters
+        ----------
+        Xu : array_like
+            Unlabelled samples.
+        Xl : array_like
+            Labelled samples.
+        yl : array_like
+            Labels of the labelled samples.
+        nns : int
+            Number of nearest neighbours to consider.
+            
+            
+        Returns
+        -------
+        xu : ndarray
+            Labels of the unlabelled samples.        
+        """
+        # prepare
+        X = np.vstack((Xu, Xl))
+        nu = Xu.shape[0]
+        nl = Xl.shape[0]
+        
+        # get leaves the samples fall into
+        leaf_indices = self.tree_.apply(X)
+        
+        # compute inverse cov matrices
+        icovs = dict()
+        for lidx in np.unique(leaf_indices):
+            try:
+                icov = np.linalg.inv(self.mvnds[lidx].cov)
+            except LinAlgError:
+                v = [SINGULARITY_REGULARIZATION_TERM] * self.mvnds[lidx].cov.shape[0]
+                icov = np.linalg.inv(self.mvnds[lidx].cov + np.diag(v))
+            icovs[lidx] = icov
+        
+        # compute nearest neighbour graph
+        nbrs = NearestNeighbors(algorithm='kd_tree', metric='euclidean', n_neighbors=nns+1).fit(X) # +1 since self included
+        nnbrs = nbrs.kneighbors(X, return_distance=False)[:,1:] # remove the point itself as nearest neighbour
+        
+        # create sparse nearest neighbours graph with mahalanobis distances
+        dists = np.zeros(nnbrs.size)
+        for xid, (x, yids) in enumerate(zip(X, nnbrs)):
+            # forward distance
+            icov = icovs[leaf_indices[xid]]
+            _y = X.take(yids, axis=0)
+            dists[xid * nns: (xid + 1) * nns] = cdist(x.reshape(1, -1), _y, 'mahalanobis', VI=icov)
+            # backward distance
+            for ypos, yid in enumerate(yids):
+                icov = icovs[leaf_indices[yid]]
+                y = X[yid]
+                dists[xid * nns + ypos] += mahalanobis(y, x, icov)
+                
+        # replace possible nans with very small float
+        dists[np.isnan(dists)] = np.finfo(np.float32).tiny
+        
+        # dists to weights (actually returns exp(x)-1, but that doesn't matter
+        dists = np.exp(-1 * dists)
+
+        # convert to a sparse kNN graph with Mahalanobis distances
+        W = csc_matrix((dists, (np.repeat(np.arange(0, nnbrs.shape[0]), nnbrs.shape[1]), nnbrs.flatten())), shape=(nu+nl, nu+nl))
+        
+        # make symmetric
+        W = W.maximum(W.transpose())
+        
+        # diagnoal matrix containing row or columns sums plus little regularizator
+        D = diags((W.sum(0) + 10e-7).flat, 0)
+        # the L system to solve
+        L = D - W
+        # unlabelled part
+        uL = L[:nu,:nu]
+        # boundary matrix (i.e. horizontally only labelled, vertically onl unlabelled entries)
+        B = L[:nu,-nl:]
+        
+        # solve for each label
+        labels = np.unique(yl)
+        nlabels = len(labels)
+        probas = np.zeros((nlabels, nu), dtype=np.float)
+        for l in range(nlabels):
+            x = yl == labels[l]
+            probas[l] = spsolve(uL, -1 * B.dot(x)) # accurate solver, but slower
+            #probas[l] = cg(uL, -1 * B.dot(x), tol=1e-4)[0] # approximate solver, faster
+            
+        # assign labels
+        yu = labels.take(np.argmax(probas, 0))
+
+        return yu #!TODO: With this function I additionally have probabilities I could use!
 
     def transduction_optimized_alt(self, Xu, Xl, yl, nns=5):
         r"""
