@@ -17,15 +17,16 @@ np.import_array()
 # =============================================================================
 # COMPILE WITH DEBUG
 # =============================================================================
-DEF FLAG_DEBUG = False
+DEF FLAG_DEBUG = True
 
 # =============================================================================
 # Types and constants
 # =============================================================================
 # Any differential entropy value nearing this number is considered dense enough
 # and no new split are considered for the associated node (i.e. it will be
-# declared a leaf node). 
-cdef double ENTROPY_SHIFT = -log(1e-6)
+# declared a leaf node).
+# Additionally, this is used to shift the logdet results to the positive domain.
+cdef double ENTROPY_SHIFT = -log(1e-6) # derived from DynStatCov SINGULARITY_THRESHOLD
 
 # Infinity definition as used in sklearn.tree._tree
 cdef double INFINITY = np.inf
@@ -206,12 +207,10 @@ cdef class UnSupervisedClassificationCriterion(Criterion):
 
     cdef void node_value(self, double* dest) nogil:
         """Compute the node value of samples[start:end] into dest."""
-        #!TODO: Here the variables of the fitted multivariate Gaussian distribution
-        #       represented by this leaf node should be written into the given memory.
-        # I must figure out    1. how many variables this will be and
-        #                      2. how to ensure that the tree provides the required size (n_classes/output * n_outputs * double)
-        
-        # memory space provide:
+        # Here the variables of the fitted multivariate Gaussian distribution
+        # represented by this leaf node should be written into the given memory.
+
+        # memory space provided:
         #     [n_outputs, max_n_classes] of double
         # original purpose:
         #     Contains the constant prediction value of each node.
@@ -222,11 +221,7 @@ cdef class UnSupervisedClassificationCriterion(Criterion):
         # Computation order:
         #    Here I can calculate the cov, mu and frac
         #    Afterwards, I'll have to come back to the tree and calculate
-        #    partition funtion Z and replace frac by  frac/Z for each node
-        
-        # !TODO: replace with nogil version
-        # !TODO: Very crude version!
-        # convert memory block to numpy array
+        #    partition funtion Z and replace frac by frac/Z for each node
         
         cdef:
             SIZE_t n_features = self.n_features
@@ -390,6 +385,7 @@ cdef class SemiSupervisedClassificationCriterion(UnSupervisedClassificationCrite
         
         supervised_weight = self.supervised_weight
         uimp = UnSupervisedClassificationCriterion.node_impurity(self)
+        #!TODO: uimp = 0.0 & save uimp value (if not anyway done)
         simp = self.criterion_supervised.node_impurity()
         
         IF FLAG_DEBUG:
@@ -420,6 +416,7 @@ cdef class SemiSupervisedClassificationCriterion(UnSupervisedClassificationCrite
         
         supervised_weight = self.supervised_weight
         UnSupervisedClassificationCriterion.children_impurity(self, &uimp_impurity_left, &uimp_impurity_right)
+        #!TODO: uimp_impurity_left = uimp_impurity_left / uimp AND right side the same ... where saved?
         self.criterion_supervised.children_impurity(&simp_impurity_left, &simp_impurity_right)
         
         impurity_left[0] = (1. - supervised_weight) * uimp_impurity_left + supervised_weight * simp_impurity_left
