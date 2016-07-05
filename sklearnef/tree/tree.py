@@ -30,6 +30,7 @@ from scipy.spatial.distance import mahalanobis, cdist
 from sklearn.neighbors import NearestNeighbors
 from scipy.sparse import csc_matrix, diags
 from scipy.sparse.linalg import minres
+from scipy.sparse.csgraph import dijkstra
 
 try:
     from scipy.stats import multivariate_normal
@@ -786,7 +787,7 @@ class SemiSupervisedDecisionTreeClassifier(DensityBaseTree):
         # apply transformation to data
         if self.unsupervised_transformation is not None:
             X = self.unsupervised_transformation.fit_transform(X)
- 
+             
         if self.min_samples_leaf is None:
             self.min_samples_leaf = X.shape[1]
         elif not X.shape[1] <= self.min_samples_leaf:
@@ -795,7 +796,6 @@ class SemiSupervisedDecisionTreeClassifier(DensityBaseTree):
                              "of features. Model min_samples_leaf is %s and "
                              "input n_features is %s "
                              % (self.min_samples_leaf, X.shape[1]))
-        
         y = np.atleast_1d(y)
 
         if y.ndim == 1:
@@ -825,7 +825,7 @@ class SemiSupervisedDecisionTreeClassifier(DensityBaseTree):
         s = X.shape[1]**2 + X.shape[1] + 1 # memory requirement (in double)
         t = s // n_classes_[0] + (1 if s % n_classes_[0] else 0) # get tiles by dividing through n_classes
         t += 1 # add one to reserve memory for final class posteriori probability
-        y = np.tile(y, (1, t))        
+        y = np.tile(y, (1, t))
             
         # initialise criterion here, since it requires another syntax than the default ones
         if 'semisupervised' == self.criterion:
@@ -842,10 +842,12 @@ class SemiSupervisedDecisionTreeClassifier(DensityBaseTree):
         self.mvnds = self.parse_tree_leaves()
 
         # use transduction to classifiy the un-labelled training samples
-        yu = self.transduction_diffusion(X[mask_unlabelled], X[~mask_unlabelled],
-                                         y[~mask_unlabelled][:,0],
-                                         nns=self.transduction_n_knn,
-                                         tol=self.transduction_tol)
+        #yu = self.transduction_diffusion(X[mask_unlabelled], X[~mask_unlabelled],
+        #                                 y[~mask_unlabelled][:,0],
+        #                                 nns=self.transduction_n_knn,
+        #                                 tol=self.transduction_tol)
+        yu = self.transduction_sherwood(X[mask_unlabelled], X[~mask_unlabelled],
+                                        y[~mask_unlabelled][:,0])
 
         self.transduced_labels_ = yu
         
@@ -876,6 +878,79 @@ class SemiSupervisedDecisionTreeClassifier(DensityBaseTree):
     
     def parse_tree_leaves(self):
         return self._parse_tree_leaves_rec(self.tree_, offset=self.n_classes_[0]) # requires offset to find pdf definitions
+    
+    def transduction_sherwood(self, Xu, Xl, yl):
+        # prepare
+        X = np.vstack((Xu, Xl))
+        yl = yl.astype(np.int) # strangley enforced to be double by forest algorithm... maybe because its using the allocated space internally
+        nu = Xu.shape[0]
+        nl = Xl.shape[0]
+        
+        # get leaves the samples fall into
+        leaf_indices = self.tree_.apply(X)
+        print leaf_indices
+        
+        # compute inverse cov matrices, leaf cluster centers and mark the ones containing at least one labelled sample
+        unique_leaves_indices = np.unique(leaf_indices)
+        mapping = dict(zip(range(len(unique_leaves_indices)), unique_leaves_indices))
+        icovs = np.zeros((len(unique_leaves_indices), Xu.shape[1], Xu.shape[1]))
+        centers = np.zeros((len(unique_leaves_indices), Xu.shape[1]))
+        labelled = np.zeros(len(unique_leaves_indices), dtype=np.bool)
+        for idx, lidx in mapping.iteritems():
+            try:
+                icov = np.linalg.inv(self.mvnds[lidx].cov)
+            except LinAlgError:
+                v = [SINGULARITY_REGULARIZATION_TERM] * self.mvnds[lidx].cov.shape[0]
+                icov = np.linalg.inv(self.mvnds[lidx].cov + np.diag(v))
+            icovs[idx] = icov
+            
+            m = lidx == leaf_indices
+            centers[idx] = X[m].mean(0)
+            labelled[idx] = np.any(m[nu:])
+        
+        # compute pair-wise cluster center distances
+        # !TODO: Just need the distances from the unlabelled centers to all others, not from the labelled ones to the other labelled ones!
+        pdists = np.zeros((len(centers), len(centers)))
+        
+        print 'Unlabelled vs. labelled clusters: {} vs. {}'.format(np.count_nonzero(~labelled), np.count_nonzero(labelled))
+        
+        if np.count_nonzero(~labelled) > 0: # only if any unlabelled clusters
+            # compute distances from unlabelled cluster to all
+            for cid in np.arange(len(centers))[~labelled]:
+                pdists[cid] += cdist(centers[cid].reshape(1, -1), centers, 'mahalanobis', VI=icovs[cid])[0]
+                pdists[:,cid] += pdists[cid]
+            
+            # compute distances from labelled centers to all unlabelled
+            for cid in np.arange(len(centers))[labelled]:
+                pdists[cid,~labelled] += cdist(centers[cid].reshape(1, -1), centers[~labelled], 'mahalanobis', VI=icovs[cid])[0]
+                pdists[~labelled,cid] += pdists[cid,~labelled]
+                    
+            # ensure that diagonal is zero
+            np.fill_diagonal(pdists, 0)
+            
+            # compute shortest path from all labelled to all clusters
+            spaths = dijkstra(pdists, directed=False, indices=np.nonzero(labelled)[0])
+            
+            # get for each unlabelled cluster the nearest labelled cluster
+            argnearest = np.argmin(spaths, 0)[~labelled]
+        
+        # set labels of labelled clusters
+        cprobs = np.zeros((len(centers), self.n_classes_[0]))
+        for idx in np.arange(len(centers))[labelled]:
+            cprobs[idx] = np.bincount(yl[mapping[idx] == leaf_indices[nu:]], minlength=self.n_classes_[0])
+        print cprobs
+        if np.count_nonzero(~labelled) > 0: # only if any unlabelled clusters
+            # set labels of unlabelled clusters
+            cprobs[~labelled] = cprobs[labelled][argnearest]
+        print cprobs
+        
+        # prepare to map all unlabelled smaples leaf indices to the cluster indices
+        inv_mapping = {v: k for k, v in mapping.iteritems()}
+        keys, inv = np.unique(leaf_indices[:nu], return_inverse=True)
+        vals = np.array([inv_mapping[key] for key in keys])
+
+        # decide on labelles for the unlabelled data and return them
+        return np.argmax(np.take(cprobs, vals[inv], axis=0), 1)
     
     def transduction_diffusion(self, Xu, Xl, yl, nns=5, tol=1e-4):
         r"""
@@ -996,7 +1071,6 @@ class SemiSupervisedDecisionTreeClassifier(DensityBaseTree):
         
         # assign labels
         yu = labels.take(np.argmax(probas, 0))
-
         return yu     
         
     def _induction(self, X, y):

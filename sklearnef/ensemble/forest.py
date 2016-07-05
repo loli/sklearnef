@@ -623,13 +623,13 @@ class SemiSupervisedRandomForestClassifier(BaseDensityForest):
    
         self.classes_ = []
         self.n_classes_ = []
-   
         for k in range(self.n_outputs_):
             classes_k, y[:, k] = np.unique(y[:, k], return_inverse=True)
             # remove smallest label (assuming that always same (i.e. smallest) over all n_outputs and consistent)
             self.classes_.append(classes_k[1:])
             self.n_classes_.append(classes_k.shape[0] - 1)
-   
+            
+            
         if self.class_weight is not None:
             valid_presets = ('auto', 'subsample')
             if isinstance(self.class_weight, six.string_types):
@@ -655,6 +655,5 @@ class SemiSupervisedRandomForestClassifier(BaseDensityForest):
                     class_weight = self.class_weight
                 expanded_class_weight = compute_sample_weight(class_weight,
                                                               y_original)
-   
         return y, expanded_class_weight
 
