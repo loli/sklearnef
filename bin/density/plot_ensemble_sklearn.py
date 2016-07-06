@@ -3,6 +3,8 @@
 """Learning density distribution from sklearn created datasets and plot the results."""
 
 # build-in modules
+import os
+import sys
 import argparse
 
 # third-party modules
@@ -12,13 +14,15 @@ from sklearn import datasets
 from sklearn.preprocessing import StandardScaler
 
 # path changes
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))) # enable import from parent directory
 
 # own modules
+from lib import make_sklearn_dataset, generate_grid, draw_split_lines, plot_density, plot_gt
 from sklearnef.ensemble import DensityForest
 
 # information
 __author__ = "Oskar Maier"
-__version__ = "r0.1.2, 2015-06-08"
+__version__ = "r0.1.3, 2015-06-08"
 __email__ = "oskar.maier@googlemail.com"
 __status__ = "Release"
 __description__ = """
@@ -54,21 +58,19 @@ def main():
         
     # split and normalize
     X, _ = dataset
-    X = StandardScaler().fit_transform(X)
+    if args.scaling:
+        X = StandardScaler().fit_transform(X).astype(np.float32)
     
     # ----- Grid -----
-    x_lower = X[:,0].min() - X[:,0].std()
-    x_upper = X[:,0].max() + X[:,0].std()
-    y_lower = X[:,1].min() - X[:,1].std()
-    y_upper = X[:,1].max() + X[:,1].std()
-    grid = np.mgrid[x_lower:x_upper:args.resolution,y_lower:y_upper:args.resolution]
+    grid = generate_grid(X, X.std(), args.resolution)
     
     # ----- Training -----
     clf = DensityForest(n_estimators=args.n_trees,
                         random_state=args.seed,
                         min_samples_leaf=2,
                         n_jobs=-1,
-                        max_features='auto',
+                        max_depth=args.max_depth,
+                        max_features=args.max_features,
                         min_improvement=args.min_improvement)
     clf.fit(X)
     
@@ -99,25 +101,13 @@ def main():
     else:
         plt.show()
     
-def plot_gt(X, x, y, args):
-    plt.scatter(X[:, 0], X[:, 1], c='w', alpha=.3, edgecolors='none')
-    
-    plt.xlim(min(x),max(x))
-    plt.ylim(min(y),max(y))
-    plt.title('GT: {}'.format(args.dataset))
-    
-def plot_density(prob_predict, x, y, args):
-    plt.imshow(prob_predict.reshape((x.size,y.size)).T, extent=[min(x),max(x),min(y),max(y)], interpolation='none', cmap=plt.cm.afmhot, aspect='auto', origin='lower') #'auto'
-    plt.colorbar()
-    
-    plt.xlim(min(x),max(x))
-    plt.ylim(min(y),max(y))
-    plt.title('Learned density: {}'.format(args.dataset))
-    
     
 def getArguments(parser):
     "Provides additional validation of the arguments collected by argparse."
-    return parser.parse_args()
+    args = parser.parse_args()
+    if args.max_features is not None and  args.max_features not in ['auto', 'sqrt' 'log2']:
+        args.max_features = int(args.max_features)
+    return args
 
 def getParser():
     "Creates and returns the argparse parser object."
@@ -125,15 +115,18 @@ def getParser():
     parser.add_argument('dataset', choices=DATASETS, help='The dataset to use.')
     parser.add_argument('--n-trees', default=10, type=int, help='The number of trees to train.')
     parser.add_argument('--n-samples', default=2500, type=int, help='The number of samples to draw.')
-    parser.add_argument('--min-improvement', default=0, type=float, help='The minimum improvement require to consider a split valid.')
-    parser.add_argument('--resolution', default=0.01, type=float, help='The plotting resolution.')
+    parser.add_argument('--max-depth', default=None, type=int, help='The maximum tree depth.')
+    parser.add_argument('--max-features', default='auto', help='The number of features to consider at each split. Can be an integer or one of auto, sqrt and log2')    
+    parser.add_argument('--min-improvement', default=-5.0, type=float, help='Minimum information gain required to consider another split. Note that the information gain can take on negative values in some situations.')
+    parser.add_argument('--scaling', action='store_true', help='Enable data scaling.')
+    parser.add_argument('--resolution', default=100, type=float, help='The plotting resolution i.e. dots per dimension.')
     parser.add_argument('--seed', default=None, type=int, help='The random seed to use. Fix to an integer to create reproducible results.')
     parser.add_argument('--save', help='Save the plot into an image file instead of plotting it.')
     parser.add_argument('--skipgt', action='store_true', help='Do not plot the ground truth image.')
     parser.add_argument('--skipdensity', action='store_true', help='Do not plot the density image.')
-
-    parser.add_argument('-v', dest='verbose', action='store_true', help='Display more information.')
-    parser.add_argument('-d', dest='debug', action='store_true', help='Display debug information.')
+    
+    #parser.add_argument('-v', dest='verbose', action='store_true', help='Display more information.')
+    #parser.add_argument('-d', dest='debug', action='store_true', help='Display debug information.')
     return parser
 
 if __name__ == "__main__":

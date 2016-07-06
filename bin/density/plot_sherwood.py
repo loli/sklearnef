@@ -16,7 +16,7 @@ from sklearnef.ensemble import DensityForest
 
 # information
 __author__ = "Oskar Maier"
-__version__ = "r0.1.1, 2015-05-18"
+__version__ = "r0.1.2, 2015-05-18"
 __email__ = "oskar.maier@googlemail.com"
 __status__ = "Release"
 __description__ = """
@@ -39,7 +39,8 @@ def main():
                         random_state=args.seed,
                         min_samples_leaf=2,
                         n_jobs=-1,
-                        max_features='auto',
+                        max_depth=args.max_depth,
+                        max_features=args.max_features,
                         min_improvement=args.min_improvement)
     clf.fit(data)
     
@@ -79,14 +80,19 @@ def main():
 
 def getArguments(parser):
     "Provides additional validation of the arguments collected by argparse."
-    return parser.parse_args()
+    args = parser.parse_args()
+    if args.max_features is not None and  args.max_features not in ['auto', 'sqrt' 'log2']:
+        args.max_features = int(args.max_features)
+    return args
 
 def getParser():
     "Creates and returns the argparse parser object."
     parser = argparse.ArgumentParser(description=__description__)
     parser.add_argument('dataset', help='One of the sharewood density example datasets (a text file containing a table).')
     parser.add_argument('--n-trees', default=10, type=int, help='The number of trees to train.')
-    parser.add_argument('--min-improvement', default=0, type=float, help='The minimum improvement require to consider a split valid.')
+    parser.add_argument('--max-depth', default=None, type=int, help='The maximum tree depth.')
+    parser.add_argument('--max-features', default='auto', help='The number of features to consider at each split. Can be an integer or one of auto, sqrt and log2')    
+    parser.add_argument('--min-improvement', default=-5.0, type=float, help='Minimum information gain required to consider another split. Note that the information gain can take on negative values in some situations.')
     parser.add_argument('--seed', default=None, type=int, help='The random seed to use. Fix to an integer to create reproducible results.')
     parser.add_argument('-r', '--resolution', dest='resolution', type=int, default=200, help='Plot resolution (points-per-dimension).')
     return parser

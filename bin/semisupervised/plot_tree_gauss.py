@@ -3,23 +3,26 @@
 """Semi-supervised classification from 2D gaussians and plot the results."""
 
 # build-in modules
+import os
+import sys
 import argparse
 
 # third-party modules
 import scipy.stats
 import numpy as np
 import matplotlib.pyplot as plt
-from sklearn.preprocessing import StandardScaler
 
 # path changes
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))) # enable import from parent directory
 
 # own modules
+from lib import generate_clusters, sample_data, scale_data, generate_grid, draw_split_lines
 from sklearnef.tree import SemiSupervisedDecisionTreeClassifier
 from sklearn.tree import export_graphviz
 
 # information
 __author__ = "Oskar Maier"
-__version__ = "r0.1.1, 2015-06-08"
+__version__ = "r0.1.2, 2015-06-08"
 __email__ = "oskar.maier@googlemail.com"
 __status__ = "Release"
 __description__ = """
@@ -37,67 +40,43 @@ training effects and max_features will be disabled.
 Note: If scaling is enabled, the PDF in original space will reflect the unscaled version!
 """
 
-# constants
-N_FEATURES = 2
-
-# code
 def main():
     args = getArguments(getParser())
 
     # initialize the random seed
     np.random.seed(args.seed)
     
-    # ----- Define gaussian distributions / clusters -----
-    means = []
-    for _ in range(args.n_clusters):
-        means.append([np.random.randint(0, args.max_area) for _ in range(N_FEATURES)])
-    covs = []
-    for _ in range(args.n_clusters):
-        cov = np.diag([(np.random.random() + .5) * args.sigma for _ in range(N_FEATURES)])
-        n_tri_elements = (N_FEATURES * (N_FEATURES - 1)) / 2
-        cov[np.triu_indices(N_FEATURES, 1)] = [(np.random.random() + .5) * args.sigma/2 for _ in range(n_tri_elements)]
-        cov[np.tril_indices(N_FEATURES, -1)] = [(np.random.random() + .5) * args.sigma/2 for _ in range(n_tri_elements)]
-        covs.append(cov)
+    # ----- Data generation ----
+    means, covs = generate_clusters(args.max_area, args.n_clusters, args.sigma)
     
-    # ----- Sample train set -----
-    X_train_unlabelled = np.concatenate([scipy.stats.multivariate_normal.rvs(mean, cov, args.n_samples) for mean, cov in zip(means, covs)]).astype(np.float32)
-    y_train_unlabelled = np.full(X_train_unlabelled.shape[0], -1)
-    y_train_gt = np.concatenate([[c] * args.n_samples for c in np.arange(len(means))], 0)
-    X_train_labelled = np.asarray(means).astype(np.float32)
-    y_train_labelled = np.arange(len(means))
-
-    X_train = np.concatenate((X_train_unlabelled, X_train_labelled), 0)
-    y_train = np.concatenate((y_train_unlabelled, y_train_labelled), 0)
+    (X_train, X_train_unlabelled, X_train_labelled),\
+    (y_train, y_train_unlabelled, y_train_labelled),\
+    y_train_gt = sample_data(means, covs, args.n_samples)
     
-    if not args.no_scaling:
-        ss = StandardScaler()
-        X_train = ss.fit_transform(X_train)
-        X_train_unlabelled = ss.transform(X_train_unlabelled)
-        X_train_labelled = ss.transform(X_train_labelled)
-        means = ss.transform(means)
+    # ----- Data scaling ----
+    # Must be performed before to display final data in the right space
+    if args.scaling:
+        scale_data(X_train, (X_train, X_train_unlabelled, X_train_labelled, means))
     
     # ----- Grid -----
-    x_lower = X_train[:,0].min() - 2 * args.sigma / np.std(X_train[:,0])
-    x_upper = X_train[:,0].max() + 2 * args.sigma / np.std(X_train[:,0])
-    y_lower = X_train[:,1].min() - 2 * args.sigma / np.std(X_train[:,1])
-    y_upper = X_train[:,1].max() + 2 * args.sigma / np.std(X_train[:,1])
-    grid = np.mgrid[x_lower:x_upper:(x_upper-x_lower)/float(args.resolution),y_lower:y_upper:(y_upper-y_lower)/float(args.resolution)]
-    
+    grid = generate_grid(X_train, args.sigma, args.resolution)
     
     # ----- Training -----
     clf = SemiSupervisedDecisionTreeClassifier(random_state=args.seed,
                                                max_depth=args.max_depth,
-                                               max_features=None,
+                                               max_features=args.max_features,
                                                supervised_weight=args.supervised_weight,
                                                min_improvement=args.min_improvement,
-                                               unsupervised_transformation=None if args.no_scaling else 'scale')
+                                               unsupervised_transformation='scale' if args.scaling else None)
     clf.fit(X_train, y_train)
+    
+    # ----- plot tree into file -----
+    # Convert with: dot -Tps tree.dot -o tree.ps
     export_graphviz(clf)
     
     # ----- Learned distribution -----
     X_test_pred = np.rollaxis(grid, 0, 3).reshape((np.product(grid.shape[1:]), grid.shape[0]))
     pdf = clf.pdf(X_test_pred)
-    #cdf = clf.cdf(X_test_pred)
     
     # ----- Ground truth distribution -----
     X_test_gt = np.rollaxis(grid, 0, 3)
@@ -107,19 +86,8 @@ def main():
     # ----- Transduction -----
     y_train_result = clf.transduced_labels_
     
-    # ----- A-posteriori classification -----
+    # ----- A-posteriori classification / induction -----
     y_train_prediction = clf.predict(X_train_unlabelled)
-
-    # ----- Goodness of fit measure -----
-    #X_eval = np.concatenate([scipy.stats.multivariate_normal.rvs(mean, cov, args.n_samples) for mean, cov in zip(means, covs)])
-    #gof = GoodnessOfFit(clf.cdf, X_eval, resolution=200)
-    #print 'Goodness of fit evaluation over {}^{} grid-points:'.format(200, X_eval.shape[1])
-    #print '\tkolmogorov_smirnov:', gof.kolmogorov_smirnov()
-    #print '\tmean_squared_error:', gof.mean_squared_error()
-    #print '\tmean_squared_error_weighted:', gof.mean_squared_error_weighted(clf.pdf)
-    
-    # ----- E(M)CDF -----
-    #emcdf = gof.ecdf(X_test_pred)
     
     # ----- Plotting -----
     x, y = grid
@@ -157,7 +125,7 @@ def main():
     
     plt.xlim(min(x),max(x))
     plt.ylim(min(y),max(y))
-    plt.title('Learned: PDF + samples')
+    plt.title('Learned: PDF + samples labelled through transduction')
     
     if not args.no_split_lines:
         draw_split_lines(clf, x, y)
@@ -170,41 +138,21 @@ def main():
     
     plt.xlim(min(x),max(x))
     plt.ylim(min(y),max(y))
-    plt.title('Learned: a-posteriori classification')
+    plt.title('Learned: a-posteriori classification / induction')
     
     # add split-lines
     if not args.no_split_lines:
         draw_split_lines(clf, x, y)
     
     plt.show()
-    
-def draw_split_lines(clf, x, y):
-    """Draw the trees split lines into the current image."""
-    info = clf.parse_tree_leaves()
-    xmin, xmax = min(x), max(x)
-    ymin, ymax = min(y), max(y)
-    hlines = ([], [], [])
-    vlines = ([], [], [])
-    for node in info:
-        if node is not None: # leave node
-            for pos in node.range[0]: # xrange
-                if not np.isinf(pos):
-                    xliml, xlimr = node.range[1]
-                    vlines[0].append(pos)
-                    vlines[1].append(ymin if np.isinf(xliml) else xliml)
-                    vlines[2].append(ymax if np.isinf(xlimr) else xlimr)
-            for pos in node.range[1]: # xrange
-                if not np.isinf(pos):
-                    yliml, ylimr = node.range[0]
-                    hlines[0].append(pos)
-                    hlines[1].append(xmin if np.isinf(yliml) else yliml)
-                    hlines[2].append(xmax if np.isinf(ylimr) else ylimr)
-    plt.hlines(hlines[0], hlines[1], hlines[2], colors='blue', linestyles='dotted')
-    plt.vlines(vlines[0], vlines[1], vlines[2], colors='blue', linestyles='dotted')
+
     
 def getArguments(parser):
     "Provides additional validation of the arguments collected by argparse."
-    return parser.parse_args()
+    args = parser.parse_args()
+    if args.max_features is not None and  args.max_features not in ['auto', 'sqrt' 'log2']:
+        args.max_features = int(args.max_features)
+    return args
 
 def getParser():
     "Creates and returns the argparse parser object."
@@ -213,21 +161,18 @@ def getParser():
     parser.add_argument('--n-samples', default=200, type=int, help='The number of training samples to draw from each gaussian.')
     parser.add_argument('--sigma', default=0.4, type=float, help='The sigma multiplier of the gaussian distributions.')
     parser.add_argument('--max-depth', default=None, type=int, help='The maximum tree depth.')
+    parser.add_argument('--max-features', default=None, help='The number of features to consider at each split. Can be an integer or one of auto, sqrt and log2')
     parser.add_argument('--supervised-weight', default=0.5, type=float, help='The weight of the supervised metric against the un-supervised.')
-    parser.add_argument('--min-improvement', default=0.0, type=float, help='Minimum information gain required to consider another split.')
+    parser.add_argument('--min-improvement', default=-5.0, type=float, help='Minimum information gain required to consider another split. Note that the information gain can take on negative values in some situations.')
     parser.add_argument('--no-split-lines', action='store_true', help='Do not plot the split-lines.')
-    parser.add_argument('--no-scaling', action='store_true', help='Disable data scaling.')
+    parser.add_argument('--scaling', action='store_true', help='Enable data scaling.')
     parser.add_argument('--resolution', default=100, type=float, help='The plotting resolution i.e. dots per dimension.')
     parser.add_argument('--max-area', default=10, type=int, help='The maximum area over which the gaussians should be distributed.')
     parser.add_argument('--seed', default=None, type=int, help='The random seed to use. Fix to an integer to create reproducible results.')
 
-    parser.add_argument('-v', dest='verbose', action='store_true', help='Display more information.')
-    parser.add_argument('-d', dest='debug', action='store_true', help='Display debug information.')
+    #parser.add_argument('-v', dest='verbose', action='store_true', help='Display more information.')
+    #parser.add_argument('-d', dest='debug', action='store_true', help='Display debug information.')
     return parser
-
-import sklearnef.tree._tree as _treeef
-from sklearn.tree import DecisionTreeClassifier
-
 
 if __name__ == "__main__":
     main()

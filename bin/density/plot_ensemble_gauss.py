@@ -3,6 +3,8 @@
 """Learning density distribution from 2D gaussians and plot the results."""
 
 # build-in modules
+import os
+import sys
 import argparse
 
 # third-party modules
@@ -11,13 +13,15 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 # path changes
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))) # enable import from parent directory
 
 # own modules
+from lib import generate_clusters, sample_data, scale_data, generate_grid, draw_split_lines
 from sklearnef.ensemble import DensityForest
 
 # information
 __author__ = "Oskar Maier"
-__version__ = "r0.1.0, 2015-06-08"
+__version__ = "r0.1.1, 2015-06-08"
 __email__ = "oskar.maier@googlemail.com"
 __status__ = "Release"
 __description__ = """
@@ -31,9 +35,6 @@ No cut-lines will be plotted. To visualize these, please use the
 plot_tree_gauss.py version of this script.
 """
 
-# constants
-N_FEATURES = 2
-
 # code
 def main():
     args = getArguments(getParser())
@@ -41,36 +42,29 @@ def main():
     # initialize the random seed
     np.random.seed(args.seed)
     
-    # ----- Define gaussian distributions / clusters -----
-    means = []
-    for _ in range(args.n_clusters):
-        means.append([np.random.randint(0, args.max_area) for _ in range(N_FEATURES)])
-    covs = []
-    for _ in range(args.n_clusters):
-        cov = np.diag([(np.random.random() + .5) * args.sigma for _ in range(N_FEATURES)])
-        n_tri_elements = (N_FEATURES * (N_FEATURES - 1)) / 2
-        cov[np.triu_indices(N_FEATURES, 1)] = [(np.random.random() + .5) * args.sigma/2 for _ in range(n_tri_elements)]
-        cov[np.tril_indices(N_FEATURES, -1)] = [(np.random.random() + .5) * args.sigma/2 for _ in range(n_tri_elements)]
-        covs.append(cov)
+    # ----- Data generation ----
+    means, covs = generate_clusters(args.max_area, args.n_clusters, args.sigma)
     
-    # ----- Sample train set -----
-    X_train = np.concatenate([scipy.stats.multivariate_normal.rvs(mean, cov, args.n_samples) for mean, cov in zip(means, covs)])
+    (X_train, X_train_unlabelled, X_train_labelled),\
+    (y_train, y_train_unlabelled, y_train_labelled),\
+    y_train_gt = sample_data(means, covs, args.n_samples)
+    
+    # ----- Data scaling ----
+    # Must be performed before to display final data in the right space
+    if args.scaling:
+        scale_data(X_train, (X_train, X_train_unlabelled, X_train_labelled, means))
     
     # ----- Grid -----
-    x_lower = X_train[:,0].min() - 2 * args.sigma
-    x_upper = X_train[:,0].max() + 2 * args.sigma
-    y_lower = X_train[:,1].min() - 2 * args.sigma
-    y_upper = X_train[:,1].max() + 2 * args.sigma
-    grid = np.mgrid[x_lower:x_upper:args.resolution,y_lower:y_upper:args.resolution]
-    
+    grid = generate_grid(X_train, args.sigma, args.resolution)
     
     # ----- Training -----
     clf = DensityForest(n_estimators=args.n_trees,
                         random_state=args.seed,
-                        min_samples_leaf=N_FEATURES,
+                        min_samples_leaf=2,
                         n_jobs=-1,
-                        max_features='auto',
-                        min_improvement=args.min_improvement)
+                        max_depth=args.max_depth,
+                        max_features=args.max_features,
+                        min_improvement=args.min_improvement)    
     clf.fit(X_train)
     
     # ----- Prediction -----
@@ -109,7 +103,10 @@ def main():
     
 def getArguments(parser):
     "Provides additional validation of the arguments collected by argparse."
-    return parser.parse_args()
+    args = parser.parse_args()
+    if args.max_features is not None and  args.max_features not in ['auto', 'sqrt' 'log2']:
+        args.max_features = int(args.max_features)
+    return args
 
 def getParser():
     "Creates and returns the argparse parser object."
@@ -118,13 +115,16 @@ def getParser():
     parser.add_argument('--n-clusters', default=4, type=int, help='The number of gaussian distributions to create.')
     parser.add_argument('--n-samples', default=1000, type=int, help='The number of training samples to draw from each gaussian.')
     parser.add_argument('--sigma', default=0.4, type=float, help='The sigma multiplier of the gaussian distributions.')
-    parser.add_argument('--min-improvement', default=0, type=float, help='The minimum improvement require to consider a split valid.')
-    parser.add_argument('--resolution', default=0.05, type=float, help='The plotting resolution.')
+    parser.add_argument('--max-depth', default=None, type=int, help='The maximum tree depth.')
+    parser.add_argument('--max-features', default='auto', help='The number of features to consider at each split. Can be an integer or one of auto, sqrt and log2')    
+    parser.add_argument('--min-improvement', default=-5.0, type=float, help='Minimum information gain required to consider another split. Note that the information gain can take on negative values in some situations.')
+    parser.add_argument('--scaling', action='store_true', help='Enable data scaling.')
+    parser.add_argument('--resolution', default=100, type=float, help='The plotting resolution i.e. dots per dimension.')
     parser.add_argument('--max-area', default=10, type=int, help='The maximum area over which the gaussians should be distributed.')
     parser.add_argument('--seed', default=None, type=int, help='The random seed to use. Fix to an integer to create reproducible results.')
 
-    parser.add_argument('-v', dest='verbose', action='store_true', help='Display more information.')
-    parser.add_argument('-d', dest='debug', action='store_true', help='Display debug information.')
+    #parser.add_argument('-v', dest='verbose', action='store_true', help='Display more information.')
+    #parser.add_argument('-d', dest='debug', action='store_true', help='Display debug information.')
     return parser
 
 if __name__ == "__main__":

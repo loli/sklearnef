@@ -3,23 +3,26 @@
 """Semi-supervised classification from various distributions and plot the results."""
 
 # build-in modules
+import os
+import sys
 import argparse
 
 # third-party modules
 import numpy as np
 import matplotlib.pyplot as plt
-from sklearn import datasets
 from sklearn.preprocessing import StandardScaler
+from sklearn.metrics.classification import accuracy_score
 
 # path changes
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))) # enable import from parent directory
 
 # own modules
+from lib import make_sklearn_dataset, generate_grid, draw_split_lines
 from sklearnef.ensemble import SemiSupervisedRandomForestClassifier
-from sklearn.metrics.classification import accuracy_score
 
 # information
 __author__ = "Oskar Maier"
-__version__ = "r0.1.0, 2015-06-08"
+__version__ = "r0.1.1, 2015-06-08"
 __email__ = "oskar.maier@googlemail.com"
 __status__ = "Release"
 __description__ = """
@@ -35,35 +38,12 @@ def main():
     # initialize the random seed
     np.random.seed(args.seed)
     
-    # create dataset
-    if 'circles_distant' == args.dataset: # labels=3, seed=1, n-samples=1000, max-depth=4 OR labels=4, seed=1, n-samples=1000, max-depth=4
-        dataset = datasets.make_circles(n_samples=args.n_samples, factor=.5, noise=.05)
-    elif 'moons' == args.dataset: # labels=2, seed=13, n-samples=500, max-depth=4 OR labels=1, seed=27, n-samples=500, max-depth=4
-        dataset = datasets.make_moons(n_samples=args.n_samples, noise=.05)
-    elif 'blobs' == args.dataset: # labels=1, seed=0, n-samples=100, max-depth=3 
-        dataset = datasets.make_blobs(n_samples=args.n_samples, random_state=8)
-    elif 'circles_near' == args.dataset: # labels = 20, seed=0, n-samples=2000, max-depth=5
-        dataset = datasets.make_circles(n_samples=args.n_samples, noise=.05)
-    elif 's_curve' == args.dataset: # labels=10, seed=35, n-samples=2500, max-depth=7
-        scurve1 = datasets.make_s_curve(n_samples=args.n_samples // 2, noise=.05)
-        scurve1 = np.vstack((scurve1[0][:, 0], scurve1[0][:, 2])).T
-        scurve2 = datasets.make_s_curve(n_samples=args.n_samples // 2, noise=.05)
-        scurve2 = np.vstack((scurve2[0][:, 0], scurve2[0][:, 2])).T + [.5, .5] # offset
-        dataset = np.concatenate((scurve1, scurve2), 0), \
-                  np.concatenate((np.asarray([0] * scurve1.shape[0]),
-                                  np.asarray([1] * scurve2.shape[0])), 0)
-    elif 'swiss_roll' == args.dataset: # labels = 10, seed = 35, n-samples=2500, max-depth=5
-        sroll1 = datasets.make_swiss_roll(n_samples=args.n_samples // 2, noise=.05)
-        sroll1 = np.vstack((sroll1[0][:,0], sroll1[0][:,2])).T
-        sroll2 = datasets.make_swiss_roll(n_samples=args.n_samples // 2, noise=.05)
-        sroll2 = np.vstack((sroll2[0][:,0], sroll2[0][:,2])).T * 0.75 # shrink
-        dataset = np.concatenate((sroll1, sroll2), 0), \
-                  np.concatenate((np.asarray([0] * sroll1.shape[0]),
-                                  np.asarray([1] * sroll2.shape[0])), 0)
+    # make dataset
+    X, y = make_sklearn_dataset(args.dataset, args.n_samples)
         
-    # split and normalize
-    X, y = dataset
-    X = StandardScaler().fit_transform(X).astype(np.float32)
+    # normalize
+    if args.scaling:
+        X = StandardScaler().fit_transform(X).astype(np.float32)
     
     # ----- Create training and testing sets
     labelled_mask = np.zeros(y.shape, np.bool)
@@ -85,11 +65,7 @@ def main():
     y_train_labelled = y[labelled_mask]
     
     # ----- Grid -----
-    x_lower = X[:,0].min() - X[:,0].std()
-    x_upper = X[:,0].max() + X[:,0].std()
-    y_lower = X[:,1].min() - X[:,1].std()
-    y_upper = X[:,1].max() + X[:,1].std()
-    grid = np.mgrid[x_lower:x_upper:args.resolution,y_lower:y_upper:args.resolution]
+    grid = generate_grid(X_train, X_train.std(), args.resolution)
     
     # ----- Training -----
     clf = SemiSupervisedRandomForestClassifier(random_state=args.seed,
@@ -97,8 +73,6 @@ def main():
                                                max_depth=args.max_depth,
                                                max_features=args.max_features,
                                                supervised_weight=args.supervised_weight,
-                                               transduction_method=args.transduction_method,
-                                               transduction_optimized_n_knn=args.optimized_knn,
                                                min_improvement=args.min_improvement,
                                                unsupervised_transformation=None)
     clf.fit(X_train, y_train)
@@ -115,8 +89,8 @@ def main():
     
     # ----- Scoring -----
     print 'SCORES:'
-    print '\t', accuracy_score(y_train_unlabelled_gt, y_train_result), 'Labeling throught transduction'
-    print '\t', accuracy_score(y_train_unlabelled_gt, y_train_prediction), 'Labeling throught classification'
+    print '\t', accuracy_score(y_train_unlabelled_gt, y_train_result), 'Labeling through transduction'
+    print '\t', accuracy_score(y_train_unlabelled_gt, y_train_prediction), 'Labeling through classification'
     
     # ----- Plotting -----
     x, y = grid
@@ -129,9 +103,6 @@ def main():
     
     # plot: gt - pdf
     plt.subplot(3, 1, 1)
-    #plt.imshow(prob_gt.T, extent=[min(x),max(x),min(y),max(y)], interpolation='none',
-    #           cmap=plt.cm.afmhot, aspect='auto', origin='lower',
-    #           vmin=pdf_vmin, vmax=pdf_vmax, alpha=.5) #'auto'
     plt.scatter(X_train_unlabelled[:,0], X_train_unlabelled[:,1], c=y_train_unlabelled_gt, s=20, alpha=.6)
     plt.scatter(X_train_labelled[:,0], X_train_labelled[:,1], c=y_train_labelled, s=100)
     plt.colorbar()
@@ -178,33 +149,12 @@ def main():
     
     plt.show()
     
-def draw_split_lines(clf, x, y):
-    """Draw the trees split lines into the current image."""
-    info = clf.parse_tree_leaves()
-    xmin, xmax = min(x), max(x)
-    ymin, ymax = min(y), max(y)
-    hlines = ([], [], [])
-    vlines = ([], [], [])
-    for node in info:
-        if node is not None: # leave node
-            for pos in node.range[0]: # xrange
-                if not np.isinf(pos):
-                    xliml, xlimr = node.range[1]
-                    vlines[0].append(pos)
-                    vlines[1].append(ymin if np.isinf(xliml) else xliml)
-                    vlines[2].append(ymax if np.isinf(xlimr) else xlimr)
-            for pos in node.range[1]: # xrange
-                if not np.isinf(pos):
-                    yliml, ylimr = node.range[0]
-                    hlines[0].append(pos)
-                    hlines[1].append(xmin if np.isinf(yliml) else yliml)
-                    hlines[2].append(xmax if np.isinf(ylimr) else ylimr)
-    plt.hlines(hlines[0], hlines[1], hlines[2], colors='blue', linestyles='dotted')
-    plt.vlines(vlines[0], vlines[1], vlines[2], colors='blue', linestyles='dotted')
-    
 def getArguments(parser):
     "Provides additional validation of the arguments collected by argparse."
-    return parser.parse_args()
+    args = parser.parse_args()
+    if args.max_features is not None and  args.max_features not in ['auto', 'sqrt' 'log2']:
+        args.max_features = int(args.max_features)
+    return args
 
 def getParser():
     "Creates and returns the argparse parser object."
@@ -212,19 +162,18 @@ def getParser():
     parser.add_argument('dataset', choices=DATASETS, help='The dataset to use.')
     parser.add_argument('--n-trees', default=10, type=int, help='The number of trees to train.')
     parser.add_argument('--n-labelled', default=1, type=int, help='The number labelled samples per class.')
-    parser.add_argument('--n-samples', default=200, type=int, help='The number of training samples to draw from each gaussian.')
+    parser.add_argument('--n-samples', default=200, type=int, help='The number of training samples to draw from each dataset.')
     parser.add_argument('--max-depth', default=None, type=int, help='The maximum tree depth.')
-    parser.add_argument('--max-features', default='auto', help='The number of features to consider at each split.')
-    parser.add_argument('--transduction-method', default='fast', choices=['fast', 'best', 'optimized'], help='The transduction method to employ.')
-    parser.add_argument('--optimized-knn', type=int, default=5, help='Number of knn to build the neighbourhood graph from.')
+    parser.add_argument('--max-features', default='auto', help='The number of features to consider at each split. Can be an integer or one of auto, sqrt and log2')
     parser.add_argument('--supervised-weight', default=0.5, type=float, help='The weight of the supervised metric against the un-supervised.')
-    parser.add_argument('--min-improvement', default=0, type=float, help='The minimum improvement require to consider a split valid.')
+    parser.add_argument('--min-improvement', default=-5.0, type=float, help='Minimum information gain required to consider another split. Note that the information gain can take on negative values in some situations.')
     parser.add_argument('--split-lines', action='store_true', help='Plot the split-lines of the first tree in the forest.')
-    parser.add_argument('--resolution', default=0.05, type=float, help='The plotting resolution.')
+    parser.add_argument('--scaling', action='store_true', help='Enable data scaling.')
+    parser.add_argument('--resolution', default=100, type=float, help='The plotting resolution i.e. dots per dimension.')
     parser.add_argument('--seed', default=None, type=int, help='The random seed to use. Fix to an integer to create reproducible results.')
 
-    parser.add_argument('-v', dest='verbose', action='store_true', help='Display more information.')
-    parser.add_argument('-d', dest='debug', action='store_true', help='Display debug information.')
+    #parser.add_argument('-v', dest='verbose', action='store_true', help='Display more information.')
+    #parser.add_argument('-d', dest='debug', action='store_true', help='Display debug information.')
     return parser
 
 if __name__ == "__main__":
