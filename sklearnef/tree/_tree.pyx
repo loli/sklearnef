@@ -17,7 +17,7 @@ np.import_array()
 # =============================================================================
 # COMPILE WITH DEBUG
 # =============================================================================
-DEF FLAG_DEBUG = True
+DEF FLAG_DEBUG = False
 
 # =============================================================================
 # Types and constants
@@ -407,15 +407,59 @@ cdef class SemiSupervisedClassificationCriterion(UnSupervisedClassificationCrite
         UnSupervisedClassificationCriterion.children_impurity(self, &uimp_impurity_left, &uimp_impurity_right)
         self.criterion_supervised.children_impurity(&simp_impurity_left, &simp_impurity_right)
         
-        impurity_left[0] = (1. - supervised_weight) * uimp_impurity_left + supervised_weight * simp_impurity_left
-        impurity_right[0] = (1. - supervised_weight) * uimp_impurity_right + supervised_weight * simp_impurity_right
+        #impurity_left[0] = (1. - supervised_weight) * uimp_impurity_left + supervised_weight * simp_impurity_left
+        #impurity_right[0] = (1. - supervised_weight) * uimp_impurity_right + supervised_weight * simp_impurity_right
+        
+        impurity_left[0] = (1. - supervised_weight) * self.weighted_n_left / self.weighted_n_node_samples * uimp_impurity_left \
+                           + supervised_weight * self.criterion_supervised.weighted_n_left / self.criterion_supervised.weighted_n_node_samples * simp_impurity_left
+        impurity_right[0] = (1. - supervised_weight) * self.weighted_n_right / self.weighted_n_node_samples * uimp_impurity_right \
+                           + supervised_weight * self.criterion_supervised.weighted_n_right / self.criterion_supervised.weighted_n_node_samples * simp_impurity_right
+
+        IF FLAG_DEBUG:
+            with gil:
+                print 'SemiSupervisedClassificationCriterion.children_impurity(): left: {} = (1-{}) * {}[u] + {} * {}[s]'.format(impurity_left[0],
+                                                                                                                                (1. - supervised_weight),
+                                                                                                                                self.weighted_n_left / self.weighted_n_node_samples * uimp_impurity_left,
+                                                                                                                                supervised_weight,
+                                                                                                                                self.criterion_supervised.weighted_n_left / self.criterion_supervised.weighted_n_node_samples * simp_impurity_left)
+                print 'SemiSupervisedClassificationCriterion.children_impurity(): left: {} = (1-{}) * {}[u] + {} * {}[s]'.format(impurity_right[0],
+                                                                                                                                (1. - supervised_weight),
+                                                                                                                                self.weighted_n_right / self.weighted_n_node_samples * uimp_impurity_right,
+                                                                                                                                supervised_weight,
+                                                                                                                                self.criterion_supervised.weighted_n_right / self.criterion_supervised.weighted_n_node_samples * simp_impurity_right)
+        
+    cdef double impurity_improvement(self, double impurity) nogil:
+        """Weighted impurity improvement of the semi-supervised term, i.e.
+        
+           I = (1-\alpha) * impurity_unsupervised + alpha * impurity_supervised
+               - (1-\alpha) * impurity_left_unsupervised + alpha * impurity_left_supervised
+               - (1-\alpha) * impurity_right_unsupervised + alpha * impurity_right_supervised
+               
+           All are additionally scaled according to the amount of samples
+           in the left resp. right child node. 
+           
+           Extended version that catches any improvement < min_improvement
+           and returns -INFINITY instead to invalidate the current split."""
+        cdef double improvement
+        cdef double impurity_left
+        cdef double impurity_right
+        cdef DTYPE_t min_improvement
+        
+        min_improvement = self.min_improvement
+ 
+        self.children_impurity(&impurity_left, &impurity_right)
+ 
+        cdef double imp
+        improvement = ((self.weighted_n_node_samples / self.weighted_n_samples) *
+                       (impurity - impurity_right - impurity_left))
         
         IF FLAG_DEBUG:
             with gil:
-                print 'SemiSupervisedClassificationCriterion.children_impurity(): left: {} = (1-{}) * {}[u] + {} * {}[s]'.format((1. - supervised_weight) * uimp_impurity_left + supervised_weight * simp_impurity_left,
-                                                                                                                                 (1. - supervised_weight), uimp_impurity_left, supervised_weight, simp_impurity_left)
-                print 'SemiSupervisedClassificationCriterion.children_impurity(): right: {} = (1-{}) * {}[u] + {} * {}[s]'.format((1. - supervised_weight) * uimp_impurity_right + supervised_weight * simp_impurity_right,
-                                                                                                                                 (1. - supervised_weight), uimp_impurity_right, supervised_weight, simp_impurity_right)
+                print 'SemiSupervisedClassificationCriterion:impurity_improvement(): improvement: {} = {} - {} - {}'.format(improvement, impurity, impurity_right, impurity_left)
+                if improvement < min_improvement:
+                    print 'SemiSupervisedClassificationCriterion:impurity_improvement(): SKIPPED due to insufficient improvement.'
+ 
+        return improvement if improvement >= min_improvement else -INFINITY  
         
     cdef void node_value(self, double* dest) nogil:
         """
