@@ -223,7 +223,7 @@ class DensityBaseTree(DecisionTreeClassifier):
         # get node info
         fid = tree.feature[pos]
         thr = tree.threshold[pos]
-        
+
         # if not leaf node...
         if not -2 == fid:
             
@@ -1113,6 +1113,7 @@ def memoize(f):
             ret = self[key] = f(key)
             return ret 
     return memodict().__getitem__
+
 class MVND():
     def __init__(self, tree, range, node_id, offset=0):
         r"""Bounded multivariate normal distribution."""
@@ -1121,6 +1122,7 @@ class MVND():
                               number of features in the tree')
         
         self.__range = range
+        self.__unscaled_range = range[:]
         self.__node_id = node_id
         self.__cmnd = None
         self.__n_features = tree.n_features
@@ -1141,8 +1143,13 @@ class MVND():
     
     @property
     def range(self):
-        r"""The MVNDs bounding box."""
+        r"""The MVNDs bounding box (scaled version)."""
         return self.__range
+    
+    @property
+    def unscaled_range(self):
+        r"""The MVNDs bounding box (unscaled version, might contain +/-infs)."""
+        return self.__unscaled_range
     
     @property
     def frac(self):
