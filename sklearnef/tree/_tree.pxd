@@ -48,6 +48,7 @@ cdef class UnSupervisedClassificationCriterion(Criterion):
     cdef SIZE_t n_samples       # might not be required, as only used in __cinit__ and __reduce__
     cdef SIZE_t n_features      # might not be required, as only used in __cinit__ and __reduce__
     cdef DTYPE_t min_improvement# minimal improvement of a split to consider it
+    cdef DTYPE_t normalization_entropy # the node's initial entropy / logdet stored for normalization purposes
     cdef Diffentropy covr       # dynamically updateable covariance matrix (right)
     cdef Diffentropy covl       # dynamically updateable covariance matrix (left)
     # !TODO: Above, some of the member vars could be removed in the future.

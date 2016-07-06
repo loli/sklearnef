@@ -62,11 +62,6 @@ cdef class UnSupervisedClassificationCriterion(Criterion):
         
         self.covl = Diffentropy(n_features) # left updateable cov for diffentropy calculation
         self.covr = Diffentropy(n_features) # right updateable cov for diffentropy calculation
-        
-        # The number of 'effective' prior observations (default = 0).
-        #self.effprior = 3.
-        # The variance of the effective observations (default = 900).
-        #self.effpriorvar = 900.
     
     def __dealloc__(self):
         """Destructor."""
@@ -149,6 +144,14 @@ cdef class UnSupervisedClassificationCriterion(Criterion):
         for i in range(start, end):
             self.covr.update_add(X + samples[i] * X_stride)
             
+        # compute the initial node entropy once for normalization purposes
+        self.covr.compute_covariance_matrix()
+        self.normalization_entropy = self.covr.logdet() + ENTROPY_SHIFT
+        
+        IF FLAG_DEBUG:
+            with gil:
+                print 'UnSupervisedClassificationCriterion.reset(): normalization entropy (i.e. impurity node)={} ({} of this ENTROPY_SHIFT)'.format(self.normalization_entropy, ENTROPY_SHIFT)        
+            
     cdef void update(self, SIZE_t new_pos) nogil:
         """Update the collected statistics by moving samples[pos:new_pos] from
             the right child to the left child."""
@@ -178,32 +181,20 @@ cdef class UnSupervisedClassificationCriterion(Criterion):
 
     cdef double node_impurity(self) nogil:
         """Compute the impurity of the current node."""
-        # NOTE: The builders call this function only once for the first node.
-        #       Therefore it is possible to compute a dedicated cov here for
-        #       single use.
-
-        cdef double entropy = 0.0
-        
-        self.covr.compute_covariance_matrix()
-        entropy = self.covr.logdet()
-        
-        IF FLAG_DEBUG:
-            with gil:
-                print 'UnSupervisedClassificationCriterion.node_impurity(): entropy={} ({} of this entropy shift)'.format(entropy + ENTROPY_SHIFT, ENTROPY_SHIFT)
-
-        return entropy + ENTROPY_SHIFT
+        return 1.0
 
     cdef void children_impurity(self, double* impurity_left,
                                 double* impurity_right) nogil:
         self.covl.compute_covariance_matrix()
-        impurity_left[0] = self.covl.logdet() + ENTROPY_SHIFT
+        impurity_left[0] = (self.covl.logdet() + ENTROPY_SHIFT) / self.normalization_entropy
         self.covr.compute_covariance_matrix()
-        impurity_right[0] = self.covr.logdet() + ENTROPY_SHIFT
+        impurity_right[0] = (self.covr.logdet() + ENTROPY_SHIFT) / self.normalization_entropy
         
         IF FLAG_DEBUG:
             with gil:
                 print 'UnSupervisedClassificationCriterion.children_impurity(): logdet pure left={} / right={}'.format(self.covl.logdet(), self.covr.logdet())
                 print 'UnSupervisedClassificationCriterion.children_impurity(): entropy left={} / right={} ({} of this entropy shift)'.format(self.covl.logdet() + ENTROPY_SHIFT, self.covr.logdet() + ENTROPY_SHIFT, ENTROPY_SHIFT)
+                print 'UnSupervisedClassificationCriterion.children_impurity(): entropy left={} / right={} (normalized)'.format((self.covl.logdet() + ENTROPY_SHIFT) / self.normalization_entropy, (self.covr.logdet() + ENTROPY_SHIFT) / self.normalization_entropy)
 
     cdef void node_value(self, double* dest) nogil:
         """Compute the node value of samples[start:end] into dest."""
@@ -249,11 +240,6 @@ cdef class UnSupervisedClassificationCriterion(Criterion):
         dest += n_features * n_features
         memcpy(dest, mu, n_features * sizeof(DOUBLE_t))
         
-        #IF FLAG_DEBUG:
-        #    with gil:
-        #        print 'UnSupervisedClassificationCriterion.node_value(): node_sample_frac={}'.format(frac)
-
-        
     cdef double impurity_improvement(self, double impurity) nogil:
         """Weighted impurity improvement, i.e.
 
@@ -273,9 +259,13 @@ cdef class UnSupervisedClassificationCriterion(Criterion):
         min_improvement = self.min_improvement
         
         IF FLAG_DEBUG:
+            cdef double impurity_left
+            cdef double impurity_right
+            self.children_impurity(&impurity_left, &impurity_right)
             with gil:
-                print 'UnSupervisedClassificationCriterion.impurity_improvement(): frace left={} / right={}'.format(self.weighted_n_left / self.weighted_n_node_samples, self.weighted_n_right / self.weighted_n_node_samples)
-                print 'UnSupervisedClassificationCriterion.impurity_improvement(): improvement={} (is infinity: {})'.format(improvement if improvement >= min_improvement else -INFINITY, improvement < min_improvement)
+                print 'UnSupervisedClassificationCriterion.impurity_improvement(): impurity node={} / left={} / right={}'.format(impurity, impurity_left, impurity_right)
+                print 'UnSupervisedClassificationCriterion.impurity_improvement(): fraction left={} / right={}'.format(self.weighted_n_left / self.weighted_n_node_samples, self.weighted_n_right / self.weighted_n_node_samples)
+                print 'UnSupervisedClassificationCriterion.impurity_improvement(): improvement={} (is infinity: {}, before was {})'.format(improvement if improvement >= min_improvement else -INFINITY, improvement < min_improvement, improvement)
 
         return improvement if improvement >= min_improvement else -INFINITY
 
@@ -385,7 +375,6 @@ cdef class SemiSupervisedClassificationCriterion(UnSupervisedClassificationCrite
         
         supervised_weight = self.supervised_weight
         uimp = UnSupervisedClassificationCriterion.node_impurity(self)
-        #!TODO: uimp = 0.0 & save uimp value (if not anyway done)
         simp = self.criterion_supervised.node_impurity()
         
         IF FLAG_DEBUG:
@@ -416,7 +405,6 @@ cdef class SemiSupervisedClassificationCriterion(UnSupervisedClassificationCrite
         
         supervised_weight = self.supervised_weight
         UnSupervisedClassificationCriterion.children_impurity(self, &uimp_impurity_left, &uimp_impurity_right)
-        #!TODO: uimp_impurity_left = uimp_impurity_left / uimp AND right side the same ... where saved?
         self.criterion_supervised.children_impurity(&simp_impurity_left, &simp_impurity_right)
         
         impurity_left[0] = (1. - supervised_weight) * uimp_impurity_left + supervised_weight * simp_impurity_left
@@ -428,20 +416,6 @@ cdef class SemiSupervisedClassificationCriterion(UnSupervisedClassificationCrite
                                                                                                                                  (1. - supervised_weight), uimp_impurity_left, supervised_weight, simp_impurity_left)
                 print 'SemiSupervisedClassificationCriterion.children_impurity(): right: {} = (1-{}) * {}[u] + {} * {}[s]'.format((1. - supervised_weight) * uimp_impurity_right + supervised_weight * simp_impurity_right,
                                                                                                                                  (1. - supervised_weight), uimp_impurity_right, supervised_weight, simp_impurity_right)
-        
-#     cdef double impurity_improvement(self, double impurity) nogil:
-#         """!TODO: Delete!"""
-#         cdef double impurity_left
-#         cdef double impurity_right
-# 
-#         self.children_impurity(&impurity_left, &impurity_right)
-# 
-#         cdef double imp
-#         imp = ((self.weighted_n_node_samples / self.weighted_n_samples) *
-#                 (impurity - self.weighted_n_right / self.weighted_n_node_samples * impurity_right
-#                           - self.weighted_n_left / self.weighted_n_node_samples * impurity_left))
-# 
-#         return imp
         
     cdef void node_value(self, double* dest) nogil:
         """
