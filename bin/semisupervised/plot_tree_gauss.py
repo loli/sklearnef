@@ -9,6 +9,7 @@ import argparse
 import scipy.stats
 import numpy as np
 import matplotlib.pyplot as plt
+from sklearn.preprocessing import StandardScaler
 
 # path changes
 
@@ -28,10 +29,12 @@ The cluster centers will be distributed within a certain distance of
 each other and the co-variance matrices skewed randomly according to
 the supplied sigma multiplier. The center of the clusters receive a
 unique label, all other (unlabelled) samples are randomly drawn from
-the gaussian distributions.
+the Gaussian distributions.
 
 The classifier will be trained with a single tree to better observe the
-trainign effects and max_features will be disabled.
+training effects and max_features will be disabled.
+
+Note: If scaling is enabled, the PDF in original space will reflect the unscaled version!
 """
 
 # constants
@@ -66,12 +69,19 @@ def main():
     X_train = np.concatenate((X_train_unlabelled, X_train_labelled), 0)
     y_train = np.concatenate((y_train_unlabelled, y_train_labelled), 0)
     
+    if not args.no_scaling:
+        ss = StandardScaler()
+        X_train = ss.fit_transform(X_train)
+        X_train_unlabelled = ss.transform(X_train_unlabelled)
+        X_train_labelled = ss.transform(X_train_labelled)
+        means = ss.transform(means)
+    
     # ----- Grid -----
-    x_lower = X_train[:,0].min() - 2 * args.sigma
-    x_upper = X_train[:,0].max() + 2 * args.sigma
-    y_lower = X_train[:,1].min() - 2 * args.sigma
-    y_upper = X_train[:,1].max() + 2 * args.sigma
-    grid = np.mgrid[x_lower:x_upper:args.resolution,y_lower:y_upper:args.resolution]
+    x_lower = X_train[:,0].min() - 2 * args.sigma / np.std(X_train[:,0])
+    x_upper = X_train[:,0].max() + 2 * args.sigma / np.std(X_train[:,0])
+    y_lower = X_train[:,1].min() - 2 * args.sigma / np.std(X_train[:,1])
+    y_upper = X_train[:,1].max() + 2 * args.sigma / np.std(X_train[:,1])
+    grid = np.mgrid[x_lower:x_upper:(x_upper-x_lower)/float(args.resolution),y_lower:y_upper:(y_upper-y_lower)/float(args.resolution)]
     
     
     # ----- Training -----
@@ -79,7 +89,8 @@ def main():
                                                max_depth=args.max_depth,
                                                max_features=None,
                                                supervised_weight=args.supervised_weight,
-                                               unsupervised_transformation=None)
+                                               min_improvement=args.min_improvement,
+                                               unsupervised_transformation=None if args.no_scaling else 'scale')
     clf.fit(X_train, y_train)
     export_graphviz(clf)
     
@@ -93,8 +104,8 @@ def main():
     prob_gt = np.sum([scipy.stats.multivariate_normal.pdf(X_test_gt, mean, cov) for mean, cov in zip(means, covs)], 0)
     prob_gt /= args.n_clusters # normalize
     
-    # ----- Trasnduction -----
-    y_train_result = clf.transduction(X_train_unlabelled, X_train_labelled, y_train_labelled)
+    # ----- Transduction -----
+    y_train_result = clf.transduced_labels_
     
     # ----- A-posteriori classification -----
     y_train_prediction = clf.predict(X_train_unlabelled)
@@ -203,8 +214,10 @@ def getParser():
     parser.add_argument('--sigma', default=0.4, type=float, help='The sigma multiplier of the gaussian distributions.')
     parser.add_argument('--max-depth', default=None, type=int, help='The maximum tree depth.')
     parser.add_argument('--supervised-weight', default=0.5, type=float, help='The weight of the supervised metric against the un-supervised.')
+    parser.add_argument('--min-improvement', default=0.0, type=float, help='Minimum information gain required to consider another split.')
     parser.add_argument('--no-split-lines', action='store_true', help='Do not plot the split-lines.')
-    parser.add_argument('--resolution', default=0.05, type=float, help='The plotting resolution.')
+    parser.add_argument('--no-scaling', action='store_true', help='Disable data scaling.')
+    parser.add_argument('--resolution', default=100, type=float, help='The plotting resolution i.e. dots per dimension.')
     parser.add_argument('--max-area', default=10, type=int, help='The maximum area over which the gaussians should be distributed.')
     parser.add_argument('--seed', default=None, type=int, help='The random seed to use. Fix to an integer to create reproducible results.')
 

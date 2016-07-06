@@ -62,12 +62,13 @@ def main():
     x_upper = X_train[:,0].max() + 2 * args.sigma
     y_lower = X_train[:,1].min() - 2 * args.sigma
     y_upper = X_train[:,1].max() + 2 * args.sigma
-    grid = np.mgrid[x_lower:x_upper:args.resolution,y_lower:y_upper:args.resolution]
+    grid = np.mgrid[x_lower:x_upper:(x_upper-x_lower)/float(args.resolution),y_lower:y_upper:(y_upper-y_lower)/float(args.resolution)]
     
     
     # ----- Training -----
     clf = DensityTree(random_state=args.seed,
                       min_samples_leaf=N_FEATURES,
+                      max_depth=args.max_depth,
                       max_features=None,
                       min_improvement=args.min_improvement)
     clf.fit(X_train)
@@ -192,9 +193,10 @@ def getParser():
     parser.add_argument('--n-clusters', default=4, type=int, help='The number of gaussian distributions to create.')
     parser.add_argument('--n-samples', default=1000, type=int, help='The number of training samples to draw from each gaussian.')
     parser.add_argument('--sigma', default=0.4, type=float, help='The sigma multiplier of the gaussian distributions.')
-    parser.add_argument('--min-improvement', default=0, type=float, help='The minimum improvement require to consider a split valid.')
+    parser.add_argument('--max-depth', default=None, type=int, help='The maximum tree depth.')
+    parser.add_argument('--min-improvement', default=0.0, type=float, help='The minimum improvement require to consider a split valid.')
     parser.add_argument('--no-split-lines', action='store_true', help='Do not plot the split-lines.')
-    parser.add_argument('--resolution', default=0.05, type=float, help='The plotting resolution.')
+    parser.add_argument('--resolution', default=100, type=float, help='The plotting resolution i.e. dots per dimension.')
     parser.add_argument('--max-area', default=10, type=int, help='The maximum area over which the gaussians should be distributed.')
     parser.add_argument('--seed', default=None, type=int, help='The random seed to use. Fix to an integer to create reproducible results.')
 

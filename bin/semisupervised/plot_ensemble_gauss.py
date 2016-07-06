@@ -82,7 +82,7 @@ def main():
                                                max_depth=args.max_depth,
                                                max_features=args.max_features,
                                                supervised_weight=args.supervised_weight,
-                                               unsupervised_transformation=None)
+                                               unsupervised_transformation='scale')
     clf.fit(X_train, y_train)
     
     # ----- Learned distribution -----
@@ -97,7 +97,7 @@ def main():
     prob_gt /= args.n_clusters # normalize
     
     # ----- Transduction -----
-    y_train_result = clf.estimators_[0].transduction(X_train_unlabelled, X_train_labelled, y_train_labelled)
+    y_train_result = clf.estimators_[0].transduced_labels_
     
     # ----- A-posteriori classification -----
     y_train_prediction = clf.predict(X_train_unlabelled)
