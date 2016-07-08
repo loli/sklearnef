@@ -11,6 +11,7 @@ import argparse
 import scipy.stats
 import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib import cm
 
 # path changes
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))) # enable import from parent directory
@@ -53,6 +54,9 @@ def main():
     (y_train, y_train_unlabelled, y_train_labelled),\
     y_train_gt = sample_data(means, covs, args.n_samples)
     
+    # make custom map
+    cmap = plt.get_cmap('jet', len(np.unique(y_train)))
+    
     # ----- Data scaling ----
     # Must be performed before to display final data in the right space
     if args.scaling:
@@ -67,6 +71,7 @@ def main():
                                                max_features=args.max_features,
                                                supervised_weight=args.supervised_weight,
                                                min_improvement=args.min_improvement,
+                                               transduction_method=args.transduction_method,
                                                unsupervised_transformation='scale' if args.scaling else None)
     clf.fit(X_train, y_train)
     
@@ -100,12 +105,12 @@ def main():
     
     # plot: gt - pdf
     plt.subplot(3, 1, 1)
-    plt.imshow(prob_gt.T, extent=[min(x),max(x),min(y),max(y)], interpolation='none',
-               cmap=plt.cm.afmhot, aspect='auto', origin='lower',
-               vmin=pdf_vmin, vmax=pdf_vmax, alpha=.5) #'auto'
-    plt.scatter(X_train_unlabelled[:,0], X_train_unlabelled[:,1], c=y_train_gt, s=20, alpha=.6)
-    plt.scatter(X_train_labelled[:,0], X_train_labelled[:,1], c=y_train_labelled, s=100)
-    plt.colorbar()
+    plt.scatter(X_train_unlabelled[:,0], X_train_unlabelled[:,1], c=cmap(y_train_gt.astype(np.uint8)), s=20, alpha=.5)
+    plt.scatter(X_train_labelled[:,0], X_train_labelled[:,1], c=cmap(y_train_labelled.astype(np.uint8)), s=100)
+    img = plt.imshow(prob_gt.T, extent=[min(x),max(x),min(y),max(y)], interpolation='none',
+                     cmap=plt.cm.afmhot, aspect='auto', origin='lower',
+                     vmin=pdf_vmin, vmax=pdf_vmax, alpha=.5) #'auto'
+    plt.colorbar(img)
     
     plt.xlim(min(x),max(x))
     plt.ylim(min(y),max(y))
@@ -113,15 +118,15 @@ def main():
     
     if not args.no_split_lines:
         draw_split_lines(clf, x, y)
-    
+
     # plot: learned - pdf
     plt.subplot(3, 1, 2)
-    plt.imshow(pdf.reshape((x.size,y.size)).T, extent=[min(x),max(x),min(y),max(y)],
-               interpolation='none', cmap=plt.cm.afmhot, aspect='auto', origin='lower',
-               vmin=pdf_vmin, vmax=pdf_vmax, alpha=.5) #'auto'
-    plt.scatter(X_train_unlabelled[:,0], X_train_unlabelled[:,1], c=y_train_result, s=20, alpha=.6)
-    plt.scatter(X_train_labelled[:,0], X_train_labelled[:,1], c=y_train_labelled, s=100)
-    plt.colorbar()
+    plt.scatter(X_train_unlabelled[:,0], X_train_unlabelled[:,1], c=cmap(y_train_result.astype(np.uint8)), s=20, alpha=.5)
+    plt.scatter(X_train_labelled[:,0], X_train_labelled[:,1], c=cmap(y_train_labelled.astype(np.uint8)), s=100)
+    img =   plt.imshow(pdf.reshape((x.size,y.size)).T, extent=[min(x),max(x),min(y),max(y)],
+                       interpolation='none', cmap=plt.cm.afmhot, aspect='auto', origin='lower',
+                       vmin=pdf_vmin, vmax=pdf_vmax, alpha=.5) #'auto'
+    plt.colorbar(img)
     
     plt.xlim(min(x),max(x))
     plt.ylim(min(y),max(y))
@@ -129,12 +134,12 @@ def main():
     
     if not args.no_split_lines:
         draw_split_lines(clf, x, y)
-    
+
     # plot: learned - pdf
     plt.subplot(3, 1, 3)
-    plt.scatter(X_train_unlabelled[:,0], X_train_unlabelled[:,1], c=y_train_prediction + 1, s=20, alpha=.6)
-    plt.scatter(X_train_labelled[:,0], X_train_labelled[:,1], c=y_train_labelled, s=100)
-    plt.colorbar()
+    plt.scatter(X_train_unlabelled[:,0], X_train_unlabelled[:,1], c=cmap(y_train_prediction.astype(np.int8)), s=20, alpha=.5)
+    plt.scatter(X_train_labelled[:,0], X_train_labelled[:,1], c=cmap(y_train_labelled.astype(np.int8)), s=100)
+    plt.colorbar(img) # just for scale
     
     plt.xlim(min(x),max(x))
     plt.ylim(min(y),max(y))
@@ -161,6 +166,7 @@ def getParser():
     parser.add_argument('--n-samples', default=200, type=int, help='The number of training samples to draw from each gaussian.')
     parser.add_argument('--sigma', default=0.4, type=float, help='The sigma multiplier of the gaussian distributions.')
     parser.add_argument('--max-depth', default=None, type=int, help='The maximum tree depth.')
+    parser.add_argument('--transduction-method', default='diffusion', choices=['diffusion', 'approximate'], help='The transduction method to use.')
     parser.add_argument('--max-features', default=None, help='The number of features to consider at each split. Can be an integer or one of auto, sqrt and log2')
     parser.add_argument('--supervised-weight', default=0.5, type=float, help='The weight of the supervised metric against the un-supervised.')
     parser.add_argument('--min-improvement', default=-5.0, type=float, help='Minimum information gain required to consider another split. Note that the information gain can take on negative values in some situations.')

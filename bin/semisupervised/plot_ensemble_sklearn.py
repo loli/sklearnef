@@ -64,6 +64,9 @@ def main():
     X_train_labelled = X_train[labelled_mask]
     y_train_labelled = y[labelled_mask]
     
+    # make custom map
+    cmap = plt.get_cmap('jet', len(np.unique(y_train)))
+    
     # ----- Grid -----
     grid = generate_grid(X_train, X_train.std(), args.resolution)
     
@@ -74,6 +77,7 @@ def main():
                                                max_features=args.max_features,
                                                supervised_weight=args.supervised_weight,
                                                min_improvement=args.min_improvement,
+                                               transduction_method=args.transduction_method,
                                                unsupervised_transformation=None)
     clf.fit(X_train, y_train)
     
@@ -103,9 +107,9 @@ def main():
     
     # plot: gt - pdf
     plt.subplot(3, 1, 1)
-    plt.scatter(X_train_unlabelled[:,0], X_train_unlabelled[:,1], c=y_train_unlabelled_gt, s=20, alpha=.6)
-    plt.scatter(X_train_labelled[:,0], X_train_labelled[:,1], c=y_train_labelled, s=100)
-    plt.colorbar()
+    plt.scatter(X_train_unlabelled[:,0], X_train_unlabelled[:,1], c=cmap(y_train_unlabelled_gt.astype(np.uint8)), s=20, alpha=.6)
+    plt.scatter(X_train_labelled[:,0], X_train_labelled[:,1], c=cmap(y_train_labelled.astype(np.uint8)), s=100)
+
     
     plt.xlim(min(x),max(x))
     plt.ylim(min(y),max(y))
@@ -116,12 +120,12 @@ def main():
     
     # plot: learned - pdf
     plt.subplot(3, 1, 2)
-    plt.imshow(pdf.reshape((x.size,y.size)).T, extent=[min(x),max(x),min(y),max(y)],
-               interpolation='none', cmap=plt.cm.afmhot, aspect='auto', origin='lower',
-               vmin=pdf_vmin, vmax=pdf_vmax, alpha=.5) #'auto'
-    plt.scatter(X_train_unlabelled[:,0], X_train_unlabelled[:,1], c=y_train_result, s=20, alpha=.6)
-    plt.scatter(X_train_labelled[:,0], X_train_labelled[:,1], c=y_train_labelled, s=100)
-    plt.colorbar()
+    img = plt.imshow(pdf.reshape((x.size,y.size)).T, extent=[min(x),max(x),min(y),max(y)],
+                     interpolation='none', cmap=plt.cm.afmhot, aspect='auto', origin='lower',
+                     vmin=pdf_vmin, vmax=pdf_vmax, alpha=.5) #'auto'
+    plt.scatter(X_train_unlabelled[:,0], X_train_unlabelled[:,1], c=cmap(y_train_result.astype(np.uint8)), s=20, alpha=.6)
+    plt.scatter(X_train_labelled[:,0], X_train_labelled[:,1], c=cmap(y_train_labelled.astype(np.uint8)), s=100)
+    plt.colorbar(img)
     
     plt.xlim(min(x),max(x))
     plt.ylim(min(y),max(y))
@@ -132,12 +136,12 @@ def main():
     
     # plot: learned - pdf
     plt.subplot(3, 1, 3)
-    plt.imshow(pdf.reshape((x.size,y.size)).T, extent=[min(x),max(x),min(y),max(y)],
-               interpolation='none', cmap=plt.cm.afmhot, aspect='auto', origin='lower',
-               vmin=pdf_vmin, vmax=pdf_vmax, alpha=.5) #'auto'
-    plt.scatter(X_train_unlabelled[:,0], X_train_unlabelled[:,1], c=y_train_prediction + 1, s=20, alpha=.6)
-    plt.scatter(X_train_labelled[:,0], X_train_labelled[:,1], c=y_train_labelled, s=100)
-    plt.colorbar()
+    img = plt.imshow(pdf.reshape((x.size,y.size)).T, extent=[min(x),max(x),min(y),max(y)],
+                     interpolation='none', cmap=plt.cm.afmhot, aspect='auto', origin='lower',
+                     vmin=pdf_vmin, vmax=pdf_vmax, alpha=.5) #'auto'
+    plt.scatter(X_train_unlabelled[:,0], X_train_unlabelled[:,1], c=cmap(y_train_prediction.astype(np.uint8)), s=20, alpha=.6)
+    plt.scatter(X_train_labelled[:,0], X_train_labelled[:,1], c=cmap(y_train_labelled.astype(np.uint8)), s=100)
+    plt.colorbar(img)
     
     plt.xlim(min(x),max(x))
     plt.ylim(min(y),max(y))
@@ -164,6 +168,7 @@ def getParser():
     parser.add_argument('--n-labelled', default=1, type=int, help='The number labelled samples per class.')
     parser.add_argument('--n-samples', default=200, type=int, help='The number of training samples to draw from each dataset.')
     parser.add_argument('--max-depth', default=None, type=int, help='The maximum tree depth.')
+    parser.add_argument('--transduction-method', default='diffusion', choices=['diffusion', 'approximate'], help='The transduction method to use.')
     parser.add_argument('--max-features', default='auto', help='The number of features to consider at each split. Can be an integer or one of auto, sqrt and log2')
     parser.add_argument('--supervised-weight', default=0.5, type=float, help='The weight of the supervised metric against the un-supervised.')
     parser.add_argument('--min-improvement', default=-5.0, type=float, help='Minimum information gain required to consider another split. Note that the information gain can take on negative values in some situations.')
