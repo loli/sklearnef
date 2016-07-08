@@ -598,8 +598,7 @@ class SemiSupervisedRandomForestClassifier(BaseDensityForest):
         -------
         transduced_labels_ : array, shape = [n_unlabelled_samples]
         """
-        proba = self.transduced_proba_
-        return self.classes_.take(np.argmax(proba, axis=1), axis=0)
+        return self.classes_.take(np.argmax(self.transduced_proba_, axis=1), axis=0)
         
     @property
     def transduced_proba_(self):
@@ -614,16 +613,8 @@ class SemiSupervisedRandomForestClassifier(BaseDensityForest):
             raise ValueError("Estimator not fitted, "
                              "call `fit` before `transduced_proba_`.")
         
-        # get transduced labels (1 based)
-        transduced_labels = np.dstack([est.transduced_labels_ for est in self.estimators_])[0]
-        # convert to 0 based
-        transduced_labels -= 1
-        # count occurrences
-        frequencies = np.asarray([np.bincount(tl, minlength=self.n_classes_) for tl in transduced_labels.astype(np.int)])
-        # convert to probabilities
-        proba = frequencies / float(self.n_estimators)
-        
-        return proba
+        # get transduced probabilities form the trees and average
+        return np.mean([est.transduced_proba_ for est in self.estimators_], axis=0)
               
     def _validate_y_class_weight(self, y):
         y = np.copy(y)

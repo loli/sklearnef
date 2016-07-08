@@ -653,6 +653,10 @@ class SemiSupervisedDecisionTreeClassifier(DensityBaseTree):
         label, which is not used for classification. All other entries are the
         same.
         
+    transduced_proba\_ : array of shape [n_unlabelled_samples, n_classes]
+        The transduced label probabilities for the unlabelled portion of the
+        training set. Only available after fitting the classifier.
+        
     transduced_labels\_ : array of shape [n_unlabelled_samples]
         The transduced labels for the unlabelled portion of the training set.
         Only available after fitting the classifier.
@@ -722,7 +726,6 @@ class SemiSupervisedDecisionTreeClassifier(DensityBaseTree):
         self.supervised_weight = supervised_weight
         self.unsupervised_transformation = unsupervised_transformation
         self.min_improvement = min_improvement
-        self.transduced_labels_ = None
         self.transduction_method = transduction_method
         self.transduction_n_knn = transduction_n_knn
         self.transduction_tol = transduction_tol
@@ -739,7 +742,7 @@ class SemiSupervisedDecisionTreeClassifier(DensityBaseTree):
 
     @property
     def supervised_weight(self):
-        """The supervised weight."""
+        r"""The supervised weight."""
         return self._supervised_weight
     
     @supervised_weight.setter
@@ -754,7 +757,7 @@ class SemiSupervisedDecisionTreeClassifier(DensityBaseTree):
         
     @property
     def unsupervised_transformation(self):
-        """The transformation for the un-supervised data."""
+        r"""The transformation for the un-supervised data."""
         return self._unsupervised_transformation
     
     @unsupervised_transformation.setter
@@ -856,27 +859,56 @@ class SemiSupervisedDecisionTreeClassifier(DensityBaseTree):
 
         # use transduction to classifiy the un-labelled training samples
         if 'diffusion' == self.transduction_method:
-            yu = self.transduction_diffusion(X[mask_unlabelled], X[~mask_unlabelled],
-                                             y[~mask_unlabelled][:,0],
-                                             nns=self.transduction_n_knn,
-                                             tol=self.transduction_tol,
-                                             check_input=False)
+            yu_proba = self.transduction_diffusion(X[mask_unlabelled], X[~mask_unlabelled],
+                                                   y[~mask_unlabelled][:,0],
+                                                   nns=self.transduction_n_knn,
+                                                   tol=self.transduction_tol,
+                                                   check_input=False)
         else:
-            yu = self.transduction_approximate(X[mask_unlabelled], X[~mask_unlabelled],
-                                               y[~mask_unlabelled][:,0],
-                                               check_input=False)
+            yu_proba = self.transduction_approximate(X[mask_unlabelled], X[~mask_unlabelled],
+                                                     y[~mask_unlabelled][:,0],
+                                                     check_input=False)
 
-        self.transduced_labels_ = yu
+        self._transduced_proba_ = yu_proba
         
-        Xa = np.concatenate((X[mask_unlabelled], X[~mask_unlabelled]), 0)
+        #Xa = np.concatenate((X[mask_unlabelled], X[~mask_unlabelled]), 0)
         #!TODO: If only one single labelled element, the array is "squeezed" away. If not "squeezed", would it still work?
         #ya = np.concatenate((yu, np.squeeze(y[~mask_unlabelled][:,0])), 0) # Note: y will not contain the unsupervised class
-        ya = np.concatenate((yu, y[~mask_unlabelled][:,0]), 0) # Note: y will not contain the unsupervised class
+        #ya = np.concatenate((yu, y[~mask_unlabelled][:,0]), 0) # Note: y will not contain the unsupervised class
         
         # use induction/label counting to finalize decision tree
-        self._induction(Xa, ya)
+        #self._induction(Xa, ya)
+        
+        self._induction(X[mask_unlabelled], X[~mask_unlabelled], y[~mask_unlabelled][:,0], yu_proba)
 
         return self
+    
+    @property
+    def transduced_proba_(self):
+        r"""Return the transduced label probabilities for the unlabelled
+        portion of the training set.
+
+        Returns
+        -------
+        transduced_proba_ : array, shape = [n_unlabelled_samples, n_classes]
+        """
+        self._is_fitted()
+        return self._transduced_proba_
+    
+    @transduced_proba_.setter
+    def transduced_proba_(self, value):
+        self._transduced_proba_ = value
+        
+    @property
+    def transduced_labels_(self):
+        r"""Return the transduced labels for the unlabelled portion of the
+        training set.
+
+        Returns
+        -------
+        transduced_labels_ : array, shape = [n_unlabelled_samples]
+        """
+        return self.classes_[0][1:].take(np.argmax(self.transduced_proba_, axis=1), axis=0)
 
     def predict(self, X, check_input=True):
         X, _, _ = self._check_X(X, check_input)
@@ -898,7 +930,7 @@ class SemiSupervisedDecisionTreeClassifier(DensityBaseTree):
     
     def transduction_approximate(self, Xu, Xl, yl, check_input=True):
         r"""
-        Compute the class-memberships of the unlabelled `Xu` samples using
+        Compute the class-probabilities of the unlabelled `Xu` samples using
         geodisic distances on a surface formed by the tree's piecewise
         Gaussians to the `yl` labelled set `Xl`. De-facto, this results into
         label propagation.
@@ -937,8 +969,8 @@ class SemiSupervisedDecisionTreeClassifier(DensityBaseTree):
             
         Returns
         -------
-        xu : ndarray
-            Labels of the unlabelled samples.        
+        yu_proba : ndarray
+                   Label probabilities of the unlabelled samples.   
         """
         if check_input:
             Xu = check_array(Xu, dtype=DTYPE, order='C')
@@ -947,6 +979,7 @@ class SemiSupervisedDecisionTreeClassifier(DensityBaseTree):
         # prepare
         X = np.vstack((Xu, Xl))
         yl = yl.astype(np.int) # strangley enforced to be double by forest algorithm... maybe because its using the allocated space internally
+        _, yl = np.unique(yl, return_inverse=True) # make yl zero based
         nu = Xu.shape[0]
         
         # get leaves the samples fall into
@@ -971,7 +1004,6 @@ class SemiSupervisedDecisionTreeClassifier(DensityBaseTree):
             labelled[idx] = np.any(m[nu:])
         
         # compute pair-wise cluster center distances
-        # !TODO: Just need the distances from the unlabelled centers to all others, not from the labelled ones to the other labelled ones!
         pdists = np.zeros((len(centers), len(centers)))
         
         # !TODO: Remove
@@ -997,25 +1029,28 @@ class SemiSupervisedDecisionTreeClassifier(DensityBaseTree):
             # get for each unlabelled cluster the nearest labelled cluster
             argnearest = np.argmin(spaths, 0)[~labelled]
         
-        # set labels of labelled clusters
-        cprobs = np.zeros((len(centers), self.n_classes_[0]))
+        # set labels of labelled clusters    
+        cprobs = np.zeros((len(centers), self.n_classes_[0] - 1))
         for idx in np.arange(len(centers))[labelled]:
-            cprobs[idx] = np.bincount(yl[mapping[idx] == leaf_indices[nu:]], minlength=self.n_classes_[0])
+            cprobs[idx] = np.bincount(yl[mapping[idx] == leaf_indices[nu:]], minlength=self.n_classes_[0] - 1)
         if np.count_nonzero(~labelled) > 0: # only if any unlabelled clusters
             # set labels of unlabelled clusters
             cprobs[~labelled] = cprobs[labelled][argnearest]
         
-        # prepare to map all unlabelled smaples leaf indices to the cluster indices
+        # prepare to map all unlabelled samples leaf indices to the cluster indices
         inv_mapping = {v: k for k, v in mapping.iteritems()}
         keys, inv = np.unique(leaf_indices[:nu], return_inverse=True)
         vals = np.array([inv_mapping[key] for key in keys])
-
-        # decide on labelles for the unlabelled data and return them
-        return np.argmax(np.take(cprobs, vals[inv], axis=0), 1)
+        
+        # take class probabilities for all unlabelled samples
+        proba = np.take(cprobs, vals[inv], axis=0)
+    
+        # return normalized
+        return proba / proba.sum(1)[..., np.newaxis]
     
     def transduction_diffusion(self, Xu, Xl, yl, nns=5, tol=1e-4, check_input=True):
         r"""
-        Compute the class-memberships of the unlabelled `Xu` samples using
+        Compute the class-probabilities of the unlabelled `Xu` samples using
         geodisic distances on a surface formed by the tree's piecewise
         Gaussians to the `yl` labelled set `Xl`. De-facto, this results into
         label propagation.
@@ -1061,8 +1096,8 @@ class SemiSupervisedDecisionTreeClassifier(DensityBaseTree):
             
         Returns
         -------
-        xu : ndarray
-            Labels of the unlabelled samples.        
+        yu_proba : ndarray
+                   Label probabilities of the unlabelled samples.
         """
         if check_input:
             Xu = check_array(Xu, dtype=DTYPE, order='C')
@@ -1121,7 +1156,7 @@ class SemiSupervisedDecisionTreeClassifier(DensityBaseTree):
         L = D - W
         # unlabelled part
         uL = L[:nu,:nu]
-        # boundary matrix (i.e. horizontally only labelled, vertically onl unlabelled entries)
+        # boundary matrix (i.e. horizontally only labelled, vertically only unlabelled entries)
         B = L[:nu,-nl:]
         
         # solve for each label
@@ -1133,38 +1168,55 @@ class SemiSupervisedDecisionTreeClassifier(DensityBaseTree):
             #probas[l] = spsolve(uL, -1 * B.dot(x)) # accurate solver, but slower
             probas[l] = minres(uL, -1 * B.dot(x), tol=1e-4)[0] # approximate solver, faster # note: approximated solution might not sum to 1 over all labels
         
-        # assign labels
-        yu = labels.take(np.argmax(probas, 0))
-        return yu     
+        # return label probabilities
+        return probas.T
+    
         
-    def _induction(self, X, y):
+    def _induction(self, Xl, Xu, yl, yu_proba):
         r"""
         Re-writes the trees memory, changing the Gaussian distribution based
         nodes into the default class posteriors.
         
-        Essentially, simply counts the class occurences per leaf and computes
-        the class posteriori for each.
+        Essentially combines the labelled samples crip class memberships and
+        the unlabelled class probabilities into a single class posterior
+        histogram per leaf.
         """
         # prepare
-        y = np.squeeze(y)
+        X = np.concatenate((Xl, Xu), 0)
+        yl = np.squeeze(yl)
+        _, yl = np.unique(yl, return_inverse=True) # make yl zero-based
+        nl = len(yl)
 
         # get leaf indices
         leaf_indices = self.tree_.apply(X)
-        
-        # convert to a zero-based class membership array
-        class_k, y = np.unique(y, return_inverse=True)
-        n_classes = len(class_k) # does not count the unlabelled class
-        
+
         # count class occurence per leaf and edit tree accordingly
         for lidx in np.unique(leaf_indices):
             mask = lidx == leaf_indices
-            label_count = np.bincount(y[mask])
-            label_count = np.pad(label_count, (0, n_classes - len(label_count)), 'constant')
+            
+            # labelled samples
+            lmask = mask[:nl]
+            ln = np.count_nonzero(lmask)
+            llabel_proba = np.bincount(yl[lmask], minlength=self.n_classes_[0] - 1) / float(ln)
+            
+            # unlabelled samples
+            umask = mask[nl:]
+            un = np.count_nonzero(umask)
+            ulabel_proba = np.mean(yu_proba[umask], axis=0)
+            
+            # combine weighted
+            if 0 == ln:
+                label_proba = ulabel_proba
+            elif 0 == un:
+                label_proba = llabel_proba
+            else:
+                label_proba = (ln * llabel_proba + un * ulabel_proba) / (ln + un)
+            
             # value is shape [node_count, n_outputs, max_n_classes]; max_n_classes contains label for unlabelled samples
             # we are only interested in the first output's space
             # the other ones contain the density information
             # lidx: select leaf node; 0: select firt output; 1: skip over label for unlabelled samples
-            self.tree_.value[lidx][0][1:] = label_count              
+            self.tree_.value[lidx][0][1:] = label_proba             
         
 def smahalanobis(x, y, icovx, icovy):
     r"""The symmetric, cov-dependent Mahalanobis distance"""
