@@ -425,26 +425,34 @@ class SemiSupervisedRandomForestClassifier(BaseDensityForest):
         One of the strongest parameters for controlling over-fitting in density
         trees.
         
+    transduction_method : string (default="approximate")
+        Transduction method for the label propagation. Choices are:
+            - 'approximate' for a rough and fast label propagation, whose
+              complexity depends on the number of tree leaves
+            - 'diffusion' for a more accurate and slower label propagation,
+              whose complexity depends on the number of training samples;
+              can be influenced through the `transduction_n_knn` and
+              `transduction_tol` parameters
+            
     transduction_n_knn: int, optional (default=5)
         Use this to set the number of k nearest neighbours used to construct the graph
-        for approximate label transduction. Larger values might better the results but
+        for diffusion label transduction. Larger values might better the results but
         increase the runtime.
         
-    transduction_tol: int, optional (default=1e-4)
+    transduction_tol : int, optional (default=1e-4)
         Use this to set the error tolerance for the approximate linear equation solver
-        for approximate label transduction. Smaller values can lead to better results
+        for diffusion label transduction. Smaller values can lead to better results
         but increase the runtime.    
         
     !TODO: Implement this to be applied during the forest only, to avoid costly re-
     computation?
     !TODO: At least one labelled samples must be provided.
         
-    unsupervised_transformation: string, object or None, optional (default='scale')
-        Transformation method for the un-supervised samples (their split
-        quality measure requires features of equal scale). Choices are:
+    unsupervised_transformation : string, object or None, optional (default=None)
+        Transformation method for the un-supervised samples. Choices are:
             - 'scale', in which case the `StandardScaler` is employed.
             - Any object which implements the fit() and transform() methods.
-            - None, in which the user is responsible for data normalization.
+            - None, in which case no data scaling is conducted.
 
     max_depth : integer or None, optional (default=None)
         The maximum depth of the tree. If None, then nodes are expanded until
@@ -536,6 +544,7 @@ class SemiSupervisedRandomForestClassifier(BaseDensityForest):
                  max_leaf_nodes=None,
                  supervised_weight=.5,
                  min_improvement=0,
+                 transduction_method="approximate",
                  transduction_n_knn=5,
                  transduction_tol=1e-4,
                  bootstrap=True,
@@ -555,6 +564,7 @@ class SemiSupervisedRandomForestClassifier(BaseDensityForest):
                               "random_state", "supervised_weight",
                               "min_improvement",
                               "unsupervised_transformation",
+                              "transduction_method",
                               "transduction_n_knn",
                               "transduction_tol"),
             bootstrap=bootstrap,
@@ -575,6 +585,7 @@ class SemiSupervisedRandomForestClassifier(BaseDensityForest):
         self.supervised_weight = supervised_weight
         self.min_improvement = min_improvement
         self.unsupervised_transformation = unsupervised_transformation
+        self.transduction_method = transduction_method
         self.transduction_n_knn = transduction_n_knn
         self.transduction_tol = transduction_tol
           

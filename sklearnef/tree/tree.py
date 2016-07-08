@@ -561,6 +561,15 @@ class SemiSupervisedDecisionTreeClassifier(DensityBaseTree):
         One of the strongest parameters for controlling over-fitting in density
         trees.
         
+    transduction_method : string (default="approximate")
+        Transduction method for the label propagation. Choices are:
+            - 'approximate' for a rough and fast label propagation, whose
+              complexity depends on the number of tree leaves
+            - 'diffusion' for a more accurate and slower label propagation,
+              whose complexity depends on the number of training samples;
+              can be influenced through the `transduction_n_knn` and
+              `transduction_tol` parameters        
+        
     transduction_n_knn: int, optional (default=5)
         Use this to set the number of k nearest neighbours used to construct the graph
         for approximate label transduction. Larger values might better the results but
@@ -693,6 +702,7 @@ class SemiSupervisedDecisionTreeClassifier(DensityBaseTree):
                  max_leaf_nodes=None,
                  min_improvement=0,
                  supervised_weight=0.5,
+                 transduction_method="approximate",
                  transduction_n_knn=5,
                  transduction_tol=1e-4,
                  unsupervised_transformation='scale',
@@ -713,16 +723,19 @@ class SemiSupervisedDecisionTreeClassifier(DensityBaseTree):
         self.unsupervised_transformation = unsupervised_transformation
         self.min_improvement = min_improvement
         self.transduced_labels_ = None
+        self.transduction_method = transduction_method
         self.transduction_n_knn = transduction_n_knn
         self.transduction_tol = transduction_tol
         
-
         if not 'semisupervised' == criterion:
             raise ValueError("Currently only the \"semisupervised\" criterion "
                              "is supported for density estimation.")
         if not 'semisupervised' == splitter:
             raise ValueError("Currently only the \"semisupervised\" splitter "
                              "is supported for density estimation.")
+        if transduction_method not in ['approximate', 'diffusion']:
+            raise ValueError("Chose one of \"approximate\" and \"diffusion\" "
+                             "as transduction method.")
 
     @property
     def supervised_weight(self):
@@ -842,12 +855,16 @@ class SemiSupervisedDecisionTreeClassifier(DensityBaseTree):
         self.mvnds = self.parse_tree_leaves()
 
         # use transduction to classifiy the un-labelled training samples
-        #yu = self.transduction_diffusion(X[mask_unlabelled], X[~mask_unlabelled],
-        #                                 y[~mask_unlabelled][:,0],
-        #                                 nns=self.transduction_n_knn,
-        #                                 tol=self.transduction_tol)
-        yu = self.transduction_sherwood(X[mask_unlabelled], X[~mask_unlabelled],
-                                        y[~mask_unlabelled][:,0])
+        if 'diffusion' == self.transduction_method:
+            yu = self.transduction_diffusion(X[mask_unlabelled], X[~mask_unlabelled],
+                                             y[~mask_unlabelled][:,0],
+                                             nns=self.transduction_n_knn,
+                                             tol=self.transduction_tol,
+                                             check_input=False)
+        else:
+            yu = self.transduction_approximate(X[mask_unlabelled], X[~mask_unlabelled],
+                                               y[~mask_unlabelled][:,0],
+                                               check_input=False)
 
         self.transduced_labels_ = yu
         
@@ -879,16 +896,61 @@ class SemiSupervisedDecisionTreeClassifier(DensityBaseTree):
     def parse_tree_leaves(self):
         return self._parse_tree_leaves_rec(self.tree_, offset=self.n_classes_[0]) # requires offset to find pdf definitions
     
-    def transduction_sherwood(self, Xu, Xl, yl):
+    def transduction_approximate(self, Xu, Xl, yl, check_input=True):
+        r"""
+        Compute the class-memberships of the unlabelled `Xu` samples using
+        geodisic distances on a surface formed by the tree's piecewise
+        Gaussians to the `yl` labelled set `Xl`. De-facto, this results into
+        label propagation.
+        
+        This version bases on a simplification proposed by Criminisi et al. 2012 [1]
+        and implemented in their Sherwood toy library. Instead of computing the
+        pair-wise sample distance, all samples falling into the same leaf are
+        considered to share the same label distribution. Consequently, all label
+        propagation is performed between clusters rather than between samples.
+        
+        In practice, this means a computational complexity depending on the number
+        of tree leaves, rather than the number of samples, and hence a very fast
+        transduction. On the donwside, this method often leads to sub-optimal results.
+        
+        Use `transduction_diffusion()` for a slower, but more accurate implementation.
+        
+        References
+        ----------
+        .. [1] A. Criminisi, J. Shotton and E. Konukoglu, "Decision Forests: A 
+               Unified Framework for Classification, Regression, Density
+               Estimation, Manifold Learning and Semi-Supervised Learning",
+               Foundations and Trends(r) in Computer Graphics and Vision, Vol. 7,
+               No. 2-3, pp 81-227, 2012.
+        
+        Parameters
+        ----------
+        Xu : array_like
+            Unlabelled samples.
+        Xl : array_like
+            Labelled samples.
+        yl : array_like
+            Labels of the labelled samples.
+        check_input : boolean, (default=True)
+            Allow to bypass several input checking.
+            Don't use this parameter unless you know what you do.            
+            
+        Returns
+        -------
+        xu : ndarray
+            Labels of the unlabelled samples.        
+        """
+        if check_input:
+            Xu = check_array(Xu, dtype=DTYPE, order='C')
+            Xl = check_array(Xl, dtype=DTYPE, order='C')
+            
         # prepare
         X = np.vstack((Xu, Xl))
         yl = yl.astype(np.int) # strangley enforced to be double by forest algorithm... maybe because its using the allocated space internally
         nu = Xu.shape[0]
-        nl = Xl.shape[0]
         
         # get leaves the samples fall into
         leaf_indices = self.tree_.apply(X)
-        print leaf_indices
         
         # compute inverse cov matrices, leaf cluster centers and mark the ones containing at least one labelled sample
         unique_leaves_indices = np.unique(leaf_indices)
@@ -912,6 +974,7 @@ class SemiSupervisedDecisionTreeClassifier(DensityBaseTree):
         # !TODO: Just need the distances from the unlabelled centers to all others, not from the labelled ones to the other labelled ones!
         pdists = np.zeros((len(centers), len(centers)))
         
+        # !TODO: Remove
         print 'Unlabelled vs. labelled clusters: {} vs. {}'.format(np.count_nonzero(~labelled), np.count_nonzero(labelled))
         
         if np.count_nonzero(~labelled) > 0: # only if any unlabelled clusters
@@ -938,11 +1001,9 @@ class SemiSupervisedDecisionTreeClassifier(DensityBaseTree):
         cprobs = np.zeros((len(centers), self.n_classes_[0]))
         for idx in np.arange(len(centers))[labelled]:
             cprobs[idx] = np.bincount(yl[mapping[idx] == leaf_indices[nu:]], minlength=self.n_classes_[0])
-        print cprobs
         if np.count_nonzero(~labelled) > 0: # only if any unlabelled clusters
             # set labels of unlabelled clusters
             cprobs[~labelled] = cprobs[labelled][argnearest]
-        print cprobs
         
         # prepare to map all unlabelled smaples leaf indices to the cluster indices
         inv_mapping = {v: k for k, v in mapping.iteritems()}
@@ -952,18 +1013,13 @@ class SemiSupervisedDecisionTreeClassifier(DensityBaseTree):
         # decide on labelles for the unlabelled data and return them
         return np.argmax(np.take(cprobs, vals[inv], axis=0), 1)
     
-    def transduction_diffusion(self, Xu, Xl, yl, nns=5, tol=1e-4):
+    def transduction_diffusion(self, Xu, Xl, yl, nns=5, tol=1e-4, check_input=True):
         r"""
         Compute the class-memberships of the unlabelled `Xu` samples using
         geodisic distances on a surface formed by the tree's piecewise
-        Gaussians to the `yl` labelled set `Xl`. This is similar to label
-        propagation.
+        Gaussians to the `yl` labelled set `Xl`. De-facto, this results into
+        label propagation.
         
-        !TODO: Should include test for X valid (i.e. C, float32, not sparse, etc.)
-        When used inside forest, this can be disabled.
-        
-        Notes
-        -----
         This version bases on the original method described in
         Criminisi et al. 2012 [1], but instead of building the
         complete geodisic surface, the samples are clustered in a pre-processing
@@ -971,6 +1027,9 @@ class SemiSupervisedDecisionTreeClassifier(DensityBaseTree):
         which results in a weighted graph. Using the random walk related solution
         to label difusion from Zhu et al. 2003 [2], the label propagation is then
         solved very fast with simple matrix operations.
+        
+        Use `transduction_approximate()` for a faster, but more less accurate
+        implementation.
         
         References
         ----------
@@ -981,9 +1040,7 @@ class SemiSupervisedDecisionTreeClassifier(DensityBaseTree):
                No. 2-3, pp 81-227, 2012.
         .. [2] X. Zhu, Z. Ghahramani and J. Lafferty, "Semi-supervised learning
                using Gaussian fields and harmonic functions" In The 20th
-               International Conference on Machine Learning (ICML), 2003
-               
-        random walk, label diffusion                 
+               International Conference on Machine Learning (ICML), 2003                
         
         Parameters
         ----------
@@ -997,6 +1054,9 @@ class SemiSupervisedDecisionTreeClassifier(DensityBaseTree):
             Number of nearest neighbours to consider.
         tol : float
             Approximate solver tolerance.
+        check_input : boolean, (default=True)
+            Allow to bypass several input checking.
+            Don't use this parameter unless you know what you do.  
             
             
         Returns
@@ -1004,6 +1064,10 @@ class SemiSupervisedDecisionTreeClassifier(DensityBaseTree):
         xu : ndarray
             Labels of the unlabelled samples.        
         """
+        if check_input:
+            Xu = check_array(Xu, dtype=DTYPE, order='C')
+            Xl = check_array(Xl, dtype=DTYPE, order='C')
+        
         # prepare
         X = np.vstack((Xu, Xl))
         nu = Xu.shape[0]
