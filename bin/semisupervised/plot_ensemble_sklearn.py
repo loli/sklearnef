@@ -139,8 +139,8 @@ def main():
     img = plt.imshow(pdf.reshape((x.size,y.size)).T, extent=[min(x),max(x),min(y),max(y)],
                      interpolation='none', cmap=plt.cm.afmhot, aspect='auto', origin='lower',
                      vmin=pdf_vmin, vmax=pdf_vmax, alpha=.5) #'auto'
-    plt.scatter(X_train_unlabelled[:,0], X_train_unlabelled[:,1], c=cmap(y_train_prediction.astype(np.uint8)), s=20, alpha=.6)
-    plt.scatter(X_train_labelled[:,0], X_train_labelled[:,1], c=cmap(y_train_labelled.astype(np.uint8)), s=100)
+    #plt.scatter(X_train_unlabelled[:,0], X_train_unlabelled[:,1], c=cmap(y_train_prediction.astype(np.uint8)), s=20, alpha=.6)
+    #plt.scatter(X_train_labelled[:,0], X_train_labelled[:,1], c=cmap(y_train_labelled.astype(np.uint8)), s=100)
     plt.colorbar(img)
     
     plt.xlim(min(x),max(x))
@@ -151,7 +151,10 @@ def main():
     if args.split_lines:
         draw_split_lines(clf.estimators_[0], x, y)
     
-    plt.show()
+    if args.save:
+       plt.savefig(args.save)
+    else:
+      plt.show()
     
 def getArguments(parser):
     "Provides additional validation of the arguments collected by argparse."
@@ -176,6 +179,7 @@ def getParser():
     parser.add_argument('--scaling', action='store_true', help='Enable data scaling.')
     parser.add_argument('--resolution', default=100, type=float, help='The plotting resolution i.e. dots per dimension.')
     parser.add_argument('--seed', default=None, type=int, help='The random seed to use. Fix to an integer to create reproducible results.')
+    parser.add_argument('--save', default=None, help='Save the plot to this file instead of displaying it.')
 
     #parser.add_argument('-v', dest='verbose', action='store_true', help='Display more information.')
     #parser.add_argument('-d', dest='debug', action='store_true', help='Display debug information.')
