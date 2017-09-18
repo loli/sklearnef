@@ -3,4 +3,4 @@ scikit-learn extended forests - sklearnef
 
 Decision forest extentions for [sklearn](http://scikit-learn.org).
 
-Under development.
+[Documentation and installation instructions](http://loli.github.io/sklearnef/)
