@@ -13,10 +13,6 @@ Installation
 .. toctree::
     :maxdepth: 1
     
-    installation/asroot
-    installation/asuser
-    installation/developmentmode
-    installation/uninstall
     installation/virtualenvironement
 
 
