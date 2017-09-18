@@ -1,0 +1,148 @@
+==============================================
+Installing sklearnef in a virtual environement
+==============================================
+
+.. note::
+
+    It is highly recommended to install **sklearnef** in a virtual environement since it requires a specific ``scikit-learn`` version.
+    
+.. note::
+
+    All installation instructions are for Ubuntu, but they should be simmilar for other distributions.
+
+To install Python packages from `PyPi <https://pypi.python.org>`_, we recommend `PIP <https://pypi.python.org/pypi/pip>`_
+
+.. code-block:: bash
+
+    sudo apt-get install python-pip
+    
+    
+Setting up the virtual environement
+###################################
+
+First swithc to your (empty) project directory. Then run
+
+.. code-block:: bash
+    
+    pip install virtualenv
+    
+to install ``virtualenv``. Set-up your virtual environement with
+
+.. code-block:: bash
+    
+    virtualenv -p python2 venv
+
+and, before starting it, unset your $PYTHONPATH variable for a clean environement
+
+.. code-block:: bash
+    
+    unset $PYTHONPATH
+    
+Now run
+    
+.. code-block:: bash
+    
+    source venv/bin/activate
+    
+to enter the environement. You shell should now read somethoing like
+    
+.. code-block:: bash
+    
+    (venv)user@machine:~/Workspace/python/sklearnef$
+    
+    
+Installing dependencies
+#######################
+
+You'll require ``numpy`` and ``scipy`` plus some additional, semi-optional packages
+
+.. code-block:: bash
+    
+    pip install numpy scipy matplotlib nose
+    
+and, of course, ``scikit-learn``, but in the appropriate version
+
+.. code-block:: bash
+
+    pip install scikit-learn==0.16.1
+    
+    
+Installing sklearnef
+####################
+
+A couple of steps are required to achieve this. First download the source code from GitHub
+    
+.. code-block:: bash
+
+     git clone https://github.com/loli/sklearnef.git
+    
+and enter the download directory
+
+.. code-block:: bash
+
+    cd sklearnef
+    
+Now you'll require a compilation file for you scikit-learn version. You can get it and place it in the right location with
+   
+.. code-block:: bash
+
+    wget https://raw.githubusercontent.com/scikit-learn/scikit-learn/0.16.1/sklearn/tree/_tree.pxd sklearnef/tree/headers/sklearn/tree/
+    
+You'll still have to create an appropriate directory
+    
+.. code-block:: bash
+
+    mkdir sklearnef/tree/headers/0.16.1
+    
+and finally compile a two files with
+
+.. code-block:: bash
+
+    cython sklearnef/tree/_diffentropy.pyx -o sklearnef/tree/headers/_diffentropy.c -I sklearnef/tree/headers/
+    cython sklearnef/tree/_tree.pyx -o sklearnef/tree/headers/0.16.1/_tree.c -I sklearnef/tree/headers/
+    
+Now you can install **sklearnef** itself
+    
+
+.. code-block:: bash
+
+    python setup.py install
+    
+    
+Testing for a successfull installation
+######################################
+
+To check whether the package was successfully installed, run
+
+.. code-block:: bash
+
+    python -c 'import sklearnef'
+
+Running some examples
+#####################
+
+You can find some example scripts under ``bin/``. I would recommend to try
+
+.. code-block:: bash
+
+    bin/density/./plot_ensemble_sklearn.py s_curve --max-depth=3
+    
+and
+
+.. code-block:: bash
+
+    bin/semisupervised/./plot_ensemble_sklearn.py moons --max-depth=2 --n-labelled=1 --n-samples=100 --seed=0
+    
+to get a feeling for what **sklearnef** does. Feel free to play around with any script encountered in these folders.
+
+Running the tests
+#################
+
+Under ``sklearnef/tree/tests`` and ``sklearnef/ensemble/tests`` you can find the packages unittests. They follow the ``scikit-learn`` rules and can be executed by calling
+
+.. code-block:: bash
+
+    python -m nose
+    
+in the respective directories.
+

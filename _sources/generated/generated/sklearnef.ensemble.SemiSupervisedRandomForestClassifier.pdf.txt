@@ -1,0 +1,6 @@
+sklearnef.ensemble.SemiSupervisedRandomForestClassifier.pdf
+===========================================================
+
+.. currentmodule:: sklearnef.ensemble
+
+.. automethod:: SemiSupervisedRandomForestClassifier.pdf

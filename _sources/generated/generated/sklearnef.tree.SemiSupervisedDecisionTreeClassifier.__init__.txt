@@ -1,0 +1,6 @@
+sklearnef.tree.SemiSupervisedDecisionTreeClassifier.__init__
+============================================================
+
+.. currentmodule:: sklearnef.tree
+
+.. automethod:: SemiSupervisedDecisionTreeClassifier.__init__

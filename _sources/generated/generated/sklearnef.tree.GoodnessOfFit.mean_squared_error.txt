@@ -1,0 +1,6 @@
+sklearnef.tree.GoodnessOfFit.mean_squared_error
+===============================================
+
+.. currentmodule:: sklearnef.tree
+
+.. automethod:: GoodnessOfFit.mean_squared_error

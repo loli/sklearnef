@@ -1,0 +1,6 @@
+sklearnef.ensemble.SemiSupervisedRandomForestClassifier.transform
+=================================================================
+
+.. currentmodule:: sklearnef.ensemble
+
+.. automethod:: SemiSupervisedRandomForestClassifier.transform

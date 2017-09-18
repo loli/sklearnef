@@ -1,0 +1,6 @@
+sklearnef.tree.SemiSupervisedDecisionTreeClassifier.set_params
+==============================================================
+
+.. currentmodule:: sklearnef.tree
+
+.. automethod:: SemiSupervisedDecisionTreeClassifier.set_params

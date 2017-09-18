@@ -1,0 +1,6 @@
+sklearnef.tree.MECDF.__init__
+=============================
+
+.. currentmodule:: sklearnef.tree
+
+.. automethod:: MECDF.__init__

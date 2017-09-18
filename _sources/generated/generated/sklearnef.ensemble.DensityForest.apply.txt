@@ -1,0 +1,6 @@
+sklearnef.ensemble.DensityForest.apply
+======================================
+
+.. currentmodule:: sklearnef.ensemble
+
+.. automethod:: DensityForest.apply

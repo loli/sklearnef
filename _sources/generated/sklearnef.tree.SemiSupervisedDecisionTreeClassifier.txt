@@ -1,0 +1,32 @@
+sklearnef.tree.SemiSupervisedDecisionTreeClassifier
+===================================================
+
+.. currentmodule:: sklearnef.tree
+
+.. autoclass:: SemiSupervisedDecisionTreeClassifier
+
+   .. rubric:: Methods
+
+   .. autosummary::
+   
+      :toctree: generated/   
+   
+      ~SemiSupervisedDecisionTreeClassifier.__init__
+      ~SemiSupervisedDecisionTreeClassifier.cdf
+      ~SemiSupervisedDecisionTreeClassifier.fit
+      ~SemiSupervisedDecisionTreeClassifier.fit_transform
+      ~SemiSupervisedDecisionTreeClassifier.get_params
+      ~SemiSupervisedDecisionTreeClassifier.goodness_of_fit
+      ~SemiSupervisedDecisionTreeClassifier.parse_tree_leaves
+      ~SemiSupervisedDecisionTreeClassifier.pdf
+      ~SemiSupervisedDecisionTreeClassifier.predict
+      ~SemiSupervisedDecisionTreeClassifier.predict_log_proba
+      ~SemiSupervisedDecisionTreeClassifier.predict_proba
+      ~SemiSupervisedDecisionTreeClassifier.score
+      ~SemiSupervisedDecisionTreeClassifier.set_params
+      ~SemiSupervisedDecisionTreeClassifier.transduction_best
+      ~SemiSupervisedDecisionTreeClassifier.transduction_fast
+      ~SemiSupervisedDecisionTreeClassifier.transduction_optimized
+      ~SemiSupervisedDecisionTreeClassifier.transduction_optimized_alt
+      ~SemiSupervisedDecisionTreeClassifier.transform
+

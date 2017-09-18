@@ -1,0 +1,6 @@
+sklearnef.tree.GoodnessOfFit.maximum
+====================================
+
+.. currentmodule:: sklearnef.tree
+
+.. automethod:: GoodnessOfFit.maximum

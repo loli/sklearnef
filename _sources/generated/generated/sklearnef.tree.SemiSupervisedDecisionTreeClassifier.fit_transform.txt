@@ -1,0 +1,6 @@
+sklearnef.tree.SemiSupervisedDecisionTreeClassifier.fit_transform
+=================================================================
+
+.. currentmodule:: sklearnef.tree
+
+.. automethod:: SemiSupervisedDecisionTreeClassifier.fit_transform

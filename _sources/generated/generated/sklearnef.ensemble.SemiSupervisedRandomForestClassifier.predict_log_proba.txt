@@ -1,0 +1,6 @@
+sklearnef.ensemble.SemiSupervisedRandomForestClassifier.predict_log_proba
+=========================================================================
+
+.. currentmodule:: sklearnef.ensemble
+
+.. automethod:: SemiSupervisedRandomForestClassifier.predict_log_proba

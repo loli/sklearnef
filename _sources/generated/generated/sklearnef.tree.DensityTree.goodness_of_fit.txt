@@ -1,0 +1,6 @@
+sklearnef.tree.DensityTree.goodness_of_fit
+==========================================
+
+.. currentmodule:: sklearnef.tree
+
+.. automethod:: DensityTree.goodness_of_fit

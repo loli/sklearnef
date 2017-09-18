@@ -1,0 +1,6 @@
+sklearnef.tree.DensityTree.feature_importances_
+===============================================
+
+.. currentmodule:: sklearnef.tree
+
+.. autoattribute:: DensityTree.feature_importances_

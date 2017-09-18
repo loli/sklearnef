@@ -1,0 +1,6 @@
+sklearnef.ensemble.SemiSupervisedRandomForestClassifier.predict
+===============================================================
+
+.. currentmodule:: sklearnef.ensemble
+
+.. automethod:: SemiSupervisedRandomForestClassifier.predict

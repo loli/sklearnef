@@ -1,0 +1,6 @@
+sklearnef.ensemble.SemiSupervisedRandomForestClassifier.cdf
+===========================================================
+
+.. currentmodule:: sklearnef.ensemble
+
+.. automethod:: SemiSupervisedRandomForestClassifier.cdf

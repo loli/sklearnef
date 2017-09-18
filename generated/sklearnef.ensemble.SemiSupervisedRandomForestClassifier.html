@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8">
+    
+    <title>sklearnef.ensemble.SemiSupervisedRandomForestClassifier &mdash; sklearnef 0.1.dev documentation</title>
+    
+    <link rel="stylesheet" type="text/css" href="../_static/css/spc-bootstrap.css">
+    <link rel="stylesheet" type="text/css" href="../_static/css/spc-extend.css">
+    <link rel="stylesheet" href="../_static/scipy.css" type="text/css" >
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" >
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '0.1.dev',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+    <script type="text/javascript" src="../_static/js/copybutton.js"></script>
+    <link rel="top" title="sklearnef 0.1.dev documentation" href="../index.html" >
+    <link rel="next" title="sklearnef.ensemble.SemiSupervisedRandomForestClassifier.__init__" href="generated/sklearnef.ensemble.SemiSupervisedRandomForestClassifier.__init__.html" >
+    <link rel="prev" title="sklearnef.ensemble.DensityForest.transform" href="generated/sklearnef.ensemble.DensityForest.transform.html" > 
+  </head>
+  <body>
+
+  <div class="container">
+    <div class="header">
+    </div>
+  </div>
+
+
+    <div class="container">
+      <div class="main">
+        
+	<div class="row-fluid">
+	  <div class="span12">
+	    <div class="spc-navbar">
+              
+    <ul class="nav nav-pills pull-left">
+        <li class="active"><a href="https://github.com/loli/sklearnef/">GitHub</a></li>
+        <li class="active"><a href="https://pypi.python.org/pypi/sklearnef/">PyPi</a></li>
+	
+        <li class="active"><a href="../index.html">sklearnef 0.1.dev documentation</a></li>
+	 
+    </ul>
+              
+              
+    <ul class="nav nav-pills pull-right">
+      <li class="active">
+        <a href="../genindex.html" title="General Index"
+           accesskey="I">index</a>
+      </li>
+      <li class="active">
+        <a href="../py-modindex.html" title="Python Module Index"
+           >modules</a>
+      </li>
+      <li class="active">
+        <a href="generated/sklearnef.ensemble.SemiSupervisedRandomForestClassifier.__init__.html" title="sklearnef.ensemble.SemiSupervisedRandomForestClassifier.__init__"
+           accesskey="N">next</a>
+      </li>
+      <li class="active">
+        <a href="generated/sklearnef.ensemble.DensityForest.transform.html" title="sklearnef.ensemble.DensityForest.transform"
+           accesskey="P">previous</a>
+      </li>
+    </ul>
+              
+	    </div>
+	  </div>
+	</div>
+        
+
+	<div class="row-fluid">
+      <div class="spc-rightsidebar span3">
+        <div class="sphinxsidebarwrapper">
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="generated/sklearnef.ensemble.DensityForest.transform.html"
+                        title="previous chapter">sklearnef.ensemble.DensityForest.transform</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="generated/sklearnef.ensemble.SemiSupervisedRandomForestClassifier.__init__.html"
+                        title="next chapter">sklearnef.ensemble.SemiSupervisedRandomForestClassifier.__init__</a></p>
+  <h3>This Page</h3>
+  <div>
+    <a href="../_sources/generated/sklearnef.ensemble.SemiSupervisedRandomForestClassifier.txt"
+       rel="nofollow">Show Source</a>
+  </div>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+          <div class="span9">
+            
+        <div class="bodywrapper">
+          <div class="body" id="spc-section-body">
+            
+  <div class="section" id="sklearnef-ensemble-semisupervisedrandomforestclassifier">
+<h1>sklearnef.ensemble.SemiSupervisedRandomForestClassifier<a class="headerlink" href="#sklearnef-ensemble-semisupervisedrandomforestclassifier" title="Permalink to this headline">¶</a></h1>
+<dl class="class">
+<dt id="sklearnef.ensemble.SemiSupervisedRandomForestClassifier">
+<em class="property">class </em><tt class="descclassname">sklearnef.ensemble.</tt><tt class="descname">SemiSupervisedRandomForestClassifier</tt><big>(</big><em>n_estimators=10</em>, <em>criterion='semisupervised'</em>, <em>max_depth=None</em>, <em>min_samples_split=2</em>, <em>min_samples_leaf=None</em>, <em>min_weight_fraction_leaf=0.0</em>, <em>max_features='auto'</em>, <em>max_leaf_nodes=None</em>, <em>supervised_weight=0.5</em>, <em>min_improvement=0</em>, <em>transduction_method='approximate'</em>, <em>transduction_n_knn=5</em>, <em>transduction_tol=0.0001</em>, <em>bootstrap=True</em>, <em>oob_score=False</em>, <em>n_jobs=1</em>, <em>random_state=None</em>, <em>verbose=0</em>, <em>warm_start=False</em>, <em>class_weight=None</em>, <em>unsupervised_transformation='scale'</em><big>)</big><a class="headerlink" href="#sklearnef.ensemble.SemiSupervisedRandomForestClassifier" title="Permalink to this definition">¶</a></dt>
+<dd><p>A forest based semi-supervised classifier.</p>
+<p>A random forest is a meta estimator that fits a number of semi-supervised
+trees on various sub-samples of the dataset and uses averaging to improve
+the smoothness, predictive accuracy and to control over-fitting.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><p class="first"><strong>n_estimators</strong> : integer, optional (default=10)</p>
+<blockquote>
+<div><p>The number of trees in the forest.</p>
+</div></blockquote>
+<p><strong>max_features</strong> : int, float, string or None, optional (default=&#8221;auto&#8221;)</p>
+<blockquote>
+<div><p>The number of features to consider when looking for the best split:</p>
+<ul class="simple">
+<li>If int, then consider <em class="xref py py-obj">max_features</em> features at each split.</li>
+<li>If float, then <em class="xref py py-obj">max_features</em> is a percentage and
+<em class="xref py py-obj">int(max_features * n_features)</em> features are considered at each
+split.</li>
+<li>If &#8220;auto&#8221;, then <em class="xref py py-obj">max_features=sqrt(n_features)</em>.</li>
+<li>If &#8220;sqrt&#8221;, then <em class="xref py py-obj">max_features=sqrt(n_features)</em>.</li>
+<li>If &#8220;log2&#8221;, then <em class="xref py py-obj">max_features=log2(n_features)</em>.</li>
+<li>If None, then <em class="xref py py-obj">max_features=n_features</em>.</li>
+</ul>
+<p>Note: the search for a split does not stop until at least one
+valid partition of the node samples is found, even if it requires to
+effectively inspect more than <tt class="docutils literal"><span class="pre">max_features</span></tt> features.
+Note: this parameter is tree-specific.</p>
+</div></blockquote>
+<p><strong>supervised_weight: float, optional (default=0.5)</strong></p>
+<blockquote>
+<div><p>Factor balancing the supervised against the un-supervised measures of
+split quality. A value of <em class="xref py py-obj">1.0</em> would mean to consider only the
+labelled samples, a value of <em class="xref py py-obj">0.0</em> would equal a density tree.
+Note that a clean value of <em class="xref py py-obj">1.0</em> is not allowed, at it would lead
+to non max-margin splits. Please use the original <tt class="xref py py-obj docutils literal"><span class="pre">sklearn</span></tt>
+<em class="xref py py-obj">RandomForestClassifier</em> for that effect.
+Note: this parameter is tree-specific.</p>
+</div></blockquote>
+<p><strong>min_improvement</strong> : float (default=0)</p>
+<blockquote>
+<div><p>The minimum improvement a split must exhibit to be considered adequate.
+One of the strongest parameters for controlling over-fitting in density
+trees.</p>
+</div></blockquote>
+<p><strong>transduction_method</strong> : string (default=&#8221;approximate&#8221;)</p>
+<blockquote>
+<div><dl class="docutils">
+<dt>Transduction method for the label propagation. Choices are:</dt>
+<dd><ul class="first last simple">
+<li>&#8216;approximate&#8217; for a rough and fast label propagation, whose
+complexity depends on the number of tree leaves</li>
+<li>&#8216;diffusion&#8217; for a more accurate and slower label propagation,
+whose complexity depends on the number of training samples;
+can be influenced through the <em class="xref py py-obj">transduction_n_knn</em> and
+<em class="xref py py-obj">transduction_tol</em> parameters</li>
+</ul>
+</dd>
+</dl>
+</div></blockquote>
+<p><strong>transduction_n_knn: int, optional (default=5)</strong></p>
+<blockquote>
+<div><p>Use this to set the number of k nearest neighbours used to construct the graph
+for diffusion label transduction. Larger values might better the results but
+increase the runtime.</p>
+</div></blockquote>
+<p><strong>transduction_tol</strong> : int, optional (default=1e-4)</p>
+<blockquote>
+<div><p>Use this to set the error tolerance for the approximate linear equation solver
+for diffusion label transduction. Smaller values can lead to better results
+but increase the runtime.</p>
+</div></blockquote>
+<p><strong>!TODO: Implement this to be applied during the forest only, to avoid costly re-</strong></p>
+<p><strong>computation?</strong></p>
+<p><strong>!TODO: At least one labelled samples must be provided.</strong></p>
+<p><strong>unsupervised_transformation</strong> : string, object or None, optional (default=None)</p>
+<blockquote>
+<div><dl class="docutils">
+<dt>Transformation method for the un-supervised samples. Choices are:</dt>
+<dd><ul class="first last simple">
+<li>&#8216;scale&#8217;, in which case the <em class="xref py py-obj">StandardScaler</em> is employed.</li>
+<li>Any object which implements the fit() and transform() methods.</li>
+<li>None, in which case no data scaling is conducted.</li>
+</ul>
+</dd>
+</dl>
+</div></blockquote>
+<p><strong>max_depth</strong> : integer or None, optional (default=None)</p>
+<blockquote>
+<div><p>The maximum depth of the tree. If None, then nodes are expanded until
+all leaves are pure or until all leaves contain less than
+min_samples_split samples.
+Ignored if <tt class="docutils literal"><span class="pre">max_leaf_nodes</span></tt> is not None.
+Note: this parameter is tree-specific.</p>
+</div></blockquote>
+<p><strong>min_samples_split</strong> : integer, optional (default=2)</p>
+<blockquote>
+<div><p>The minimum number of samples required to split an internal node.
+Note: this parameter is tree-specific.</p>
+</div></blockquote>
+<p><strong>min_samples_leaf</strong> : int or None, optional (default=None)</p>
+<blockquote>
+<div><p>The minimum number of samples required to be at a leaf node. Must be
+at least as high as the number of features in the training set. If None,
+set to the number of features at training time.
+Note: this parameter is tree-specific.</p>
+</div></blockquote>
+<p><strong>min_weight_fraction_leaf</strong> : float, optional (default=0.)</p>
+<blockquote>
+<div><p>The minimum weighted fraction of the input samples required to be at a
+leaf node.
+Note: this parameter is tree-specific.</p>
+</div></blockquote>
+<p><strong>max_leaf_nodes</strong> : int or None, optional (default=None)</p>
+<blockquote>
+<div><p>Grow trees with <tt class="docutils literal"><span class="pre">max_leaf_nodes</span></tt> in best-first fashion.
+Best nodes are defined as relative reduction in impurity.
+If None then unlimited number of leaf nodes.
+If not None then <tt class="docutils literal"><span class="pre">max_depth</span></tt> will be ignored.
+Note: this parameter is tree-specific.</p>
+</div></blockquote>
+<p><strong>bootstrap</strong> : boolean, optional (default=True)</p>
+<blockquote>
+<div><p>Whether bootstrap samples are used when building trees.</p>
+</div></blockquote>
+<p><strong>n_jobs</strong> : integer, optional (default=1)</p>
+<blockquote>
+<div><p>The number of jobs to run in parallel for both <a class="reference internal" href="generated/sklearnef.ensemble.SemiSupervisedRandomForestClassifier.fit.html#sklearnef.ensemble.SemiSupervisedRandomForestClassifier.fit" title="sklearnef.ensemble.SemiSupervisedRandomForestClassifier.fit"><tt class="xref py py-obj docutils literal"><span class="pre">fit</span></tt></a> and <a class="reference internal" href="generated/sklearnef.ensemble.SemiSupervisedRandomForestClassifier.predict.html#sklearnef.ensemble.SemiSupervisedRandomForestClassifier.predict" title="sklearnef.ensemble.SemiSupervisedRandomForestClassifier.predict"><tt class="xref py py-obj docutils literal"><span class="pre">predict</span></tt></a>.
+If -1, then the number of jobs is set to the number of cores.</p>
+</div></blockquote>
+<p><strong>random_state</strong> : int, RandomState instance or None, optional (default=None)</p>
+<blockquote>
+<div><p>If int, random_state is the seed used by the random number generator;
+If RandomState instance, random_state is the random number generator;
+If None, the random number generator is the RandomState instance used
+by <em class="xref py py-obj">np.random</em>.</p>
+</div></blockquote>
+<p><strong>verbose</strong> : int, optional (default=0)</p>
+<blockquote>
+<div><p>Controls the verbosity of the tree building process.</p>
+</div></blockquote>
+<p><strong>warm_start</strong> : bool, optional (default=False)</p>
+<blockquote class="last">
+<div><p>When set to <tt class="docutils literal"><span class="pre">True</span></tt>, reuse the solution of the previous call to fit
+and add more estimators to the ensemble, otherwise, just fit a whole
+new forest.</p>
+</div></blockquote>
+</td>
+</tr>
+</tbody>
+</table>
+<div class="admonition seealso">
+<p class="first admonition-title">See also</p>
+<p class="last"><a class="reference internal" href="sklearnef.tree.SemiSupervisedDecisionTreeClassifier.html#sklearnef.tree.SemiSupervisedDecisionTreeClassifier" title="sklearnef.tree.SemiSupervisedDecisionTreeClassifier"><tt class="xref py py-obj docutils literal"><span class="pre">sklearnef.tree.SemiSupervisedDecisionTreeClassifier</span></tt></a></p>
+</div>
+<p class="rubric">References</p>
+<table class="docutils citation" frame="void" id="r2" rules="none">
+<colgroup><col class="label" /><col /></colgroup>
+<tbody valign="top">
+<tr><td class="label"><a class="fn-backref" href="#id1">[R2]</a></td><td>A. Criminisi, J. Shotton and E. Konukoglu, &#8220;Decision Forests: A 
+Unified Framework for Classification, Regression, Density
+Estimation, Manifold Learning and Semi-Supervised Learning&#8221;,
+Foundations and Trends(r) in Computer Graphics and Vision, Vol. 7,
+No. 2-3, pp 81-227, 2012.</td></tr>
+</tbody>
+</table>
+<p class="rubric">Attributes</p>
+<table border="1" class="docutils">
+<colgroup>
+<col width="14%" />
+<col width="86%" />
+</colgroup>
+<tbody valign="top">
+<tr class="row-odd"><td>estimators_</td>
+<td>(list of SemiSupervisedDecisionTreeClassifiers) The collection of fitted sub-estimators.</td>
+</tr>
+<tr class="row-even"><td>feature_importances_</td>
+<td>(array of shape = [n_features]) The feature importances (the higher, the more important the feature).</td>
+</tr>
+<tr class="row-odd"><td>transduced_proba_</td>
+<td>(array of shape = [n_unlabelled_samples, n_classes]) Transduced label probabilities for the unlabelled portion of the training set.</td>
+</tr>
+<tr class="row-even"><td>transduced_labels_</td>
+<td>(array of shape = [n_features]) Transduced labels for the unlabelled portion of the training set.</td>
+</tr>
+</tbody>
+</table>
+<p class="rubric">Methods</p>
+<table border="1" class="longtable docutils">
+<colgroup>
+<col width="10%" />
+<col width="90%" />
+</colgroup>
+<tbody valign="top">
+<tr class="row-odd"><td><a class="reference internal" href="generated/sklearnef.ensemble.SemiSupervisedRandomForestClassifier.__init__.html#sklearnef.ensemble.SemiSupervisedRandomForestClassifier.__init__" title="sklearnef.ensemble.SemiSupervisedRandomForestClassifier.__init__"><tt class="xref py py-obj docutils literal"><span class="pre">__init__</span></tt></a>([n_estimators,&nbsp;criterion,&nbsp;...])</td>
+<td></td>
+</tr>
+<tr class="row-even"><td><a class="reference internal" href="generated/sklearnef.ensemble.SemiSupervisedRandomForestClassifier.apply.html#sklearnef.ensemble.SemiSupervisedRandomForestClassifier.apply" title="sklearnef.ensemble.SemiSupervisedRandomForestClassifier.apply"><tt class="xref py py-obj docutils literal"><span class="pre">apply</span></tt></a>(X)</td>
+<td>Apply trees in the forest to X, return leaf indices.</td>
+</tr>
+<tr class="row-odd"><td><a class="reference internal" href="generated/sklearnef.ensemble.SemiSupervisedRandomForestClassifier.cdf.html#sklearnef.ensemble.SemiSupervisedRandomForestClassifier.cdf" title="sklearnef.ensemble.SemiSupervisedRandomForestClassifier.cdf"><tt class="xref py py-obj docutils literal"><span class="pre">cdf</span></tt></a>(X)</td>
+<td>Cumulative density function of the learned distributions.</td>
+</tr>
+<tr class="row-even"><td><a class="reference internal" href="generated/sklearnef.ensemble.SemiSupervisedRandomForestClassifier.fit.html#sklearnef.ensemble.SemiSupervisedRandomForestClassifier.fit" title="sklearnef.ensemble.SemiSupervisedRandomForestClassifier.fit"><tt class="xref py py-obj docutils literal"><span class="pre">fit</span></tt></a>(X,&nbsp;y[,&nbsp;sample_weight])</td>
+<td>Fit estimator.</td>
+</tr>
+<tr class="row-odd"><td><a class="reference internal" href="generated/sklearnef.ensemble.SemiSupervisedRandomForestClassifier.fit_transform.html#sklearnef.ensemble.SemiSupervisedRandomForestClassifier.fit_transform" title="sklearnef.ensemble.SemiSupervisedRandomForestClassifier.fit_transform"><tt class="xref py py-obj docutils literal"><span class="pre">fit_transform</span></tt></a>(X[,&nbsp;y])</td>
+<td>Fit to data, then transform it.</td>
+</tr>
+<tr class="row-even"><td><a class="reference internal" href="generated/sklearnef.ensemble.SemiSupervisedRandomForestClassifier.get_params.html#sklearnef.ensemble.SemiSupervisedRandomForestClassifier.get_params" title="sklearnef.ensemble.SemiSupervisedRandomForestClassifier.get_params"><tt class="xref py py-obj docutils literal"><span class="pre">get_params</span></tt></a>([deep])</td>
+<td>Get parameters for this estimator.</td>
+</tr>
+<tr class="row-odd"><td><a class="reference internal" href="generated/sklearnef.ensemble.SemiSupervisedRandomForestClassifier.pdf.html#sklearnef.ensemble.SemiSupervisedRandomForestClassifier.pdf" title="sklearnef.ensemble.SemiSupervisedRandomForestClassifier.pdf"><tt class="xref py py-obj docutils literal"><span class="pre">pdf</span></tt></a>(X)</td>
+<td>Probability density function of the learned distributions.</td>
+</tr>
+<tr class="row-even"><td><a class="reference internal" href="generated/sklearnef.ensemble.SemiSupervisedRandomForestClassifier.predict.html#sklearnef.ensemble.SemiSupervisedRandomForestClassifier.predict" title="sklearnef.ensemble.SemiSupervisedRandomForestClassifier.predict"><tt class="xref py py-obj docutils literal"><span class="pre">predict</span></tt></a>(X)</td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><a class="reference internal" href="generated/sklearnef.ensemble.SemiSupervisedRandomForestClassifier.predict_log_proba.html#sklearnef.ensemble.SemiSupervisedRandomForestClassifier.predict_log_proba" title="sklearnef.ensemble.SemiSupervisedRandomForestClassifier.predict_log_proba"><tt class="xref py py-obj docutils literal"><span class="pre">predict_log_proba</span></tt></a>(X)</td>
+<td>Predict class log-probabilities for X.</td>
+</tr>
+<tr class="row-even"><td><a class="reference internal" href="generated/sklearnef.ensemble.SemiSupervisedRandomForestClassifier.predict_proba.html#sklearnef.ensemble.SemiSupervisedRandomForestClassifier.predict_proba" title="sklearnef.ensemble.SemiSupervisedRandomForestClassifier.predict_proba"><tt class="xref py py-obj docutils literal"><span class="pre">predict_proba</span></tt></a>(X)</td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><a class="reference internal" href="generated/sklearnef.ensemble.SemiSupervisedRandomForestClassifier.score.html#sklearnef.ensemble.SemiSupervisedRandomForestClassifier.score" title="sklearnef.ensemble.SemiSupervisedRandomForestClassifier.score"><tt class="xref py py-obj docutils literal"><span class="pre">score</span></tt></a>(X,&nbsp;y[,&nbsp;sample_weight])</td>
+<td>Returns the mean accuracy on the given test data and labels.</td>
+</tr>
+<tr class="row-even"><td><a class="reference internal" href="generated/sklearnef.ensemble.SemiSupervisedRandomForestClassifier.set_params.html#sklearnef.ensemble.SemiSupervisedRandomForestClassifier.set_params" title="sklearnef.ensemble.SemiSupervisedRandomForestClassifier.set_params"><tt class="xref py py-obj docutils literal"><span class="pre">set_params</span></tt></a>(**params)</td>
+<td>Set the parameters of this estimator.</td>
+</tr>
+<tr class="row-odd"><td><a class="reference internal" href="generated/sklearnef.ensemble.SemiSupervisedRandomForestClassifier.transform.html#sklearnef.ensemble.SemiSupervisedRandomForestClassifier.transform" title="sklearnef.ensemble.SemiSupervisedRandomForestClassifier.transform"><tt class="xref py py-obj docutils literal"><span class="pre">transform</span></tt></a>(X[,&nbsp;threshold])</td>
+<td>Reduce X to its most important features.</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+</div>
+
+
+          </div>
+        </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="container container-navbar-bottom">
+      <div class="spc-navbar">
+        
+      </div>
+    </div>
+    <div class="container">
+    <div class="footer">
+    <div class="row-fluid">
+    <ul class="inline pull-left">
+      <li>
+        &copy; Copyright 2016, Oskar Maier.
+      </li>
+      <li>
+      Last updated on Sep 18, 2017.
+      </li>
+      <li>
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.2.3.
+      </li>
+    </ul>
+    </div>
+    </div>
+    </div>
+  </body>
+</html>

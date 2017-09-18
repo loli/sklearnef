@@ -1,0 +1,6 @@
+sklearnef.ensemble.DensityForest.feature_importances_
+=====================================================
+
+.. currentmodule:: sklearnef.ensemble
+
+.. autoattribute:: DensityForest.feature_importances_

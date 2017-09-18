@@ -1,0 +1,6 @@
+sklearnef.tree.MECDF.cdf
+========================
+
+.. currentmodule:: sklearnef.tree
+
+.. automethod:: MECDF.cdf

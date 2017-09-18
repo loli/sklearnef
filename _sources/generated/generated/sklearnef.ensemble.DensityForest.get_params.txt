@@ -1,0 +1,6 @@
+sklearnef.ensemble.DensityForest.get_params
+===========================================
+
+.. currentmodule:: sklearnef.ensemble
+
+.. automethod:: DensityForest.get_params

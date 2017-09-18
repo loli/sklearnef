@@ -1,0 +1,6 @@
+sklearnef.tree.SemiSupervisedDecisionTreeClassifier.score
+=========================================================
+
+.. currentmodule:: sklearnef.tree
+
+.. automethod:: SemiSupervisedDecisionTreeClassifier.score

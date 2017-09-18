@@ -1,0 +1,6 @@
+sklearnef.tree.DensityTree.pdf
+==============================
+
+.. currentmodule:: sklearnef.tree
+
+.. automethod:: DensityTree.pdf

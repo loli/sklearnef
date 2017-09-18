@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8">
+    
+    <title>sklearnef.tree.SemiSupervisedDecisionTreeClassifier.goodness_of_fit &mdash; sklearnef 0.1.dev documentation</title>
+    
+    <link rel="stylesheet" type="text/css" href="../../_static/css/spc-bootstrap.css">
+    <link rel="stylesheet" type="text/css" href="../../_static/css/spc-extend.css">
+    <link rel="stylesheet" href="../../_static/scipy.css" type="text/css" >
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" >
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../',
+        VERSION:     '0.1.dev',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+    <script type="text/javascript" src="../../_static/js/copybutton.js"></script>
+    <link rel="top" title="sklearnef 0.1.dev documentation" href="../../index.html" > 
+  </head>
+  <body>
+
+  <div class="container">
+    <div class="header">
+    </div>
+  </div>
+
+
+    <div class="container">
+      <div class="main">
+        
+	<div class="row-fluid">
+	  <div class="span12">
+	    <div class="spc-navbar">
+              
+    <ul class="nav nav-pills pull-left">
+        <li class="active"><a href="https://github.com/loli/sklearnef/">GitHub</a></li>
+        <li class="active"><a href="https://pypi.python.org/pypi/sklearnef/">PyPi</a></li>
+	
+        <li class="active"><a href="../../index.html">sklearnef 0.1.dev documentation</a></li>
+	 
+    </ul>
+              
+              
+    <ul class="nav nav-pills pull-right">
+      <li class="active">
+        <a href="../../genindex.html" title="General Index"
+           accesskey="I">index</a>
+      </li>
+      <li class="active">
+        <a href="../../py-modindex.html" title="Python Module Index"
+           >modules</a>
+      </li>
+    </ul>
+              
+	    </div>
+	  </div>
+	</div>
+        
+
+	<div class="row-fluid">
+      <div class="spc-rightsidebar span3">
+        <div class="sphinxsidebarwrapper">
+  <h3>This Page</h3>
+  <div>
+    <a href="../../_sources/generated/generated/sklearnef.tree.SemiSupervisedDecisionTreeClassifier.goodness_of_fit.txt"
+       rel="nofollow">Show Source</a>
+  </div>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+          <div class="span9">
+            
+        <div class="bodywrapper">
+          <div class="body" id="spc-section-body">
+            
+  <div class="section" id="sklearnef-tree-semisuperviseddecisiontreeclassifier-goodness-of-fit">
+<h1>sklearnef.tree.SemiSupervisedDecisionTreeClassifier.goodness_of_fit<a class="headerlink" href="#sklearnef-tree-semisuperviseddecisiontreeclassifier-goodness-of-fit" title="Permalink to this headline">¶</a></h1>
+<dl class="method">
+<dt id="sklearnef.tree.SemiSupervisedDecisionTreeClassifier.goodness_of_fit">
+<tt class="descclassname">SemiSupervisedDecisionTreeClassifier.</tt><tt class="descname">goodness_of_fit</tt><big>(</big><em>X</em>, <em>eval_type='mean_squared_error'</em>, <em>check_input=True</em><big>)</big><a class="headerlink" href="#sklearnef.tree.SemiSupervisedDecisionTreeClassifier.goodness_of_fit" title="Permalink to this definition">¶</a></dt>
+<dd><p>Goodness of fit of the learned density distribution.</p>
+<p>Compares the learned distribution function with an empirical CDF constructed
+from the data-points in <em class="xref py py-obj">X</em> i.e. roughly f[error(CDF(X)-ECDF_X(X)f].</p>
+<p><strong>Provided measures</strong></p>
+<dl class="docutils">
+<dt><em class="xref py py-obj">mean_squared_error</em></dt>
+<dd>The mean squared error over all data-points of X.</dd>
+<dt><em class="xref py py-obj">mean_squared_error_weighted</em></dt>
+<dd>The mean squared error over all data-points of X,
+weighted by the PDF.</dd>
+<dt><em class="xref py py-obj">maximum</em></dt>
+<dd>Maximum error over all data-points of X.</dd>
+</dl>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><p class="first"><strong>X</strong> : array_like</p>
+<blockquote>
+<div><p>Samples form the original distribution. Must be distinct from the ones used
+to train the tree to obtain meaningful results.</p>
+</div></blockquote>
+<p><strong>eval_type</strong> : string</p>
+<blockquote class="last">
+<div><p>The type of goodness measure. One of <em class="xref py py-obj">mean_squared_error</em>,
+<em class="xref py py-obj">mean_squared_error_weighted</em> and <em class="xref py py-obj">kolmogorov_smirnov</em>.</p>
+</div></blockquote>
+</td>
+</tr>
+</tbody>
+</table>
+<p class="rubric">Notes</p>
+<p>The provided measures are better described as fit error, than as goodness of fit
+criteria in a statistical sense. Therefore, it is only suitable to compare
+different learned distributions against each other under the condition, that the
+same samples (<em class="xref py py-obj">X</em>) are used. Higher values denote a stronger error.</p>
+</dd></dl>
+
+</div>
+
+
+          </div>
+        </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="container container-navbar-bottom">
+      <div class="spc-navbar">
+        
+      </div>
+    </div>
+    <div class="container">
+    <div class="footer">
+    <div class="row-fluid">
+    <ul class="inline pull-left">
+      <li>
+        &copy; Copyright 2016, Oskar Maier.
+      </li>
+      <li>
+      Last updated on Sep 18, 2017.
+      </li>
+      <li>
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.2.3.
+      </li>
+    </ul>
+    </div>
+    </div>
+    </div>
+  </body>
+</html>

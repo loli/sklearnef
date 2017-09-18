@@ -1,0 +1,27 @@
+sklearnef.tree.DensityTree
+==========================
+
+.. currentmodule:: sklearnef.tree
+
+.. autoclass:: DensityTree
+
+   .. rubric:: Methods
+
+   .. autosummary::
+      :toctree: generated/
+      
+      ~DensityTree.__init__
+      ~DensityTree.cdf
+      ~DensityTree.fit
+      ~DensityTree.fit_transform
+      ~DensityTree.get_params
+      ~DensityTree.goodness_of_fit
+      ~DensityTree.parse_tree_leaves
+      ~DensityTree.pdf
+      ~DensityTree.predict
+      ~DensityTree.predict_log_proba
+      ~DensityTree.predict_proba
+      ~DensityTree.score
+      ~DensityTree.set_params
+      ~DensityTree.transform
+

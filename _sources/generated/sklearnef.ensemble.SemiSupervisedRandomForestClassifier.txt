@@ -1,0 +1,28 @@
+sklearnef.ensemble.SemiSupervisedRandomForestClassifier
+=======================================================
+
+.. currentmodule:: sklearnef.ensemble
+
+.. autoclass:: SemiSupervisedRandomForestClassifier
+
+   .. rubric:: Methods
+
+   .. autosummary::
+      :toctree: generated/
+   
+      ~SemiSupervisedRandomForestClassifier.__init__
+      ~SemiSupervisedRandomForestClassifier.apply
+      ~SemiSupervisedRandomForestClassifier.cdf
+      ~SemiSupervisedRandomForestClassifier.fit
+      ~SemiSupervisedRandomForestClassifier.fit_transform
+      ~SemiSupervisedRandomForestClassifier.get_params
+      ~SemiSupervisedRandomForestClassifier.pdf      
+      ~SemiSupervisedRandomForestClassifier.predict
+      ~SemiSupervisedRandomForestClassifier.predict_log_proba
+      ~SemiSupervisedRandomForestClassifier.predict_proba
+      ~SemiSupervisedRandomForestClassifier.score
+      ~SemiSupervisedRandomForestClassifier.set_params
+      ~SemiSupervisedRandomForestClassifier.transform
+
+   
+   

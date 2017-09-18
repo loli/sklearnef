@@ -1,0 +1,6 @@
+sklearnef.tree.SemiSupervisedDecisionTreeClassifier.transduction
+================================================================
+
+.. currentmodule:: sklearnef.tree
+
+.. automethod:: SemiSupervisedDecisionTreeClassifier.transduction

@@ -1,0 +1,6 @@
+sklearnef.tree.GoodnessOfFit.__init__
+=====================================
+
+.. currentmodule:: sklearnef.tree
+
+.. automethod:: GoodnessOfFit.__init__

@@ -1,0 +1,6 @@
+sklearnef.tree.SemiSupervisedDecisionTreeClassifier.feature_importances_
+========================================================================
+
+.. currentmodule:: sklearnef.tree
+
+.. autoattribute:: SemiSupervisedDecisionTreeClassifier.feature_importances_

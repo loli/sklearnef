@@ -1,0 +1,6 @@
+sklearnef.tree.DensityTree.cdf
+==============================
+
+.. currentmodule:: sklearnef.tree
+
+.. automethod:: DensityTree.cdf

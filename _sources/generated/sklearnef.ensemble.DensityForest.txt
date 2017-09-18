@@ -1,0 +1,28 @@
+sklearnef.ensemble.DensityForest
+================================
+
+.. currentmodule:: sklearnef.ensemble
+
+.. autoclass:: DensityForest
+
+   .. rubric:: Methods
+
+   .. autosummary::
+      :toctree: generated/
+   
+      ~DensityForest.__init__
+      ~DensityForest.apply
+      ~DensityForest.cdf
+      ~DensityForest.fit
+      ~DensityForest.fit_transform
+      ~DensityForest.get_params
+      ~DensityForest.pdf
+      ~DensityForest.predict
+      ~DensityForest.predict_log_proba
+      ~DensityForest.predict_proba
+      ~DensityForest.score
+      ~DensityForest.set_params
+      ~DensityForest.transform
+
+   
+   

@@ -1,0 +1,30 @@
+sklearnef.tree.GoodnessOfFit
+============================
+
+.. currentmodule:: sklearnef.tree
+
+.. autoclass:: GoodnessOfFit
+
+   .. rubric:: Methods
+
+   .. autosummary::
+      :toctree: generated/
+   
+      ~GoodnessOfFit.__init__
+      ~GoodnessOfFit.maximum
+      ~GoodnessOfFit.mean_squared_error
+      ~GoodnessOfFit.mean_squared_error_weighted
+   
+   
+
+   
+   
+   .. rubric:: Attributes
+
+   .. autosummary::
+      :toctree: generated/
+   
+      ~GoodnessOfFit.cdf_x
+      ~GoodnessOfFit.ecdf_x
+   
+   

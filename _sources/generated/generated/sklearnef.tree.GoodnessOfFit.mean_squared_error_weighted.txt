@@ -1,0 +1,6 @@
+sklearnef.tree.GoodnessOfFit.mean_squared_error_weighted
+========================================================
+
+.. currentmodule:: sklearnef.tree
+
+.. automethod:: GoodnessOfFit.mean_squared_error_weighted

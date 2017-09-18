@@ -1,0 +1,6 @@
+sklearnef.ensemble.SemiSupervisedRandomForestClassifier.feature_importances_
+============================================================================
+
+.. currentmodule:: sklearnef.ensemble
+
+.. autoattribute:: SemiSupervisedRandomForestClassifier.feature_importances_

@@ -1,0 +1,6 @@
+sklearnef.ensemble.DensityForest.pdf
+====================================
+
+.. currentmodule:: sklearnef.ensemble
+
+.. automethod:: DensityForest.pdf

@@ -1,0 +1,6 @@
+sklearnef.tree.DensityTree.get_params
+=====================================
+
+.. currentmodule:: sklearnef.tree
+
+.. automethod:: DensityTree.get_params

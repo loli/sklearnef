@@ -1,0 +1,6 @@
+sklearnef.tree.DensityTree.predict_log_proba
+============================================
+
+.. currentmodule:: sklearnef.tree
+
+.. automethod:: DensityTree.predict_log_proba

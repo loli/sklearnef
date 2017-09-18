@@ -1,0 +1,6 @@
+sklearnef.tree.DensityTree.fit
+==============================
+
+.. currentmodule:: sklearnef.tree
+
+.. automethod:: DensityTree.fit

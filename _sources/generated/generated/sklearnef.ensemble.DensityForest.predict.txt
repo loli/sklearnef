@@ -1,0 +1,6 @@
+sklearnef.ensemble.DensityForest.predict
+========================================
+
+.. currentmodule:: sklearnef.ensemble
+
+.. automethod:: DensityForest.predict

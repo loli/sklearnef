@@ -1,0 +1,6 @@
+sklearnef.tree.DensityTree.parse_tree_leaves
+============================================
+
+.. currentmodule:: sklearnef.tree
+
+.. automethod:: DensityTree.parse_tree_leaves

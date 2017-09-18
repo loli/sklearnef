@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8">
+    
+    <title>Installing sklearnef in a virtual environement &mdash; sklearnef 0.1.dev documentation</title>
+    
+    <link rel="stylesheet" type="text/css" href="../_static/css/spc-bootstrap.css">
+    <link rel="stylesheet" type="text/css" href="../_static/css/spc-extend.css">
+    <link rel="stylesheet" href="../_static/scipy.css" type="text/css" >
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" >
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '0.1.dev',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+    <script type="text/javascript" src="../_static/js/copybutton.js"></script>
+    <link rel="top" title="sklearnef 0.1.dev documentation" href="../index.html" >
+    <link rel="next" title="DensityTree accuracy examples" href="../examples/densitytreeaccuracy.html" >
+    <link rel="prev" title="sklearnef" href="../index.html" > 
+  </head>
+  <body>
+
+  <div class="container">
+    <div class="header">
+    </div>
+  </div>
+
+
+    <div class="container">
+      <div class="main">
+        
+	<div class="row-fluid">
+	  <div class="span12">
+	    <div class="spc-navbar">
+              
+    <ul class="nav nav-pills pull-left">
+        <li class="active"><a href="https://github.com/loli/sklearnef/">GitHub</a></li>
+        <li class="active"><a href="https://pypi.python.org/pypi/sklearnef/">PyPi</a></li>
+	
+        <li class="active"><a href="../index.html">sklearnef 0.1.dev documentation</a></li>
+	 
+    </ul>
+              
+              
+    <ul class="nav nav-pills pull-right">
+      <li class="active">
+        <a href="../genindex.html" title="General Index"
+           accesskey="I">index</a>
+      </li>
+      <li class="active">
+        <a href="../py-modindex.html" title="Python Module Index"
+           >modules</a>
+      </li>
+      <li class="active">
+        <a href="../examples/densitytreeaccuracy.html" title="DensityTree accuracy examples"
+           accesskey="N">next</a>
+      </li>
+      <li class="active">
+        <a href="../index.html" title="sklearnef"
+           accesskey="P">previous</a>
+      </li>
+    </ul>
+              
+	    </div>
+	  </div>
+	</div>
+        
+
+	<div class="row-fluid">
+      <div class="spc-rightsidebar span3">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="../index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">Installing sklearnef in a virtual environement</a><ul>
+<li><a class="reference internal" href="#setting-up-the-virtual-environement">Setting up the virtual environement</a></li>
+<li><a class="reference internal" href="#installing-dependencies">Installing dependencies</a></li>
+<li><a class="reference internal" href="#installing-sklearnef">Installing sklearnef</a></li>
+<li><a class="reference internal" href="#testing-for-a-successfull-installation">Testing for a successfull installation</a></li>
+<li><a class="reference internal" href="#running-some-examples">Running some examples</a></li>
+<li><a class="reference internal" href="#running-the-tests">Running the tests</a></li>
+</ul>
+</li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="../index.html"
+                        title="previous chapter">sklearnef</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="../examples/densitytreeaccuracy.html"
+                        title="next chapter">DensityTree accuracy examples</a></p>
+  <h3>This Page</h3>
+  <div>
+    <a href="../_sources/installation/virtualenvironement.txt"
+       rel="nofollow">Show Source</a>
+  </div>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+          <div class="span9">
+            
+        <div class="bodywrapper">
+          <div class="body" id="spc-section-body">
+            
+  <div class="section" id="installing-sklearnef-in-a-virtual-environement">
+<h1>Installing sklearnef in a virtual environement<a class="headerlink" href="#installing-sklearnef-in-a-virtual-environement" title="Permalink to this headline">¶</a></h1>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">It is highly recommended to install <strong>sklearnef</strong> in a virtual environement since it requires a specific <tt class="docutils literal"><span class="pre">scikit-learn</span></tt> version.</p>
+</div>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">All installation instructions are for Ubuntu, but they should be simmilar for other distributions.</p>
+</div>
+<p>To install Python packages from <a class="reference external" href="https://pypi.python.org">PyPi</a>, we recommend <a class="reference external" href="https://pypi.python.org/pypi/pip">PIP</a></p>
+<div class="highlight-bash"><div class="highlight"><pre>sudo apt-get install python-pip
+</pre></div>
+</div>
+<div class="section" id="setting-up-the-virtual-environement">
+<h2>Setting up the virtual environement<a class="headerlink" href="#setting-up-the-virtual-environement" title="Permalink to this headline">¶</a></h2>
+<p>First swithc to your (empty) project directory. Then run</p>
+<div class="highlight-bash"><div class="highlight"><pre>pip install virtualenv
+</pre></div>
+</div>
+<p>to install <tt class="docutils literal"><span class="pre">virtualenv</span></tt>. Set-up your virtual environement with</p>
+<div class="highlight-bash"><div class="highlight"><pre>virtualenv -p python2 venv
+</pre></div>
+</div>
+<p>and, before starting it, unset your $PYTHONPATH variable for a clean environement</p>
+<div class="highlight-bash"><div class="highlight"><pre><span class="nb">unset</span> <span class="nv">$PYTHONPATH</span>
+</pre></div>
+</div>
+<p>Now run</p>
+<div class="highlight-bash"><div class="highlight"><pre><span class="nb">source </span>venv/bin/activate
+</pre></div>
+</div>
+<p>to enter the environement. You shell should now read somethoing like</p>
+<div class="highlight-bash"><div class="highlight"><pre>(venv)user@machine:~/Workspace/python/sklearnef$
+</pre></div>
+</div>
+</div>
+<div class="section" id="installing-dependencies">
+<h2>Installing dependencies<a class="headerlink" href="#installing-dependencies" title="Permalink to this headline">¶</a></h2>
+<p>You&#8217;ll require <tt class="docutils literal"><span class="pre">numpy</span></tt> and <tt class="docutils literal"><span class="pre">scipy</span></tt> plus some additional, semi-optional packages</p>
+<div class="highlight-bash"><div class="highlight"><pre>pip install numpy scipy matplotlib nose
+</pre></div>
+</div>
+<p>and, of course, <tt class="docutils literal"><span class="pre">scikit-learn</span></tt>, but in the appropriate version</p>
+<div class="highlight-bash"><div class="highlight"><pre>pip install scikit-learn<span class="o">==</span>0.16.1
+</pre></div>
+</div>
+</div>
+<div class="section" id="installing-sklearnef">
+<h2>Installing sklearnef<a class="headerlink" href="#installing-sklearnef" title="Permalink to this headline">¶</a></h2>
+<p>A couple of steps are required to achieve this. First download the source code from GitHub</p>
+<div class="highlight-bash"><div class="highlight"><pre>git clone https://github.com/loli/sklearnef.git
+</pre></div>
+</div>
+<p>and enter the download directory</p>
+<div class="highlight-bash"><div class="highlight"><pre><span class="nb">cd </span>sklearnef
+</pre></div>
+</div>
+<p>Now you&#8217;ll require a compilation file for you scikit-learn version. You can get it and place it in the right location with</p>
+<div class="highlight-bash"><div class="highlight"><pre>wget https://raw.githubusercontent.com/scikit-learn/scikit-learn/0.16.1/sklearn/tree/_tree.pxd sklearnef/tree/headers/sklearn/tree/
+</pre></div>
+</div>
+<p>You&#8217;ll still have to create an appropriate directory</p>
+<div class="highlight-bash"><div class="highlight"><pre>mkdir sklearnef/tree/headers/0.16.1
+</pre></div>
+</div>
+<p>and finally compile a two files with</p>
+<div class="highlight-bash"><div class="highlight"><pre>cython sklearnef/tree/_diffentropy.pyx -o sklearnef/tree/headers/_diffentropy.c -I sklearnef/tree/headers/
+cython sklearnef/tree/_tree.pyx -o sklearnef/tree/headers/0.16.1/_tree.c -I sklearnef/tree/headers/
+</pre></div>
+</div>
+<p>Now you can install <strong>sklearnef</strong> itself</p>
+<div class="highlight-bash"><div class="highlight"><pre>python setup.py install
+</pre></div>
+</div>
+</div>
+<div class="section" id="testing-for-a-successfull-installation">
+<h2>Testing for a successfull installation<a class="headerlink" href="#testing-for-a-successfull-installation" title="Permalink to this headline">¶</a></h2>
+<p>To check whether the package was successfully installed, run</p>
+<div class="highlight-bash"><div class="highlight"><pre>python -c <span class="s1">&#39;import sklearnef&#39;</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="running-some-examples">
+<h2>Running some examples<a class="headerlink" href="#running-some-examples" title="Permalink to this headline">¶</a></h2>
+<p>You can find some example scripts under <tt class="docutils literal"><span class="pre">bin/</span></tt>. I would recommend to try</p>
+<div class="highlight-bash"><div class="highlight"><pre>bin/density/./plot_ensemble_sklearn.py s_curve --max-depth<span class="o">=</span>3
+</pre></div>
+</div>
+<p>and</p>
+<div class="highlight-bash"><div class="highlight"><pre>bin/semisupervised/./plot_ensemble_sklearn.py moons --max-depth<span class="o">=</span><span class="m">2</span> --n-labelled<span class="o">=</span><span class="m">1</span> --n-samples<span class="o">=</span><span class="m">100</span> --seed<span class="o">=</span>0
+</pre></div>
+</div>
+<p>to get a feeling for what <strong>sklearnef</strong> does. Feel free to play around with any script encountered in these folders.</p>
+</div>
+<div class="section" id="running-the-tests">
+<h2>Running the tests<a class="headerlink" href="#running-the-tests" title="Permalink to this headline">¶</a></h2>
+<p>Under <tt class="docutils literal"><span class="pre">sklearnef/tree/tests</span></tt> and <tt class="docutils literal"><span class="pre">sklearnef/ensemble/tests</span></tt> you can find the packages unittests. They follow the <tt class="docutils literal"><span class="pre">scikit-learn</span></tt> rules and can be executed by calling</p>
+<div class="highlight-bash"><div class="highlight"><pre>python -m nose
+</pre></div>
+</div>
+<p>in the respective directories.</p>
+</div>
+</div>
+
+
+          </div>
+        </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="container container-navbar-bottom">
+      <div class="spc-navbar">
+        
+      </div>
+    </div>
+    <div class="container">
+    <div class="footer">
+    <div class="row-fluid">
+    <ul class="inline pull-left">
+      <li>
+        &copy; Copyright 2016, Oskar Maier.
+      </li>
+      <li>
+      Last updated on Sep 18, 2017.
+      </li>
+      <li>
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.2.3.
+      </li>
+    </ul>
+    </div>
+    </div>
+    </div>
+  </body>
+</html>

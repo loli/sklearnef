@@ -1,0 +1,6 @@
+sklearnef.tree.DensityTree.transform
+====================================
+
+.. currentmodule:: sklearnef.tree
+
+.. automethod:: DensityTree.transform

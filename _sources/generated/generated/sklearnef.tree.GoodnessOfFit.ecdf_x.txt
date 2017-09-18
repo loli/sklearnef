@@ -1,0 +1,6 @@
+sklearnef.tree.GoodnessOfFit.ecdf_x
+===================================
+
+.. currentmodule:: sklearnef.tree
+
+.. autoattribute:: GoodnessOfFit.ecdf_x

@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8">
+    
+    <title>DensityTree accuracy examples &mdash; sklearnef 0.1.dev documentation</title>
+    
+    <link rel="stylesheet" type="text/css" href="../_static/css/spc-bootstrap.css">
+    <link rel="stylesheet" type="text/css" href="../_static/css/spc-extend.css">
+    <link rel="stylesheet" href="../_static/scipy.css" type="text/css" >
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" >
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '0.1.dev',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+    <script type="text/javascript" src="../_static/js/copybutton.js"></script>
+    <link rel="top" title="sklearnef 0.1.dev documentation" href="../index.html" >
+    <link rel="next" title="DensityForest examples (sklearn distributions)" href="sklearndensity.html" >
+    <link rel="prev" title="Installing sklearnef in a virtual environement" href="../installation/virtualenvironement.html" > 
+  </head>
+  <body>
+
+  <div class="container">
+    <div class="header">
+    </div>
+  </div>
+
+
+    <div class="container">
+      <div class="main">
+        
+	<div class="row-fluid">
+	  <div class="span12">
+	    <div class="spc-navbar">
+              
+    <ul class="nav nav-pills pull-left">
+        <li class="active"><a href="https://github.com/loli/sklearnef/">GitHub</a></li>
+        <li class="active"><a href="https://pypi.python.org/pypi/sklearnef/">PyPi</a></li>
+	
+        <li class="active"><a href="../index.html">sklearnef 0.1.dev documentation</a></li>
+	 
+    </ul>
+              
+              
+    <ul class="nav nav-pills pull-right">
+      <li class="active">
+        <a href="../genindex.html" title="General Index"
+           accesskey="I">index</a>
+      </li>
+      <li class="active">
+        <a href="../py-modindex.html" title="Python Module Index"
+           >modules</a>
+      </li>
+      <li class="active">
+        <a href="sklearndensity.html" title="DensityForest examples (sklearn distributions)"
+           accesskey="N">next</a>
+      </li>
+      <li class="active">
+        <a href="../installation/virtualenvironement.html" title="Installing sklearnef in a virtual environement"
+           accesskey="P">previous</a>
+      </li>
+    </ul>
+              
+	    </div>
+	  </div>
+	</div>
+        
+
+	<div class="row-fluid">
+      <div class="spc-rightsidebar span3">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="../index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">DensityTree accuracy examples</a><ul>
+<li><a class="reference internal" href="#example-01">Example 01</a></li>
+<li><a class="reference internal" href="#example-02">Example 02</a></li>
+</ul>
+</li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="../installation/virtualenvironement.html"
+                        title="previous chapter">Installing sklearnef in a virtual environement</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="sklearndensity.html"
+                        title="next chapter">DensityForest examples (sklearn distributions)</a></p>
+  <h3>This Page</h3>
+  <div>
+    <a href="../_sources/examples/densitytreeaccuracy.txt"
+       rel="nofollow">Show Source</a>
+  </div>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+          <div class="span9">
+            
+        <div class="bodywrapper">
+          <div class="body" id="spc-section-body">
+            
+  <div class="section" id="densitytree-accuracy-examples">
+<h1>DensityTree accuracy examples<a class="headerlink" href="#densitytree-accuracy-examples" title="Permalink to this headline">¶</a></h1>
+<p>All examples were created with the <em class="xref py py-obj">plot_tree_gauss.py</em> script shipped with <strong>sklearnef</strong>.</p>
+<div class="section" id="example-01">
+<h2>Example 01<a class="headerlink" href="#example-01" title="Permalink to this headline">¶</a></h2>
+<p>Example where the blobs are perfectly separated. The blue lines denote the chosen splits.</p>
+<div class="highlight-bash"><div class="highlight"><pre>./plot_tree_gauss.py --seed<span class="o">=</span><span class="m">10</span> --min-improvement<span class="o">=</span>1
+</pre></div>
+</div>
+<p>Goodness of fit evaluation:</p>
+<blockquote>
+<div><ul class="simple">
+<li>maxium error: 0.0157099898541</li>
+<li>mean squared error: 1.96287068935e-05</li>
+<li>mean squared error weighted: 1.43077730335e-06</li>
+</ul>
+</div></blockquote>
+<a class="reference internal image-reference" href="../_images/density_tree_02.png"><img alt="../_images/density_tree_02.png" class="align-center" src="../_images/density_tree_02.png" style="width: 800px;" /></a>
+</div>
+<div class="section" id="example-02">
+<h2>Example 02<a class="headerlink" href="#example-02" title="Permalink to this headline">¶</a></h2>
+<p>Example where two very close blobs where not separated by the DensityTree.</p>
+<div class="highlight-bash"><div class="highlight"><pre>./plot_tree_gauss.py --seed<span class="o">=</span><span class="m">0</span> --min-improvement<span class="o">=</span>1
+</pre></div>
+</div>
+<p>Goodness of fit evaluation:</p>
+<blockquote>
+<div><ul class="simple">
+<li>maxium error: 0.037187800654</li>
+<li>mean squared error: 0.000154910423727</li>
+<li>mean squared error weighted: 7.67144729963e-06</li>
+</ul>
+</div></blockquote>
+<a class="reference internal image-reference" href="../_images/density_tree_01.png"><img alt="../_images/density_tree_01.png" class="align-center" src="../_images/density_tree_01.png" style="width: 800px;" /></a>
+</div>
+</div>
+
+
+          </div>
+        </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="container container-navbar-bottom">
+      <div class="spc-navbar">
+        
+      </div>
+    </div>
+    <div class="container">
+    <div class="footer">
+    <div class="row-fluid">
+    <ul class="inline pull-left">
+      <li>
+        &copy; Copyright 2016, Oskar Maier.
+      </li>
+      <li>
+      Last updated on Sep 18, 2017.
+      </li>
+      <li>
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.2.3.
+      </li>
+    </ul>
+    </div>
+    </div>
+    </div>
+  </body>
+</html>

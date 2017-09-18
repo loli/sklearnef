@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8">
+    
+    <title>DensityForest examples (sklearn distributions) &mdash; sklearnef 0.1.dev documentation</title>
+    
+    <link rel="stylesheet" type="text/css" href="../_static/css/spc-bootstrap.css">
+    <link rel="stylesheet" type="text/css" href="../_static/css/spc-extend.css">
+    <link rel="stylesheet" href="../_static/scipy.css" type="text/css" >
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" >
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '0.1.dev',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+    <script type="text/javascript" src="../_static/js/copybutton.js"></script>
+    <link rel="top" title="sklearnef 0.1.dev documentation" href="../index.html" >
+    <link rel="next" title="Scripts shipped with sklearnef" href="../scripts.html" >
+    <link rel="prev" title="DensityTree accuracy examples" href="densitytreeaccuracy.html" > 
+  </head>
+  <body>
+
+  <div class="container">
+    <div class="header">
+    </div>
+  </div>
+
+
+    <div class="container">
+      <div class="main">
+        
+	<div class="row-fluid">
+	  <div class="span12">
+	    <div class="spc-navbar">
+              
+    <ul class="nav nav-pills pull-left">
+        <li class="active"><a href="https://github.com/loli/sklearnef/">GitHub</a></li>
+        <li class="active"><a href="https://pypi.python.org/pypi/sklearnef/">PyPi</a></li>
+	
+        <li class="active"><a href="../index.html">sklearnef 0.1.dev documentation</a></li>
+	 
+    </ul>
+              
+              
+    <ul class="nav nav-pills pull-right">
+      <li class="active">
+        <a href="../genindex.html" title="General Index"
+           accesskey="I">index</a>
+      </li>
+      <li class="active">
+        <a href="../py-modindex.html" title="Python Module Index"
+           >modules</a>
+      </li>
+      <li class="active">
+        <a href="../scripts.html" title="Scripts shipped with sklearnef"
+           accesskey="N">next</a>
+      </li>
+      <li class="active">
+        <a href="densitytreeaccuracy.html" title="DensityTree accuracy examples"
+           accesskey="P">previous</a>
+      </li>
+    </ul>
+              
+	    </div>
+	  </div>
+	</div>
+        
+
+	<div class="row-fluid">
+      <div class="spc-rightsidebar span3">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="../index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">DensityForest examples (sklearn distributions)</a><ul>
+<li><a class="reference internal" href="#learning-the-densities-of-various-distributions">Learning the densities of various distributions</a></li>
+<li><a class="reference internal" href="#the-influence-of-the-min-improvement-parameter">The influence of the <tt class="docutils literal"><span class="pre">min_improvement</span></tt> parameter</a></li>
+</ul>
+</li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="densitytreeaccuracy.html"
+                        title="previous chapter">DensityTree accuracy examples</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="../scripts.html"
+                        title="next chapter">Scripts shipped with sklearnef</a></p>
+  <h3>This Page</h3>
+  <div>
+    <a href="../_sources/examples/sklearndensity.txt"
+       rel="nofollow">Show Source</a>
+  </div>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+          <div class="span9">
+            
+        <div class="bodywrapper">
+          <div class="body" id="spc-section-body">
+            
+  <div class="section" id="densityforest-examples-sklearn-distributions">
+<h1>DensityForest examples (sklearn distributions)<a class="headerlink" href="#densityforest-examples-sklearn-distributions" title="Permalink to this headline">¶</a></h1>
+<p>DensityForest examples on data distributions from the sklearn library created with the <em class="xref py py-obj">plot_ensemble_sklearn.py</em> script shipped with <strong>sklearnef</strong>.</p>
+<div class="section" id="learning-the-densities-of-various-distributions">
+<h2>Learning the densities of various distributions<a class="headerlink" href="#learning-the-densities-of-various-distributions" title="Permalink to this headline">¶</a></h2>
+<p>Learning the density of various distributions. All examples were generated with <tt class="docutils literal"><span class="pre">minimum_improvement=0.1</span></tt>, only the <em>blobs</em> examples used a value of <tt class="docutils literal"><span class="pre">0.5</span></tt>. The integral over the learned density is always 1.0.</p>
+<div class="highlight-bash"><div class="highlight"><pre>./plot_ensemble_sklearn.py <span class="o">{</span>circles_distant,circles_near,moons,blobs,s_curve,swiss_roll<span class="o">}</span> --min-improvement<span class="o">={</span>.1,.5<span class="o">}</span>
+</pre></div>
+</div>
+<a class="reference internal image-reference" href="../_images/density_example_circlesdistant.png"><img alt="../_images/density_example_circlesdistant.png" src="../_images/density_example_circlesdistant.png" style="width: 400px;" /></a>
+<a class="reference internal image-reference" href="../_images/density_example_circlenear.png"><img alt="../_images/density_example_circlenear.png" src="../_images/density_example_circlenear.png" style="width: 400px;" /></a>
+<a class="reference internal image-reference" href="../_images/density_example_moons.png"><img alt="../_images/density_example_moons.png" src="../_images/density_example_moons.png" style="width: 400px;" /></a>
+<a class="reference internal image-reference" href="../_images/density_example_blobs.png"><img alt="../_images/density_example_blobs.png" src="../_images/density_example_blobs.png" style="width: 400px;" /></a>
+<a class="reference internal image-reference" href="../_images/density_example_scurve.png"><img alt="../_images/density_example_scurve.png" src="../_images/density_example_scurve.png" style="width: 400px;" /></a>
+<a class="reference internal image-reference" href="../_images/density_example_swissroll.png"><img alt="../_images/density_example_swissroll.png" src="../_images/density_example_swissroll.png" style="width: 400px;" /></a>
+</div>
+<div class="section" id="the-influence-of-the-min-improvement-parameter">
+<h2>The influence of the <tt class="docutils literal"><span class="pre">min_improvement</span></tt> parameter<a class="headerlink" href="#the-influence-of-the-min-improvement-parameter" title="Permalink to this headline">¶</a></h2>
+<p>The min_improvement parameter, which restricts the tree growth based on the information gain, is the most important lever to train DensityForests. The following examples should give an idea on how it influences the learned distribution.</p>
+<p>The first image denotes the training data, i.e. the distribution of the training datapoints whose density distribution we want to learn. The remaining images show the learned distributions for different <tt class="docutils literal"><span class="pre">min_improvement</span></tt> values: {2.00,1.00,0.50,0.25,0.10,0.05,0.01}. Stopping the tree growth to early fails to capture the finer details, while a too low value fragments the density into many narrow Gaussians.</p>
+<div class="highlight-bash"><div class="highlight"><pre>./plot_ensemble_sklearn.py circles_distant --min-improvement<span class="o">={</span>2.00,1.00,0.50,0.25,0.10,0.05,0.01<span class="o">}</span>
+</pre></div>
+</div>
+<a class="reference internal image-reference" href="../_images/density_circlesdistant_minimp_gt.png"><img alt="../_images/density_circlesdistant_minimp_gt.png" src="../_images/density_circlesdistant_minimp_gt.png" style="width: 300px;" /></a>
+<a class="reference internal image-reference" href="../_images/density_circlesdistant_minimp2.png"><img alt="../_images/density_circlesdistant_minimp2.png" src="../_images/density_circlesdistant_minimp2.png" style="width: 300px;" /></a>
+<a class="reference internal image-reference" href="../_images/density_circlesdistant_minimp1.png"><img alt="../_images/density_circlesdistant_minimp1.png" src="../_images/density_circlesdistant_minimp1.png" style="width: 300px;" /></a>
+<a class="reference internal image-reference" href="../_images/density_circlesdistant_minimp0.5.png"><img alt="../_images/density_circlesdistant_minimp0.5.png" src="../_images/density_circlesdistant_minimp0.5.png" style="width: 300px;" /></a>
+<a class="reference internal image-reference" href="../_images/density_circlesdistant_minimp0.25.png"><img alt="../_images/density_circlesdistant_minimp0.25.png" src="../_images/density_circlesdistant_minimp0.25.png" style="width: 300px;" /></a>
+<a class="reference internal image-reference" href="../_images/density_circlesdistant_minimp0.1.png"><img alt="../_images/density_circlesdistant_minimp0.1.png" src="../_images/density_circlesdistant_minimp0.1.png" style="width: 300px;" /></a>
+<a class="reference internal image-reference" href="../_images/density_circlesdistant_minimp0.05.png"><img alt="../_images/density_circlesdistant_minimp0.05.png" src="../_images/density_circlesdistant_minimp0.05.png" style="width: 300px;" /></a>
+<a class="reference internal image-reference" href="../_images/density_circlesdistant_minimp0.01.png"><img alt="../_images/density_circlesdistant_minimp0.01.png" src="../_images/density_circlesdistant_minimp0.01.png" style="width: 300px;" /></a>
+</div>
+</div>
+
+
+          </div>
+        </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="container container-navbar-bottom">
+      <div class="spc-navbar">
+        
+      </div>
+    </div>
+    <div class="container">
+    <div class="footer">
+    <div class="row-fluid">
+    <ul class="inline pull-left">
+      <li>
+        &copy; Copyright 2016, Oskar Maier.
+      </li>
+      <li>
+      Last updated on Sep 18, 2017.
+      </li>
+      <li>
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.2.3.
+      </li>
+    </ul>
+    </div>
+    </div>
+    </div>
+  </body>
+</html>

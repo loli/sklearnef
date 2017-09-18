@@ -1,0 +1,6 @@
+sklearnef.ensemble.DensityForest.predict_proba
+==============================================
+
+.. currentmodule:: sklearnef.ensemble
+
+.. automethod:: DensityForest.predict_proba

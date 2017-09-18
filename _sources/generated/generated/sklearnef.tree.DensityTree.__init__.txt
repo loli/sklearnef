@@ -1,0 +1,6 @@
+sklearnef.tree.DensityTree.__init__
+===================================
+
+.. currentmodule:: sklearnef.tree
+
+.. automethod:: DensityTree.__init__

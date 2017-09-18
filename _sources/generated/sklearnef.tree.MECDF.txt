@@ -1,0 +1,20 @@
+sklearnef.tree.MECDF
+====================
+
+.. currentmodule:: sklearnef.tree
+
+.. autoclass:: MECDF
+
+   .. rubric:: Methods
+
+   .. autosummary::
+      :toctree: generated/
+   
+      ~MECDF.__init__
+      ~MECDF.cdf
+   
+   
+
+   
+   
+   

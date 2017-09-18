@@ -1,0 +1,6 @@
+sklearnef.ensemble.DensityForest.score
+======================================
+
+.. currentmodule:: sklearnef.ensemble
+
+.. automethod:: DensityForest.score

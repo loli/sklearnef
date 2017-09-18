@@ -1,0 +1,6 @@
+sklearnef.ensemble.DensityForest.fit
+====================================
+
+.. currentmodule:: sklearnef.ensemble
+
+.. automethod:: DensityForest.fit
